@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reasoning_core"
+version = "0.1.9"
+dependencies = [
+    "faker",
+    "unified-planning[pyperplan]",
+    "reasoning_gym",
+    "prime",
+    "networkx",
+    "pooch",
+    "requests",
+    "beautifulsoup4",
+    "easydict",
+    "appdirs",
+    "regex",
+    "num2words",
+    "tqdm",
+    "timeout_decorator",
+    "timeoutcontext",
+    "pandas",
+    "funcy",
+    "multiprocess",
+    "xpflow",
+    "exrex",
+    "unigram",
+    "nltk",
+    "pyagrum",
+    "numpy",
+    "sympy",
+    "verifiers",
+    "pyparsing",
+    "lazy_object_proxy",
+    "udocker"
+]
+
+[tool.setuptools.packages.find]
+include = ["reasoning_core*"]
+
+[tool.setuptools.package-data]
+"reasoning_core" = ["resources/**"]

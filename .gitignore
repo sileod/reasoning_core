@@ -1,0 +1,71 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# C extensions
+*.so
+*.ax
+
+# Distribution / packaging
+.Python
+build/
+dist/
+develop-eggs/
+*.egg-info/
+.eggs/
+sdist/
+.tox/
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+notebooks/
+
+# Editors
+.vscode/
+.idea/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment variables
+.env
+.flaskenv
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+mypy_primer_deps/
+
+# pytest
+.pytest_cache/
+
+# Sphinx documentation
+docs/_build/
+
+# virtualenv
+.venv/
+venv/
+
+# Unsloth compiled cache
+unsloth_compiled_cache/
+
+# Temporary files
+=[0-9]*
+
+# OS generated files
+.DS_Store
+.Trashes
+ehthumbs.db
+Thumbs.db
+reasoning_core/generated_data/
+
+*.xls
+*.pkl
+*.xlsx
+*.log
