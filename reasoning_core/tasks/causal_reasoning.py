@@ -195,7 +195,6 @@ class Rung(Task, ABC):
         answer, specific_metadata = self._calculate_answer_and_metadata()
         
         premise = self.reason_graph.to_NL(n_round=2)
-        # We still call it 'hypothesis' here, but it will be labeled 'Scenario' in the prompt
         hypothesis = self._construct_hypothesis()
         target_vals = list(self.reason_graph.bn.variable(self.reason_graph.target).labels())
         
