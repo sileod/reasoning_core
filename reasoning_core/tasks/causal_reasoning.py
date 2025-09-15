@@ -185,8 +185,8 @@ class Rung(Task, ABC):
         pass
 
     @abstractmethod
-    def _construct_hypothesis(self):
-        """Abstract method to construct the natural language hypothesis/scenario."""
+    def _construct_scenario(self):
+        """Abstract method to construct the natural language scenario/scenario."""
         pass
 
     def generate(self):
@@ -194,14 +194,14 @@ class Rung(Task, ABC):
         
         answer, specific_metadata = self._calculate_answer_and_metadata()
         
-        premise = self.reason_graph.to_NL(n_round=2)
-        hypothesis = self._construct_hypothesis()
+        system_description = self.reason_graph.to_NL(n_round=2)
+        scenario = self._construct_scenario()
         target_vals = list(self.reason_graph.bn.variable(self.reason_graph.target).labels())
         
         metadata = {
             "target_var_values": target_vals,
-            "premise": premise,
-            "hypothesis": hypothesis,
+            "system_description": system_description,
+            "scenario": scenario,
             "target": self.reason_graph.target,
             "variables": list(self.reason_graph.bn.names())
         }
@@ -210,8 +210,8 @@ class Rung(Task, ABC):
         return Problem(metadata=metadata, answer=answer)
 
     def prompt(self, metadata):
-        system_description = metadata["premise"]
-        scenario = metadata["hypothesis"]
+        system_description = metadata["system_description"]
+        scenario = metadata["scenario"]
         target_variable = metadata["target"]
         target_var_values = metadata["target_var_values"]
 
@@ -219,12 +219,10 @@ class Rung(Task, ABC):
         output_format_instructions = (
             "You must return the probability distribution over all values of the target variable "
             "in the format of a Python dictionary. The output should map each value to its estimated probability.\n"
-            "Be concise, and strictly follow the required output format. You will be evaluated based on how close your "
-            "estimated probability distribution is to the true one.\n\n"
+            "You will be evaluated based on how close your estimated probability distribution is to the true one.\n\n"
             "For example, if the target variable is X01 (which can take values 0 or 1) "
             "and you estimate that P(X01 = 0) = 0.4 and P(X01 = 1) = 0.6, "
-            "your answer must be: <xml>{0: 0.4, 1: 0.6}</xml>. "
-            "However, if a separate instruction asks for XML field replacement tags, use that format instead (e.g., <answer>{0: 0.4, 1: 0.6}</answer>)."
+            "your answer must be: {0: 0.4, 1: 0.6} (in between the proper xml tags if asked). "
         )
 
         # The final question is now the main task description.
@@ -267,11 +265,11 @@ class Rung1(Rung):
         answer = str(tensor_to_dict_1d(pred))
         return answer, {}  # No specific metadata for Rung1
 
-    def _construct_hypothesis(self):
+    def _construct_scenario(self):
         return self.reason_graph.evidences_to_NL()
 
 class Rung2(Rung):
-        """Rung2 problems generator as describe by Judea Pearl """
+    """Rung2 problems generator as describe by Judea Pearl """
     def _generate_specific_problem(self, n=4, domain_size=2):
         self.reason_graph.generate_new_graph(n=n, domain_size=domain_size)
         self.reason_graph.generate_rung2()
@@ -289,7 +287,7 @@ class Rung2(Rung):
         }
         return answer, metadata
 
-    def _construct_hypothesis(self):
+    def _construct_scenario(self):
         doing = self.reason_graph.do_to_NL()
         seeing = self.reason_graph.evidences_to_NL()
         # Filter out empty strings before joining
