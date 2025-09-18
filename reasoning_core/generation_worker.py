@@ -11,13 +11,13 @@ import time
 
 # --- Argument Parsing (unchanged) ---
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_examples', default=50_000, type=int)
+parser.add_argument('--num_examples', default=100_000, type=int)
 parser.add_argument('-f', default=None)
 parser.add_argument('--id', required=True, type=str)
 parser.add_argument('--version', default='rc0',type=str)
 parser.add_argument('--out_path', default='generated_data', type=str)
-parser.add_argument('--batch_size', default=12, type=int)
-parser.add_argument("--levels", nargs="+", type=int, default=[0,2,4])
+parser.add_argument('--batch_size', default=4, type=int)
+parser.add_argument("--levels", nargs="+", type=int, default=[0,4,6])
 parser.add_argument('--status_dir', required=True, type=str)
 args, unknown = parser.parse_known_args()
 
@@ -30,9 +30,9 @@ def generate_and_monitor():
         while True:
             out_path = Path(args.out_path) / args.version
             os.makedirs(out_path, exist_ok=True)
-            blocklist = ['rung1', 'rung2']
+            blocklist = []
             tasks = [t for t in DATASETS.keys() if t.lower() not in blocklist]
-            
+
             files_per_task = args.num_examples // (args.batch_size * len(tasks)) if tasks else 0
             if files_per_task < 1:
                 break
@@ -51,7 +51,7 @@ def generate_and_monitor():
             dataset_name, index = task_to_run
             
             level = random.choice(args.levels)
-            if level==4 and dataset_name in ['proofreconstruction']:
+            if level>=4 and dataset_name in ['proof_reconstruction']:
                 continue
 
             pid = os.fork()

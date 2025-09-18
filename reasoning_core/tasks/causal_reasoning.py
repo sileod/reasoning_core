@@ -1,5 +1,5 @@
+import pyagrum as gum
 import pyagrum
-gum = pyagrum
 import pyagrum.causal as csl
 import numpy as np
 import random
@@ -158,7 +158,6 @@ class ReasoningGraph():
 
 # --- Causal generator class  --- 🏡
 
-#quick thought, we might add xml tags specification for the answering within the config. It will be clean and user friendly.
 @dataclass
 class Rung12Config(Config):
     n: int = 3
@@ -168,7 +167,7 @@ class Rung12Config(Config):
         self.n+= c
         self.domain_size+= 0.5 * c
 
-class Rung(Task, ABC):
+class Rung(ABC):
     """An abstract base class for Runf tasks of any degree."""
     def __init__(self, config=Rung12Config(), bn: gum.BayesNet = None):
         super().__init__(config=config)
@@ -254,8 +253,11 @@ class Rung(Task, ABC):
         return js_reward(dict_truth, dict_pred)
 
 
-class Rung1(Rung):
-    """Rung1 problems generator as describe by Judea Pearl """
+class BayesianAssociation(Rung, Task):
+    def __init__(self, config=Rung12Config()):
+        super().__init__(config=config)
+        self.reason_graph = ReasoningGraph()
+
     def _generate_specific_problem(self, n=4, domain_size=2):
         self.reason_graph.generate_new_graph(n=n, domain_size=domain_size)
         self.reason_graph.generate_rung1()
@@ -268,8 +270,11 @@ class Rung1(Rung):
     def _construct_scenario(self):
         return self.reason_graph.evidences_to_NL()
 
-class Rung2(Rung):
-    """Rung2 problems generator as describe by Judea Pearl """
+class BayesianIntervention(Rung, Task):
+    def __init__(self, config=Rung12Config()):
+        super().__init__(config=config)
+        self.reason_graph = ReasoningGraph()
+        
     def _generate_specific_problem(self, n=4, domain_size=2):
         self.reason_graph.generate_new_graph(n=n, domain_size=domain_size)
         self.reason_graph.generate_rung2()

@@ -4,19 +4,17 @@ from typing import List
 from reasoning_core import generate_dataset, score_answer
 from datasets import Dataset
 import reasoning_gym as rg
-from reasoning_gym.dataset import ProceduralDataset
 
 from verifiers.envs.singleturn_env import SingleTurnEnv
 from verifiers.parsers.xml_parser import XMLParser
 from verifiers.rubrics.rubric import Rubric
-import logging
 from easydict import EasyDict as edict
 from datasets import load_dataset, concatenate_datasets
 
 
 
 def build_dataset(total_examples):
-    ds=generate_dataset()
+    return generate_dataset(total_examples)
 
 class ReasoningCoreEnv(SingleTurnEnv):
     def __init__(
@@ -31,16 +29,21 @@ class ReasoningCoreEnv(SingleTurnEnv):
         self.num_train_examples = num_train_examples
         self.num_eval_examples = num_eval_examples
         self.seed = seed
-        total_examples = num_train_examples + num_eval_examples
 
         if rebuild:
+            total_examples = num_train_examples + num_eval_examples
             D = generate_dataset(total_examples)
             df=pd.DataFrame(D)
             df['metadata']=df.metadata.map(json.dumps)
             ds = Dataset.from_pandas(df).train_test_split(test_size=num_eval_examples)
 
         else:
-            ds = load_dataset(dataset_name)
+            ds = load_dataset(
+                dataset_name,
+                split={
+                    "train": f"train[:{num_train_examples}]",
+                    "test": f"test[:{num_eval_examples}]"
+                })
             if type(ds)==Dataset or "test" not in ds:
                 ds=ds.train_test_split(test_size=num_eval_examples)
 

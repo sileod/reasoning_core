@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import random
 import copy
 import signal
+from inflection import underscore
 
 _REGISTRY = dict()
 
@@ -112,9 +113,14 @@ class Problem(Mapping):
 def register_dataset(name, dataset_cls):
     _REGISTRY[name] = dataset_cls
 
+
+def prepr_task_name(name):
+    return underscore(name)
+    
+
 class Task(ProceduralDataset):
     def __init_subclass__(cls):
-        cls.task_name = getattr(cls, 'task_name', cls.__name__.lower())
+        cls.task_name = getattr(cls, 'task_name', prepr_task_name(cls.__name__))
         register_dataset(cls.task_name, cls)
 
     def __init__(self, config=dict(), timeout=10, seed=None, _level=0, *a, **kwa):
@@ -122,10 +128,10 @@ class Task(ProceduralDataset):
         self.config=copy.deepcopy(config)
         self.timeout = timeout
         self.cls_name = self.__class__.__name__
-        self.task_name = self.__class__.task_name.lower()
+        self.task_name = prepr_task_name(self.__class__.task_name)
 
 
-    def generate(self, k ):
+    def generate(self):
         raise NotImplementedError 
         """To override, return one problem"""
         return Problem(metadata=edict(), answer="")
@@ -134,7 +140,7 @@ class Task(ProceduralDataset):
         """To override, turns a problem metadata into a prompt"""
         return ""
 
-    def score_answer(self, answer, entry):
+    def default_score_answer(self, answer, entry):
         """To override in most cases; entry has entry.metadata and entry.answer fields"""
         reference = entry['answer']
         prepr = lambda x: str(x).strip()

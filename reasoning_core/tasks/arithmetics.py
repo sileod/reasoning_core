@@ -26,7 +26,7 @@ def _grammar():
 g=_grammar()
 
 @dataclass
-class ArithConfig(Config):
+class ArithmeticsConfig(Config):
     min_depth: int = 5
     max_depth: int = 8
     generation_algorithm = "sequential"
@@ -44,7 +44,7 @@ class ArithConfig(Config):
     n_trials: int = 50_000
 
 
-def fill_num(expr, cfg=ArithConfig()):
+def fill_num(expr, cfg=ArithmeticsConfig()):
     has_division = '/' in expr
     pat = re.compile(r'\bNUM\b')
     n = len(pat.findall(expr))
@@ -79,8 +79,8 @@ def exact_eval(expression_string: str) -> Decimal:
     return eval(decimal_expr, {"Decimal": Decimal}).normalize()
 
 
-class Arith(Task):
-    def __init__(self, config=ArithConfig()):
+class Arithmetics(Task):
+    def __init__(self, config=ArithmeticsConfig()):
         super().__init__(config=config)
 
     def generate(self):

@@ -1,0 +1,1 @@
+{"env": "reasoning-core-env", "model": "gpt-4.1-mini", "num_examples": 5, "rollouts_per_example": 3, "sampling_args": {"max_tokens": null}, "date": "2025-09-12", "time": "16:41:13", "avg_reward": 0.4683333333333334, "avg_check_answer_reward_func": 0.26833333333333337, "avg_format_reward_func": 1.0}

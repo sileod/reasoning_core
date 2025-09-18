@@ -1,13 +1,21 @@
+#[build-system]
+#requires = ["setuptools"]
+#build-backend = "setuptools.build_meta"
+
+
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "reasoning_core"
-version = "0.1.9"
+dynamic = ["version"]
+
 dependencies = [
     "faker",
+    "inflection",
     "unified-planning[pyperplan]",
+    "tarski",
     "reasoning_gym",
     "prime",
     "networkx",
@@ -42,3 +50,6 @@ include = ["reasoning_core*"]
 
 [tool.setuptools.package-data]
 "reasoning_core" = ["resources/**"]
+
+[tool.hatch.version]
+path = "reasoning_core/__init__.py"

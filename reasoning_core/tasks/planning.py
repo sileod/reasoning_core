@@ -1,11 +1,11 @@
 
-from unified_planning.shortcuts import *
+from unified_planning.shortcuts import BoolType, CompilationKind, Compiler, InstantaneousAction, Not, Object, OneshotPlanner, OptimalityGuarantee, PlanValidator, UserType, get_environment
 import unified_planning
+import unified_planning as up
 from unified_planning.io import PDDLReader, PDDLWriter
 from unified_planning.engines import PlanGenerationResult
 import glob
 from pyparsing import ParseException
-from tqdm.auto import tqdm; tqdm.pandas()
 import timeout_decorator
 import random
 import re
@@ -31,12 +31,10 @@ from random import choice
 from unified_planning.interop import convert_problem_to_tarski
 from unified_planning.interop import convert_problem_from_tarski
 import queue
-from reasoning_core import template
-from reasoning_core.template import Task, Problem, Reward, register_dataset, Config
 from dataclasses import dataclass, field
 from collections import namedtuple
-#unified_planning.shortcuts.get_environment()
 from unified_planning.exceptions import UPException
+from reasoning_core.template import Task, Problem, Reward, Config
 
 Range = namedtuple('Range', 'low high type')
 
@@ -181,7 +179,7 @@ def generate_problem(N=5, domain=None):
             obj = Object(f"object_{i}{type_suffix}", t)
             problem.add_object(obj)
 
-    # Set initial state🌱
+    # Set initial state 🌱
     init = lambda: random.random()<init_rate
 
     for fluent in problem.fluents:
@@ -322,7 +320,6 @@ def translate(problem: Problem, write_default=0.5) -> str:
         description=description.replace('_type_0','')
     return description
 
-_reuse = mp.Manager().Queue()
 
 @dataclass
 class PlanningConfig(Config):
@@ -339,7 +336,9 @@ class PlanningConfig(Config):
         self.max_na += c
 
 
-class Planning(template.Task):
+class Planning(Task):
+    task_name = "planning" 
+
     def __init__(self, config=PlanningConfig()):
         super().__init__(config=config)
 
@@ -366,7 +365,7 @@ class Planning(template.Task):
             writer = PDDLWriter(problem)
             meta.problem_pddl = writer.get_problem()
             meta.domain_pddl = writer.get_domain()
-            return template.Problem(meta, plan)
+            return Problem(meta, plan)
 
 
     def prompt(self, meta):

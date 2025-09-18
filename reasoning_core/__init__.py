@@ -1,15 +1,19 @@
 # __init__.py
 
+
+__version__ = "0.1.13"
+
 import importlib
 import pkgutil
 import ast
 from itertools import islice, cycle
 from math import ceil
+import json
 from tqdm.auto import tqdm
 import os
 from lazy_object_proxy import Proxy
 from .tasks import _reasoning_gym
-from .template import _REGISTRY
+from .template import _REGISTRY, prepr_task_name
 from . import tasks
 
 class _PrettyLazy:
@@ -28,6 +32,8 @@ class _PrettyLazy:
     def __repr__(self):
         return f"<lazy:{self.name}>"
 
+
+
 def _discover_tasks():
     """
     Parses task files to find all Task subclasses and their names without importing them.
@@ -39,15 +45,13 @@ def _discover_tasks():
         if filename.endswith('.py') and not filename.startswith('_'):
             module_name = filename[:-3]
             with open(os.path.join(tasks_path, filename), 'r') as f:
-                try:
-                    tree = ast.parse(f.read(), filename=filename)
-                except SyntaxError:
-                    continue  # Skip files with syntax errors
+                tree = ast.parse(f.read(), filename=filename)
+
 
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef) and any(b.id == 'Task' for b in node.bases if isinstance(b, ast.Name)):
                     # Default task_name is the class name in lowercase
-                    task_name = node.name.lower()
+                    task_name = prepr_task_name(node.name)
                     # Look for an explicit `task_name = "..."` assignment
                     for body_item in node.body:
                         if (isinstance(body_item, ast.Assign) and
@@ -60,6 +64,7 @@ def _discover_tasks():
                             break
                     task_map[task_name] = module_name
     return task_map
+
 
 def _lazy_loader(task_name, module_name):
     """Triggers the module import and returns the specific task class from the registry."""
@@ -75,12 +80,6 @@ DATASETS = {
     for task_name, module_name in _task_to_module_map.items()
 }
 
-def get_task(k):
-    return DATASETS[k]
-
-def list_tasks():
-    return list(DATASETS.keys())
-
 class SelfMock:
     def __getattribute__(self,_): raise RuntimeError("score_answer should not use self.")
 
@@ -94,16 +93,32 @@ scorers = {
 
 scorers['RG'] = _reasoning_gym.RG().score_answer
 
+
+def match_task_name(name):
+    norm = lambda x: x.replace('_','').lower()
+    matches = [t for t in DATASETS.keys() if norm(name) in norm(t)]
+    assert len(matches)==1, f"Could not uniquely identify task {name} in {list(DATASETS.keys())}"
+    return matches[0]
+
+def get_task(k):
+    k=match_task_name(k)
+    return DATASETS[k]
+
+def list_tasks():
+    return list(DATASETS.keys())
+
+
 def get_score_answer_fn(task_name, *args, **kwargs):
-    if task_name in scorers:
-        return scorers[task_name]
-    raise ValueError(f"Task {task_name} not found. Available: {list(DATASETS.keys())}")
+    task_name = match_task_name(task_name)
+    return scorers[task_name]
+    
 
 def score_answer(answer, entry):
+    if type(entry.metadata)==str:
+        entry.metadata = json.loads(entry.metadata)
     task_name = entry.get('metadata', {}).get('task', None) or entry.get('task', None)
-    if task_name in scorers:
-        return scorers[task_name](answer, entry)
-    raise ValueError(f"Task {task_name} not found in entry. Available: {list(DATASETS.keys())}")
+    task_name= match_task_name(task_name)
+    return scorers[task_name](answer, entry)
 
 def generate_dataset(num_samples=100, tasks=None, batch_size=4):
     tasks = list(tasks or list_tasks())

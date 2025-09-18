@@ -1,12 +1,12 @@
 # reasoning-core-env
 
 ### Overview
-- **Environment ID**: `reasoning-gym-env`
+- **Environment ID**: `reasoning-core-env`
 - **Short description**: Single-turn evaluation over `reasoning_core` procedural tasks with XML formatting.
 - **Tags**: reasoning, procedural, single-turn, xml, synthetic
 
 ### Datasets
-- **Primary dataset(s)**: Generated via `reasoning_core` (e.g., `arc_1d`, or composite configs)
+- **Primary dataset(s)**: Generated via [reasoning_core](https://github.com/sileod/reasoning_core)
 - **Source links**: `reasoning_core` library
 - **Split sizes**: Configurable counts for train/eval via loader args
 
@@ -32,15 +32,12 @@ Notes:
 - Use `-a` / `--env-args` to pass environment-specific configuration as a JSON object.
 
 ### Environment Arguments
-Document any supported environment arguments and their meaning. Example:
 
 | Arg | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
-| `foo` | str | `"bar"` | What this controls |
 | `max_examples` | int | `-1` | Limit on dataset size (use -1 for all) |
 
 ### Metrics
-Summarize key metrics your rubric emits and how they’re interpreted.
 
 | Metric | Meaning |
 | ------ | ------- |
