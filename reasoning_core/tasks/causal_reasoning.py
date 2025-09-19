@@ -153,7 +153,7 @@ class ReasoningGraph():
                 else:
                     descriptions.append(f"{prob_text}.")
         
-        return " \n".join(descriptions)
+        return "  \n".join(descriptions)
 
 
 # --- Causal generator class  --- 🏡
