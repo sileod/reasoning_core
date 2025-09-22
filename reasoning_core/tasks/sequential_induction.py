@@ -163,19 +163,21 @@ def filter_max_terms_len(S :Sequence, max_terms_len : int = 12, length_check : i
 @dataclass
 class SequenceConfig(Config):
     mode= "simple" #can be 'full' as well
-    recurrence_depth: int = 2
+    recurrence_depth: int = 1
     n_visible_terms: int = 8
     max_terms_len: int = 15
+    min_depth_grammar: int = 1.5
+    max_depth_grammar: int = 3
     def update(self, c):
-        self.recurrence_depth *= 1 + c
-        self.n_visible_terms *= 1 + c
+        self.recurrence_depth += c
+        self.n_visible_terms *= 1 + 0.5 * c
+        self.min_depth_grammar += 0.5 * c
+        self.max_depth_grammar += c
 
 
 class SequentialInduction(Task):
     def __init__(self, config=SequenceConfig()):
         super().__init__(config=config)
-        self.mode = dc(self.config.mode)
-        self.rule = Sequence_cfg(self.config.mode, self.config.recurrence_depth)
         # Now, self.filters will contain references to picklable instance methods
         self.filters = [
             self._filter_2_outof,
@@ -194,7 +196,8 @@ class SequentialInduction(Task):
     
     def one_shot_sympy_generate(self):
         """generate a formula (instance of the defined cfg) and simplify it with sympy"""
-        prod = generate(self.rule)@'eq' 
+        rule = Sequence_cfg(self.config.mode, self.config.recurrence_depth)
+        prod = generate(rule, depth=self.config.max_depth_grammar, min_depth=self.config.min_depth_grammar)@'eq' 
         return convert_to_sympy(prod, self.config.recurrence_depth)
 
     
@@ -244,6 +247,9 @@ class SequentialInduction(Task):
 
         base_score = sum(a == b for a, b in zip(terms_pred[degree_true:], terms_true[degree_true:]))/len(terms_true[degree_true:])
 
+        if base_score < 0.5: #if half of the sample are not predicted well, then consider it as not predicted
+            return 0
+
         degree_score = (1 + degree_true) / (1 + S_pred.degree)
 
         # Efficiency penalty from operator usage
@@ -271,7 +277,7 @@ class SequentialInduction(Task):
         "- Use only the binary operators: +, -, *, **\n"
         )
     
-        if self.mode == "full":
+        if self.config.mode == "full":
             P += (
             "- If needed, you can use the unary operators relu(), sign() or the binary one / (Euclidean division), or Mod(_,_) (modulo operator, i.e., residue of Euclidean division)\n"
             )
