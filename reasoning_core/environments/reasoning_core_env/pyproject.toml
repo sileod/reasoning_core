@@ -1,12 +1,12 @@
 [project]
 name = "reasoning-core-env"
-description = "Formally verifiable reasoning on general domains (planning, logic, math) with procedurally generated data."
-tags = ["reasoning","math", "logic", "planning", "syntax", "train"]
+description = "Formally verifiable reasoning on general symbolic domains (planning, logic, math...) with procedurally generated data."
+tags = ["symbolic", "train", "reasoning","math", "logic", "planning", "syntax"]
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "verifiers>=0.1.3",
-    "reasoning-core==0.1.13"
+    "reasoning-core>=0.1.14"
 ]
 
 [build-system]

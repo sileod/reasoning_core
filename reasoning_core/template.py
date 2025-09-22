@@ -127,6 +127,7 @@ class Task(ProceduralDataset):
         self.seed = seed
         self.config=copy.deepcopy(config)
         self.timeout = timeout
+        self.base_timeout = timeout
         self.cls_name = self.__class__.__name__
         self.task_name = prepr_task_name(self.__class__.task_name)
 
@@ -170,27 +171,29 @@ class Task(ProceduralDataset):
         
 
     def generate_example(self, level=None, **kwargs):
-            @timeout_retry(self.timeout)
-            def inner():
-                t0=time.time()
-                if level:
-                    self.config.set_level(level)
-                for _ in range(1_000):
-                   problem = self.generate(**kwargs)
-                   if problem is not None:
-                        break
-                problem.prompt = self.prompt(problem.metadata)
-                problem.task = self.task_name
+        level = level or getattr(self.config, 'level', 0)
+        self.timeout = self.base_timeout * (1+level)
+        @timeout_retry(self.timeout)
+        def inner():
+            t0=time.time()
+            if level:
+                self.config.set_level(level)
+            for _ in range(1_000):
+                problem = self.generate(**kwargs)
+                if problem is not None:
+                    break
+            problem.prompt = self.prompt(problem.metadata)
+            problem.task = self.task_name
 
-                problem.metadata = edict(problem.metadata)
-                problem.metadata['_time']  = time.time() - t0
-                problem.metadata['_task']  = problem.task 
-                problem.metadata['_level'] = self.config.level
+            problem.metadata = edict(problem.metadata)
+            problem.metadata['_time']  = time.time() - t0
+            problem.metadata['_task']  = problem.task 
+            problem.metadata['_level'] = self.config.level
 
-                problem.balancing_key = self.balancing_key(problem)
-                problem.deduplication_key = self.deduplication_key(problem)
-                return problem
-            return inner()
+            problem.balancing_key = self.balancing_key(problem)
+            problem.deduplication_key = self.deduplication_key(problem)
+            return problem
+        return inner()
 
     def generate_balanced_batch(self, batch_size=32, level=None, max_per_key_frac=0.5, deduplication = False):
         max_per_key = int(batch_size * max_per_key_frac)
@@ -301,7 +304,6 @@ class Config:
         self.__dict__.update(copy.deepcopy(self._base_config_dict))
         self._unrounded = copy.deepcopy(self._base_unrounded)
         self.c = current_c
-
         # Set the flag to enable deterministic updates.
         object.__setattr__(self, '_is_updating', True)
         try:
@@ -315,7 +317,7 @@ class Config:
         return self
 
     def update(self, c):
-        raise NotImplementedError("Subclasses must implement 'update'")
+        raise NotImplementedError("Config subclasses must implement 'update'")
 
 
 

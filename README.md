@@ -29,7 +29,7 @@ pip install reasoning_core
 
 from reasoning_core import list_tasks, get_task, score_answer
 
-T = get_task('arith')()
+T = get_task('arithmetics')()
 x = T.generate_example()
 assert score_answer(x.answer, x)==1
 ```
@@ -51,7 +51,7 @@ register_to_reasoning_gym()
 specs = [
     # here, leg_counting tasks will make up two thirds of tasks
     DatasetSpec(name='leg_counting', weight=2, config={}),  #from reasoning_gym 🏋
-    DatasetSpec(name='arith', weight=2, config={}),  #from reasoning_core ◉
+    DatasetSpec(name='arithmetics', weight=2, config={}),  #from reasoning_core ◉
 ]
 D=reasoning_gym.create_dataset('composite', size=10, seed=42, datasets=specs)
 

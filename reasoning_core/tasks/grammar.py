@@ -198,4 +198,5 @@ class Parsing(Task):
         reference = entry['answer']
         norm_space = lambda s: re.sub(r'\s+', ' ', s)
         prepr = lambda x: norm_space(str(x).strip()).replace('"','').replace("'",'')
-        return 1 / (1 + edit_distance(prepr(answer), prepr(reference)))
+        dist = edit_distance(prepr(answer), prepr(reference))
+        return 1 / (1 + dist / (len(reference)**0.5 + 1))   
