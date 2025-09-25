@@ -56,3 +56,16 @@ specs = [
 D=reasoning_gym.create_dataset('composite', size=10, seed=42, datasets=specs)
 
 ```
+
+## Citation
+```
+@misc{reasoningcore2025,
+      title={Reasoning Core: A Scalable RL Environment for LLM Symbolic Reasoning}, 
+      author={Valentin Lacombe and Valentin Quesnel and Damien Sileo},
+      year={2025},
+      eprint={2509.18083},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2509.18083}, 
+}
+```
