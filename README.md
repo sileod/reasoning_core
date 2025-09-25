@@ -17,8 +17,7 @@ import os; from openai import OpenAI
 
 env = load_environment("reasoning-core-env")
 
-os.environ["OPENROUTER_API_KEY"] = "" #✍️ write your key
-client = OpenAI( base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY"))
+client = OpenAI( base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY")) #🔑
 results = env.evaluate(client=client, model="gpt-4.1-mini", num_examples=20, rollouts_per_example=1)
 df=env.make_dataset(results).to_pandas()
 ```
