@@ -17,7 +17,7 @@ parser.add_argument('--id', required=True, type=str)
 parser.add_argument('--version', default='rc0',type=str)
 parser.add_argument('--out_path', default='generated_data', type=str)
 parser.add_argument('--batch_size', default=4, type=int)
-parser.add_argument("--levels", nargs="+", type=int, default=[0,4,6])
+parser.add_argument("--levels", nargs="+", type=int, default=[6])
 parser.add_argument('--status_dir', required=True, type=str)
 args, unknown = parser.parse_known_args()
 
@@ -51,7 +51,7 @@ def generate_and_monitor():
             dataset_name, index = task_to_run
             
             level = random.choice(args.levels)
-            if level>=4 and dataset_name in ['proof_reconstruction']:
+            if level>=4 and dataset_name in ['proof_reconstruction', 'bayesian_association', 'bayesian_intervention']:
                 continue
 
             pid = os.fork()

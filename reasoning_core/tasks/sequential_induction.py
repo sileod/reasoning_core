@@ -170,7 +170,7 @@ class SequenceConfig(Config):
     max_depth_grammar: int = 3
     def update(self, c):
         self.recurrence_depth += c
-        self.n_visible_terms *= 1 + 0.5 * c
+        self.n_visible_terms += 2 * c
         self.min_depth_grammar += 0.5 * c
         self.max_depth_grammar += c
 

@@ -16,6 +16,8 @@ from .tasks import _reasoning_gym
 from .template import _REGISTRY, prepr_task_name
 from . import tasks
 
+_PACKAGE_NAME = __name__ 
+
 class _PrettyLazy:
     __slots__ = ("name", "_p")
 
@@ -68,9 +70,7 @@ def _discover_tasks():
 
 def _lazy_loader(task_name, module_name):
     """Triggers the module import and returns the specific task class from the registry."""
-    # This import will trigger the __init_subclass__ for all tasks in the file,
-    # populating _REGISTRY.
-    importlib.import_module(f".tasks.{module_name}", __package__)
+    importlib.import_module(f".tasks.{module_name}", _PACKAGE_NAME)
     return _REGISTRY[task_name]
 
 _task_to_module_map = _discover_tasks()
@@ -116,7 +116,7 @@ def get_score_answer_fn(task_name, *args, **kwargs):
 def score_answer(answer, entry):
     if type(entry.metadata)==str:
         entry.metadata = json.loads(entry.metadata)
-    task_name = entry.get('metadata', {}).get('task', None) or entry.get('task', None)
+    task_name = entry.get('metadata', {}).get('_task', None) or entry.get('task', None) or entry.get('metadata', {}).get('task', None)
     task_name= match_task_name(task_name)
     return scorers[task_name](answer, entry)
 
