@@ -1,10 +1,15 @@
-from reasoning_core.template import Task, Problem
+from reasoning_core.template import Task, Problem, Config
 import reasoning_gym
 import random
 import json
 
+class RGConfig(Config):
+
+    def update(self, c):
+        pass
+
 class RG(Task):
-    def __init__(self, config=dict):
+    def __init__(self, config=RGConfig):
         super().__init__(config)
         
     def generate(self):

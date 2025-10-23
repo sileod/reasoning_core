@@ -10,6 +10,8 @@ build-backend = "hatchling.build"
 [project]
 name = "reasoning_core"
 dynamic = ["version"]
+readme = "README.md"
+description = "A RL env with procedurally generated symbolic reasoning data"
 
 dependencies = [
     "faker",

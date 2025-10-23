@@ -17,7 +17,7 @@ parser.add_argument('--id', required=True, type=str)
 parser.add_argument('--version', default='rc0',type=str)
 parser.add_argument('--out_path', default='generated_data', type=str)
 parser.add_argument('--batch_size', default=4, type=int)
-parser.add_argument("--levels", nargs="+", type=int, default=[6])
+parser.add_argument("--levels", nargs="+", type=int, default=[1,2,4])
 parser.add_argument('--status_dir', required=True, type=str)
 args, unknown = parser.parse_known_args()
 

@@ -1,7 +1,7 @@
 # __init__.py
 
 
-__version__ = "0.1.14"
+__version__ = "0.1.16"
 
 import importlib
 import pkgutil
@@ -114,9 +114,16 @@ def get_score_answer_fn(task_name, *args, **kwargs):
     
 
 def score_answer(answer, entry):
+
     if type(entry.metadata)==str:
         entry.metadata = json.loads(entry.metadata)
     task_name = entry.get('metadata', {}).get('_task', None) or entry.get('task', None) or entry.get('metadata', {}).get('task', None)
+
+    if task_name=="rg":
+        from reasoning_gym import get_score_answer_fn
+        scorer = get_score_answer_fn(entry['metadata']['source_dataset'])
+        return scorer(answer, entry)
+
     task_name= match_task_name(task_name)
     return scorers[task_name](answer, entry)
 

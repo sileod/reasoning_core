@@ -4,7 +4,6 @@ import unified_planning
 import unified_planning as up
 from unified_planning.io import PDDLReader, PDDLWriter
 from unified_planning.engines import PlanGenerationResult
-import glob
 from pyparsing import ParseException
 import timeout_decorator
 import random
@@ -13,12 +12,9 @@ import math
 import requests
 import pandas as pd
 import itertools
-import funcy as fc
-import multiprocess as mp
 from functools import wraps
 import itertools
 import xpflow
-import glob
 import json
 from itertools import permutations, chain
 import time
@@ -321,6 +317,90 @@ def translate(problem: Problem, write_default=0.5) -> str:
     return description
 
 
+def translate_agentic(problem: Problem, write_default=0.5, language: str = "en") -> str:
+    # --- Translation Setup ---
+    # Define instructional texts that need translation
+    instructional_text = {
+        "final_instruction": "respond with only tool calls in jsonl format.",
+        "format_guide": "each line should be a json object like this:"
+    }
+
+    # Translate if the language is not English
+    if language != "en":
+        try:
+            translator = GoogleTranslator(source='auto', target=language)
+            instructional_text = {k: translator.translate(v) for k, v in instructional_text.items()}
+        except Exception as e:
+            print(f"Warning: Translation failed for language '{language}'. Falling back to English. Error: {e}")
+            pass # Fallback to English if translation fails
+
+    # --- Tool and State Definition (remains unchanged) ---
+    tools = []
+    for a in problem.actions:
+        props = {p.name: {"type": "string", "upType": p.type.name} for p in a.parameters}
+        reqs = [str(x) for x in getattr(a, "preconditions", [])] if getattr(a, "preconditions", None) else []
+        add = [str(e.fluent) for e in a.effects if e.value.is_true()]
+        rem = [str(e.fluent) for e in a.effects if not e.value.is_true()]
+        tools.append({
+            "type": "function",
+            "function": {
+                "name": a.name,
+                "parameters": {"type": "object", "properties": props, "required": list(props.keys())},
+                "metadata": {"requires": reqs, "effects": {"set_true": add, "set_false": rem}}
+            }
+        })
+
+    objs = {t.name: [o.name for o in problem.objects(t)] for t in problem.user_types}
+    objs = {k: v for k, v in objs.items() if v}
+    true_facts = [str(f) for f, v in problem.initial_values.items() if v.is_true()]
+    goals = [str(g) for g in problem.goals]
+
+    # --- Prompt Assembly ---
+    lines = [
+        "tools=" + json.dumps(tools, ensure_ascii=False),
+        "objects=" + json.dumps(objs, ensure_ascii=False),
+    ]
+    if random.random() < write_default and problem.initial_values:
+        dv = pd.Series(list(problem.initial_values.values())).value_counts().index[0]
+        lines.append("defaults=" + json.dumps({"unspecified_fluents": bool(dv.is_true())}, ensure_ascii=False))
+    
+    lines += [
+        "state.true=" + json.dumps(true_facts, ensure_ascii=False),
+        "goal=" + json.dumps(goals, ensure_ascii=False),
+        # Use the translated instructions
+        instructional_text["final_instruction"],
+        f'{instructional_text["format_guide"]} {{"tool_name":"<action_name>","arguments":{{"<param>":"<object>"}}}}'
+    ]
+    s = "\n".join(lines)
+    if not re.search(r'_type_(?!0)\d+', s):
+        s = s.replace('_type_0', '')
+    return s
+
+def parse_jsonl_plan(jsonl_string: str) -> str:
+    """
+    Parses a JSONL string of tool calls into a PDDL-like plan string.
+    """
+    actions = []
+    for line in jsonl_string.strip().splitlines():
+        try:
+            # Parse the JSON from the line
+            call = json.loads(line)
+            tool_name = call.get("tool_name")
+            args = call.get("arguments", {})
+            
+            if not tool_name or not isinstance(args, dict):
+                continue # Skip malformed lines
+
+            # Format into PDDL-like action: (action_name arg1 arg2)
+            arg_values = " ".join(args.values())
+            actions.append(f"({tool_name} {arg_values})".strip())
+        except (json.JSONDecodeError, AttributeError):
+            # Ignore lines that are not valid JSON or don't have the expected structure
+            continue
+            
+    return "\n".join(actions)
+
+
 @dataclass
 class PlanningConfig(Config):
     N: int = 5
@@ -329,6 +409,7 @@ class PlanningConfig(Config):
 
     #planner:str="fast-downward-opt"
     planner:str="pyperplan-opt"
+    language: str = "en"
 
     def update(self, c):
         self.N += c
@@ -380,7 +461,13 @@ class Planning(Task):
 
     def score_answer(self, answer, entry):
         meta = entry['metadata']
-        plan_str=to_pddl(str(answer).strip())
+
+        answer = str(answer).strip()
+        if meta.get('language')=="tool_calling":
+            plan_str=parse_jsonl_plan(str(answer).strip())
+        else:
+            plan_str=to_pddl(answer)
+    
         reader = PDDLReader()
         d,p = meta.get('domain_pddl'), meta.get('problem_pddl')
         pddl = reader.parse_problem_string(d,p)
