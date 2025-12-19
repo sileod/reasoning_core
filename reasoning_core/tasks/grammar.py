@@ -28,11 +28,11 @@ class GrammarConfig(Config):
     n_terminals: int = 5
     perturbation_rate: float = 0.5
 
-    min_depth:int =8
-    max_depth:int =12
+    min_depth:int =5
+    max_depth:int =8
 
-    min_prod_depth:int=5
-    max_prod_depth:int=8
+    min_prod_depth:int=4
+    max_prod_depth:int=6
 
 
 
@@ -153,10 +153,12 @@ class Parsability(Task):
 
     def generate(self):
         meta = generate_parse(self.config)
+        del meta['parses'] #can blow up_
         return Problem(meta, meta.label)
 
     def prompt(self, meta):
         g, tokens = meta.g, meta.tokens
+        g=" "*4+g
         return (
             f"(GRAMMAR)\n{g}\n\n"
             f"(STRING)\n{' '.join(tokens)}\n\n"

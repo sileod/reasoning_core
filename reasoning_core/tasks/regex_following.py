@@ -31,6 +31,7 @@ fake = Faker()
 
 wordlist = fake.words(nb=100,unique=True)
 
+@cache
 def regex_grammar():
     R = init_grammar(['re'], preprocess_template=lambda x: x)
 
@@ -102,8 +103,8 @@ def sample_regex(config, max_tries=100):
 @dataclass
 class RegexConfig(Config):
     n_ex: int = 8
-    max_depth: int = 6
-    min_depth: int = 4
+    max_depth: int = 5
+    min_depth: int = 3
 
     def update(self, c):
         self.n_ex += c

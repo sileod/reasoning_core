@@ -8,8 +8,8 @@ from reasoning_core.utils import score_scalar
 
 @dataclass
 class EquationSystemCfg(Config):
-    num_vars: int = 3
-    obfuscation_steps: int = 1
+    num_vars: int = 2
+    obfuscation_steps: int = 0
     sol_magnitude: int = 30
     coeff_magnitude: int = 4
     max_generation_attempts: int = 200

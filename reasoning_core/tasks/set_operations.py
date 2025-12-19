@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from reasoning_core.template import Task, Problem, Config
 import itertools
 import string
+from ast import literal_eval
+
 
 ### Tool functions 🛠️
 
@@ -62,7 +64,7 @@ def perturb_list(input_l, base_domain, n_perturbation=1):
     return (lst , perturbation)
 
 
-def jaccard_similarity(set1, set2):
+def intersection_metric(set1, set2):
     return len(set1 & set2)/len(set1 | set2)
     
 ### Task class 🎮 🎯
@@ -70,7 +72,7 @@ def jaccard_similarity(set1, set2):
 @dataclass
 class SetOpsConfig(Config):
     domain_size: int = 1000
-    set_size: int = 10
+    set_size: int = 8
     n_max_perturbation: int = 2
     prob_equal: float = 0.5
     def update(self, c):
@@ -90,11 +92,14 @@ class SetIntersection(Task):
         set_1 = random_subdomain( chosen_domain, size=self.config.set_size) 
         others = list(set(chosen_domain) - set(set_1))
         set_2 = random.sample(others, N//2) + random.sample(set_1, N//2)
-        inter = set(set_1) & set(set_2)
+
+        inter = sorted(list(set(set_1) & set(set_2)))
+        inter = "{" + ", ".join(map(repr, inter)) + "}"
+
         meta = {}
         meta["set_1"] = return_shuffle(set_1)
         meta["set_2"] = return_shuffle(set_2)
-        return Problem(metadata = meta, answer = str(inter))
+        return Problem(metadata = meta, answer = inter)
      
     def prompt(self, metadata) -> str:
         return (
@@ -106,11 +111,11 @@ class SetIntersection(Task):
     def score_answer(self, answer, entry):
         reference = entry['answer']
         try:
-            set_pred , set_truth  = set(eval(answer)),set(eval(reference))
+            set_pred , set_truth  = set(literal_eval(answer)),set(literal_eval(reference))
             if set_truth == set():
                 return int(set_pred == set())
     
-            return jaccard_similarity(set_pred, set_truth)
+            return intersection_metric(set_pred, set_truth)
         except:
             return 0
 

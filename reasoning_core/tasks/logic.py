@@ -84,7 +84,7 @@ def valid(x):
 
 @dataclass
 class LogicConfig(Config):
-    n_formulas: int = 8 
+    n_formulas: int = 6
     generation_algorithm: str = "sequential"
     def update(self, c):
         self.n_formulas *= (1 + c)
@@ -194,5 +194,6 @@ class EvidenceRetrieval(Task):
         return len(answer & reference) / len(answer | reference)
 
     def balancing_key(self, problem):
+        return None
         return len(problem.metadata.proof.indices)
 

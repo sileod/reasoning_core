@@ -2,6 +2,7 @@
 from unified_planning.shortcuts import BoolType, CompilationKind, Compiler, InstantaneousAction, Not, Object, OneshotPlanner, OptimalityGuarantee, PlanValidator, UserType, get_environment
 import unified_planning
 import unified_planning as up
+from unified_planning.exceptions import UPException
 from unified_planning.io import PDDLReader, PDDLWriter
 from unified_planning.engines import PlanGenerationResult
 from pyparsing import ParseException
@@ -14,7 +15,6 @@ import pandas as pd
 import itertools
 from functools import wraps
 import itertools
-import xpflow
 import json
 from itertools import permutations, chain
 import time
@@ -26,10 +26,8 @@ from easydict import EasyDict as edict
 from random import choice
 from unified_planning.interop import convert_problem_to_tarski
 from unified_planning.interop import convert_problem_from_tarski
-import queue
 from dataclasses import dataclass, field
 from collections import namedtuple
-from unified_planning.exceptions import UPException
 from reasoning_core.template import Task, Problem, Reward, Config
 
 Range = namedtuple('Range', 'low high type')
@@ -59,6 +57,20 @@ def trivial(problem):
     init = [k for k,v in problem.initial_values.items() if v.is_true()]
     return all(g in init for g in goals.args)
 
+def fetch_domain(domain):
+    
+    base_url = "https://raw.githubusercontent.com/karthikv792/LLMs-Planning/main/plan-bench/instances/blocksworld"
+    domain_url = {
+        "generated_basic": f"{base_url}/generated_domain.pddl",
+        "mystery": f"{base_url}/mystery/generated_domain.pddl"
+    }
+    domain_url["blocksworld"] = domain_url["generated_basic"]
+    assert domain in domain_url
+    
+    get_domain = lambda cfg: requests.get(domain_url[cfg]).text
+    return PDDLReader().parse_problem_string(get_domain(domain))
+
+
 def rolling(n_times):
     def decorator(func):
         cache = []  # Store cached results
@@ -82,9 +94,9 @@ def rolling(n_times):
 
 
 #@rolling(10)
-def generate_domain(N=5):
-
-    problem = unified_planning.model.Problem(f"omniplan--N{N}-{time.time()}")
+def generate_domain(N=5, seed=None, fluent_max_arity=2):
+    random.seed(seed)
+    problem = unified_planning.model.Problem(f"omniplan--N{N}-seed{seed}")
 
     # types 🧮
     ntypes = random.choice([*[1]*9,random.randint(1,N//2+1)])
@@ -97,7 +109,7 @@ def generate_domain(N=5):
 
     problem.default = default = choice([None,None,True,False])
 
-    problem.fluent_max_arity = fluent_max_arity = choice([2]*5+[3,4])
+    problem.fluent_max_arity = fluent_max_arity
 
     # Generate ~N fluents 🏷️
     for i in rr(N):
@@ -133,7 +145,6 @@ def generate_domain(N=5):
             [rtype()]*arity])
 
         action = InstantaneousAction(f"action_{ai}", **{f"action_{ai}_parameter{j}_{types[j].name}": types[j] for j in range(arity)})
-        expressions = valid_expressions(action)
         for _,exp in zip(rr(N), valid_expressions(action)):
 
             bit=random.choice([0,1])
@@ -317,64 +328,7 @@ def translate(problem: Problem, write_default=0.5) -> str:
     return description
 
 
-def translate_agentic(problem: Problem, write_default=0.5, language: str = "en") -> str:
-    # --- Translation Setup ---
-    # Define instructional texts that need translation
-    instructional_text = {
-        "final_instruction": "respond with only tool calls in jsonl format.",
-        "format_guide": "each line should be a json object like this:"
-    }
 
-    # Translate if the language is not English
-    if language != "en":
-        try:
-            translator = GoogleTranslator(source='auto', target=language)
-            instructional_text = {k: translator.translate(v) for k, v in instructional_text.items()}
-        except Exception as e:
-            print(f"Warning: Translation failed for language '{language}'. Falling back to English. Error: {e}")
-            pass # Fallback to English if translation fails
-
-    # --- Tool and State Definition (remains unchanged) ---
-    tools = []
-    for a in problem.actions:
-        props = {p.name: {"type": "string", "upType": p.type.name} for p in a.parameters}
-        reqs = [str(x) for x in getattr(a, "preconditions", [])] if getattr(a, "preconditions", None) else []
-        add = [str(e.fluent) for e in a.effects if e.value.is_true()]
-        rem = [str(e.fluent) for e in a.effects if not e.value.is_true()]
-        tools.append({
-            "type": "function",
-            "function": {
-                "name": a.name,
-                "parameters": {"type": "object", "properties": props, "required": list(props.keys())},
-                "metadata": {"requires": reqs, "effects": {"set_true": add, "set_false": rem}}
-            }
-        })
-
-    objs = {t.name: [o.name for o in problem.objects(t)] for t in problem.user_types}
-    objs = {k: v for k, v in objs.items() if v}
-    true_facts = [str(f) for f, v in problem.initial_values.items() if v.is_true()]
-    goals = [str(g) for g in problem.goals]
-
-    # --- Prompt Assembly ---
-    lines = [
-        "tools=" + json.dumps(tools, ensure_ascii=False),
-        "objects=" + json.dumps(objs, ensure_ascii=False),
-    ]
-    if random.random() < write_default and problem.initial_values:
-        dv = pd.Series(list(problem.initial_values.values())).value_counts().index[0]
-        lines.append("defaults=" + json.dumps({"unspecified_fluents": bool(dv.is_true())}, ensure_ascii=False))
-    
-    lines += [
-        "state.true=" + json.dumps(true_facts, ensure_ascii=False),
-        "goal=" + json.dumps(goals, ensure_ascii=False),
-        # Use the translated instructions
-        instructional_text["final_instruction"],
-        f'{instructional_text["format_guide"]} {{"tool_name":"<action_name>","arguments":{{"<param>":"<object>"}}}}'
-    ]
-    s = "\n".join(lines)
-    if not re.search(r'_type_(?!0)\d+', s):
-        s = s.replace('_type_0', '')
-    return s
 
 def parse_jsonl_plan(jsonl_string: str) -> str:
     """
@@ -406,30 +360,41 @@ class PlanningConfig(Config):
     N: int = 5
     min_na: int = 1
     max_na: int = 3
+    max_domain_seed: int = 500
+    arity_weight = 0.5
 
     #planner:str="fast-downward-opt"
     planner:str="pyperplan-opt"
     language: str = "en"
-
+    domain: str = None
+    #domains: list = field(default_factory=lambda: ["blocksworld", "mystery", None])
+    domains: list = field(default_factory=lambda: [None])
     def update(self, c):
         self.N += c
         self.min_na += c
         self.max_na += c
-
+        self.config.arity_weight += c
 
 class Planning(Task):
     task_name = "planning" 
 
     def __init__(self, config=PlanningConfig()):
         super().__init__(config=config)
-
-    def generate(self, config=PlanningConfig()):
-        meta=edict()
         shutup()
+
+    def generate(self):
+        meta=edict()
+        config = self.config
+        config.domain = random.choice(config.domains)
         N = random.randint(4, config.N)
 
         while True:
-            domain = generate_domain(N)
+    
+            meta.domain_seed = f"{N}-{random.randint(0,config.max_domain_seed)}"
+            meta.fluent_arity = fma = random.choices([1, 2], weights=[1, config.arity_weight], k=1)[0]
+
+            domain = generate_domain(N, meta.domain_seed, fluent_max_arity=fma) if not config.domain else fetch_domain(config.domain)
+            random.seed(None)
             problem = generate_problem(N, domain=domain)
             try:
                 solution = solve(problem, planner=config.planner)
@@ -440,7 +405,7 @@ class Planning(Task):
             meta.na = na = plan.count('(')
 
             if na < random.choice(list(range(config.min_na, config.max_na + 1))):
-                continue
+                continue # ensure plan is long enough
 
             meta.problem_english = translate(problem)
             writer = PDDLWriter(problem)
@@ -453,7 +418,7 @@ class Planning(Task):
         s = meta.problem_english.strip()
         s = (
             f"{s}\n"
-            f"Hint: Reference solution has {meta.na} actions (may not be optimal). "
+            f"Hint: Reference solution has {meta.na} actions (but it may not be optimal). "
             f"Return only the plan:\n"
             f"Multiple lines if needed, one action i.e. actionx(objectx, objectx...) per line."
         )

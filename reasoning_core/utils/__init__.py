@@ -11,7 +11,10 @@ def score_scalar(answer, entry, k=10.0):
     Scores an answer based on a unified, scaled error metric.
     This version uses a steep penalty (k=10.0) for high sensitivity.
     """
-    reference = float(entry.answer)
+    if hasattr(entry, 'answer'):
+        reference = float(entry.answer)
+    else:
+        reference = float(entry)
     try:
         submitted = float(str(answer).split('=')[-1].strip().rstrip('.'))
     except (ValueError, TypeError):

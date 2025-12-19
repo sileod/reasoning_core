@@ -4,9 +4,6 @@ from datasets import load_dataset
 platinum = ['gsm8k','svamp','winograd_wsc']
 
 platinum = [
-    "bbh_logical_deduction_three_objects",
-    "bbh_navigate",
-    "bbh_object_counting",
     "drop",
     "gsm8k",
     "hotpotqa",
@@ -18,7 +15,10 @@ platinum = [
     "svamp",
     "tab_fact",
     #"vqa",
-    "winograd_wsc"
+    "winograd_wsc",
+    "bbh_logical_deduction_three_objects",
+    "bbh_navigate",
+    "bbh_object_counting",
 ]
 
 tasksource = ['ConTRoL-nli', 'folio','anli/a1','WANLI','sick/label','glue/rte','glue/cola','cladder']

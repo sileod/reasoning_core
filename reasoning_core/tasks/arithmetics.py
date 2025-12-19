@@ -1,14 +1,13 @@
-from reasoning_core.template import Problem, Task, edict, ProceduralDataset, Config
+from reasoning_core.template import Problem, Task, edict, Config
+from reasoning_core.utils import score_scalar
 from unigram import init_grammar
-import unigram
-import num2words
 from dataclasses import dataclass
 import random
+import unigram
 import re
-import exrex
 from decimal import Decimal, getcontext
-from reasoning_core.utils import score_scalar
 
+getcontext().prec = 50
 
 def _grammar():
     g = init_grammar(['py'], name="arithmetics", preprocess_template=lambda s:s)
@@ -27,74 +26,75 @@ g=_grammar()
 
 @dataclass
 class ArithmeticsConfig(Config):
-    min_depth: int = 5
-    max_depth: int = 8
+    min_depth: int = 3
+    max_depth: int = 5
     generation_algorithm = "sequential"
     float_prob: float = 0.25
-
+    in_decimals: int = 1
+    out_decimals: int = 3
+    out_digits: int = 6
+    n_trials: int = 50_000
     def update(self, c):
         self.min_depth += c
         self.max_depth += c
         self.out_digits += c
         self.out_decimals += c
 
-    in_decimals: int = 1
-    out_decimals: int = 3
-    out_digits: int = 6
-    n_trials: int = 50_000
-
-
 def fill_num(expr, cfg=ArithmeticsConfig()):
-    has_division = '/' in expr
     pat = re.compile(r'\bNUM\b')
     n = len(pat.findall(expr))
-    fmt = str
-    ok  = lambda v: (any(abs(v*10**k - round(v*10**k)) < 1e-9 for k in range(cfg.out_decimals+1)) and
-                     len(f'{v:.{cfg.out_decimals}f}'.replace('-','').replace('.','')) <= cfg.out_digits)
+    def is_ok(v: Decimal):
+        v = v.normalize()
+        sign, digits, exponent = v.as_tuple()
+        num_decimal_places = -exponent if exponent < 0 else 0
+        if num_decimal_places > cfg.out_decimals:
+            return False
+        s_rep = f'{v:.{cfg.out_decimals}f}'
+        total_digits = len(s_rep.replace('-', '').replace('.', ''))
+        return total_digits <= cfg.out_digits
 
     for _ in range(cfg.n_trials):
-        vals = [
-            (lambda v: v if not (has_division and v == 0) else random.choice([-1, 1]))(
-                round(random.uniform(-12, 12), random.randint(1, cfg.in_decimals))
-                if random.random() < cfg.float_prob
-                else random.randint(-15, 15)
-            )
-            for _ in range(n)
-        ]
-        if n > 1 and len({round(x, cfg.in_decimals) for x in vals}) < 2:
+        vals_str = []
+        has_division = '/' in expr
+        for _ in range(n):
+            if random.random() < cfg.float_prob:
+                num = round(random.uniform(-12, 12), random.randint(1, cfg.in_decimals))
+                if has_division and num == 0: num = random.choice([-1, 1])
+                vals_str.append(str(num))
+            else:
+                num = random.randint(-15, 15)
+                if has_division and num == 0: num = random.choice([-1, 1])
+                vals_str.append(str(num))
+        if n > 1 and len(set(vals_str)) < 2:
             continue
-        it = iter(fmt(x) for x in vals)
-        e = pat.sub(lambda _: next(it), expr)
+        it = iter(f"Decimal('{x}')" for x in vals_str)
+        e_decimal = pat.sub(lambda _: next(it), expr)
         try:
-            v = eval(e, {'__builtins__': None}, {})
+            v = eval(e_decimal, {"Decimal": Decimal})
         except Exception:
             continue
-        if ok(v):
-            return e
+        if is_ok(v):
+            it_str = iter(vals_str)
+            final_expr_str = pat.sub(lambda _: next(it_str), expr)
+            return final_expr_str, v
     raise RuntimeError('No assignment found; increase n_trials or widen pool.')
-
-def exact_eval(expression_string: str) -> Decimal:
-    getcontext().prec = 100
-    decimal_expr = re.sub(r'(\d+\.?\d*)', r"Decimal('\1')", expression_string)
-    return eval(decimal_expr, {"Decimal": Decimal}).normalize()
-
 
 class Arithmetics(Task):
     def __init__(self, config=ArithmeticsConfig()):
         super().__init__(config=config)
 
-    def generate(self):
-        x=unigram.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.generation_algorithm)
-        expr = x@'py'
-        expr = fill_num(expr, cfg=self.config)
-        value = exact_eval(expr)
-        return Problem(metadata=edict(expr=expr, height=x.height), answer=str(value))
 
+    def generate(self):
+            x = unigram.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.generation_algorithm)
+            py_expr_template = x@'py'
+            final_expr, value = fill_num(py_expr_template, cfg=self.config)
+            quantizer = Decimal('1e-' + str(self.config.out_decimals))
+            rounded_value = value.quantize(quantizer)
+            ans_str = f"{rounded_value:f}".rstrip('0').rstrip('.')
+            return Problem(metadata=edict(expr=final_expr, height=x.height), answer=ans_str)
+    
     def prompt(self, metadata):
-        p = (
-            f"Evaluate {metadata.expr}.\n Answer with only a number."
-        )
-        return p
+        return f"Evaluate {metadata.expr}.\n Answer with only a number."
 
     def score_answer(self, answer, entry):
         return score_scalar(answer, entry)

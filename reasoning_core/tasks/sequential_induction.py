@@ -166,7 +166,7 @@ class SequenceConfig(Config):
     recurrence_depth: int = 1
     n_visible_terms: int = 8
     max_terms_len: int = 15
-    min_depth_grammar: int = 1.5
+    min_depth_grammar: int = 2
     max_depth_grammar: int = 3
     def update(self, c):
         self.recurrence_depth += c

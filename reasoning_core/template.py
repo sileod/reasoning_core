@@ -8,7 +8,7 @@ from collections import Counter
 from collections.abc import Mapping
 from reasoning_gym.dataset import ProceduralDataset
 import reasoning_gym
-from dataclasses import dataclass, fields, field
+from dataclasses import dataclass, fields, field, asdict
 from typing import Any
 from types import SimpleNamespace
 import random
@@ -130,6 +130,8 @@ class Task(ProceduralDataset):
         self.base_timeout = timeout
         self.cls_name = self.__class__.__name__
         self.task_name = prepr_task_name(self.__class__.task_name)
+        for k,v in kwa.items():
+            setattr(self.config, k, v)
 
 
     def generate(self):
@@ -150,6 +152,28 @@ class Task(ProceduralDataset):
             return 1
         return 0
         
+
+    def validate(self):
+        """Sanity checks to ensure that generation and scoring are working as expected."""
+        x=self.generate_example()
+        assert isinstance(x, Problem), f"Generated example must be of type Problem, got {type(x)}"
+        assert self.score_answer(x.answer, x)==1, "The generated answer must be correct"
+        assert x.prompt, "Generated example must have a non-empty prompt"
+        ys=[self.generate_example() for _ in range(10)]
+        score = [self.score_answer(y.answer, x) for y in ys]
+        assert set(score)!={1}, "The scoring function must return values other than 1 for other answers"
+        assert {self.score_answer(y.answer,y)==1 for y in ys}=={True}, "The generated answer must be correct"
+
+        self.score_answer('reajrjrje9595!',x) # should not error out
+        self.score_answer('',x) # should not error out
+        self.score_answer('import fakemodule',x) # should not eval strings 
+
+        self.generate_example()
+        r1=random.random()
+        self.generate_example()
+        r2=random.random()
+        assert r1!=r2
+                
 
     def postprocess_dataset(self, df):
         """to override, apply deduplication and filtering"""
@@ -172,7 +196,7 @@ class Task(ProceduralDataset):
 
     def generate_example(self, level=None, **kwargs):
         level = level or getattr(self.config, 'level', 0)
-        self.timeout = self.base_timeout * (1+level)
+        self.timeout = int(self.base_timeout * (1+level))
         @timeout_retry(self.timeout)
         def inner():
             t0=time.time()
@@ -189,6 +213,7 @@ class Task(ProceduralDataset):
             problem.metadata['_time']  = time.time() - t0
             problem.metadata['_task']  = problem.task 
             problem.metadata['_level'] = self.config.level
+            problem.metadata['_config'] = self.config.to_dict()
 
             problem.balancing_key = self.balancing_key(problem)
             problem.deduplication_key = self.deduplication_key(problem)
@@ -222,12 +247,14 @@ class Task(ProceduralDataset):
             rng = random.Random(self.seed + idx)
         example=self.generate_example()
         example['metadata']['source_dataset'] = example.task
+
         return {
             "question": example.prompt,
             "answer": example.answer,
             "metadata": example.metadata
             }
         
+
 
 @dataclass
 class Config:
@@ -282,8 +309,9 @@ class Config:
                 if is_updating:
                     return float_val
                 else:
+                    local_rng = random.Random(object.__getattribute__(self, 'seed'))
                     floor_val = int(float_val)
-                    return floor_val + (1 if random.random() < (float_val - floor_val) else 0)
+                    return floor_val + (1 if local_rng.random() < (float_val - floor_val) else 0)
         except AttributeError:
             pass # Object is still initializing.
             
@@ -301,9 +329,11 @@ class Config:
 
     def set_level(self, i: int):
         current_c = self.c
+        current_seed = self.seed
         self.__dict__.update(copy.deepcopy(self._base_config_dict))
         self._unrounded = copy.deepcopy(self._base_unrounded)
         self.c = current_c
+        self.seed = current_seed
         # Set the flag to enable deterministic updates.
         object.__setattr__(self, '_is_updating', True)
         try:
@@ -319,7 +349,8 @@ class Config:
     def update(self, c):
         raise NotImplementedError("Config subclasses must implement 'update'")
 
-
+    def to_dict(self):
+        return asdict(self)
 
 class Reward(wrapt.ObjectProxy):
     def __init__(self, wrapped, tag=None, **kwargs):
