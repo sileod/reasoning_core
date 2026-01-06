@@ -6,6 +6,7 @@ __version__ = "0.1.17"
 import importlib
 import pkgutil
 import ast
+import copy
 from itertools import islice, cycle
 from math import ceil
 import json
@@ -114,8 +115,8 @@ def get_score_answer_fn(task_name, *args, **kwargs):
     
 
 def score_answer(answer, entry):
-
     if type(entry.metadata)==str:
+        entry=copy.deepcopy(entry)
         entry.metadata = json.loads(entry.metadata)
     task_name = entry.get('metadata', {}).get('_task', None) or entry.get('task', None) or entry.get('metadata', {}).get('task', None)
 

@@ -14,9 +14,15 @@ from faker import Faker
 from nltk.metrics.distance import edit_distance
 import re
 from timeoutcontext import timeout
+from nltk.tree import Tree
+from collections import defaultdict
+from unigram.grammars import simple_english_grammar, arith_grammar
+from unigram import unigram_to_nltk
 
 fake = Faker()
 
+existing_grammars = [simple_english_grammar(), arith_grammar()]
+existing_grammars = [unigram_to_nltk(g) for g in existing_grammars]
 
 wordlist = list(fake.words(nb=500,unique=True))
 
@@ -34,6 +40,8 @@ class GrammarConfig(Config):
     min_prod_depth:int=4
     max_prod_depth:int=6
 
+    random_grammar_prob:float = 0.5
+    tagging_prob: float = 0.5
 
 
     def update(self, c):
@@ -96,9 +104,27 @@ def nltk_to_unigram(g):
         R(sig, ' '.join(tokens))
     return R
 
+def drop_rules(grammar, frac=0.5):
+    # Group by LHS
+    by_lhs = defaultdict(list)
+    for p in grammar.productions():
+        by_lhs[p.lhs()].append(p)
 
+    kept_prods = []
+    for prods in by_lhs.values():
+        # Guarantee at least one rule survives per LHS to maintain validity
+        mandatory = random.choice(prods)
+        candidates = [p for p in prods if p != mandatory]
+        
+        kept_prods.append(mandatory)
+        kept_prods.extend(p for p in candidates if random.random() > frac)
+
+    return CFG(grammar.start(), kept_prods)
 
 def sample_cfg(config=GrammarConfig):
+    if random.random()>config.random_grammar_prob:
+        return drop_rules(random.choice(existing_grammars))
+        
     for _ in range(1000):
         MG = meta_grammar(config).start()
         for _ in range(100): 
@@ -116,7 +142,9 @@ def perturb(tokens, config=GrammarConfig):
     return random.choice([
         lambda t: random.sample(t, len(t)),
         lambda t: (lambda i: t[:i]+t[i+1:])(random.randrange(len(t))) if len(t)>1 else t,
-        lambda _: (generate(nltk_to_unigram(sample_cfg(config)).get_rules('s', shuffle=True)[0], depth=5) @ 'lang').split()
+        #lambda _: (generate(nltk_to_unigram(sample_cfg(config)).get_rules('s', shuffle=True)[0], depth=5) @ 'lang').split()
+        lambda _: (generate(nltk_to_unigram(sample_cfg(config)), depth=5) @ 'lang').split()
+
     ])(tokens)
 
 def generate_parse(config=GrammarConfig):
@@ -124,7 +152,7 @@ def generate_parse(config=GrammarConfig):
     while True:
         g = sample_cfg(config)
         g_u = nltk_to_unigram(g)
-        rule = g_u.get_rules("s", shuffle=True)[0]
+        rule = g_u #g_u.get_rules("s", shuffle=True)[0]
         try:
             tokens = (generate(rule, depth=config.max_prod_depth, min_depth = config.min_prod_depth) @ "lang").split()
         except ValueError:
@@ -168,7 +196,6 @@ class Parsability(Task):
 
 
 class Parsing(Task):
-
     def __init__(self, config: GrammarConfig = GrammarConfig()):
         config.perturbation_rate = 0.0
         super().__init__(config=config)
@@ -176,29 +203,41 @@ class Parsing(Task):
     def generate(self):
         while True:
             meta = generate_parse(self.config)
-            label, *trees = meta.label, meta.parses
-            if label == 'unambiguous':
-                parse = " ".join(str(trees[0][0]).split())
-                return Problem(meta, parse)
+            if meta.label != 'unambiguous': continue
 
+            tree_str = meta.parses[0] # Get the Lisp-style string
+            
+            if random.random() < self.config.tagging_prob:
+                meta.mode = 'tagging'
+                t = Tree.fromstring(tree_str)
+                leaves = []
+                for idx in t.treepositions('leaves'):
+                    token = t[idx]
+                    pos = t[idx[:-1]].label() # Parent label
+                    depth = len(idx)          # Distance from root
+                    leaves.append(f"{token}<{pos}:{depth}>")
+                return Problem(meta, " ".join(leaves))
+            else:
+                meta.mode = 'parsing'
+                return Problem(meta, " ".join(tree_str.split()))
 
     def prompt(self, meta):
         g, tokens = meta.g, meta.tokens
-        example = """Given G_ex: S -> NP VP, NP -> 'det' Noun, Noun -> 'noun', VP -> 'verb' \
-        and G_ex: "det noun verb" correct Lisp Parse Tree would be (S (NP det (Noun noun)) (VP verb))."
-        """
-        return (
-            f"(GRAMMAR)\n{g}\n\n"
-            f"(STRING)\n{' '.join(tokens)}\n\n"
-            f"(QUESTION)\n"
+        head = f"(GRAMMAR)\n{g}\n\n(STRING)\n{' '.join(tokens)}\n\n(QUESTION)\n"
+        
+        if meta.mode == 'tagging':
+            return (head + 
+                "Identify the Part-of-Speech (immediate parent) and tree depth for each token.\n"
+                "format per token: token<POS:depth>\n"
+                "Example: the<Det:3> cat<Noun:3>")
+        
+        ex = """Given G_ex: S -> NP VP, NP -> 'd' N, N -> 'n', VP -> 'v' and "d n v", correct is (S (NP d (N n)) (VP v))."""
+        return (head + 
             "Return the fully parenthesized parse tree of STRING in Lisp style.\n"
-            "Use uppercase for nonterminals, lowercase unquoted tokens for terminals\n"
-            f"{example}"
-        )
+            f"{ex}")
 
     def score_answer(self, answer, entry):
         reference = entry['answer']
-        norm_space = lambda s: re.sub(r'\s+', ' ', s)
-        prepr = lambda x: norm_space(str(x).strip()).replace('"','').replace("'",'')
-        dist = edit_distance(prepr(answer), prepr(reference))
-        return 1 / (1 + dist / (len(reference)**0.5 + 1))   
+        norm = lambda s: re.sub(r'\s+', ' ', str(s).strip()).replace('"','').replace("'",'')
+        dist = edit_distance(norm(answer), norm(reference))
+        return 1 / (1 + dist / (len(reference)**0.5 + 1))

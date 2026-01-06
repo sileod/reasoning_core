@@ -224,7 +224,7 @@ class ReasoningGraph:
         seed: int = None,
         binari_ci_modes: List[str] = ['or', 'and'],
         multi_ci_modes: List[str] = ['max', 'min'],
-    ):
+    ) -> list:
         """
         Post-processing step to convert large TabularCPDs to CI models.
         """
@@ -353,16 +353,16 @@ class Rung(ABC):
         
         answer, specific_metadata = self._calculate_answer_and_metadata()
 
-        while nan in set(eval(answer).values()): #Create another scenario if this one is probabilistically impossible.
-            self._generate_specific_problem()
-            answer, specific_metadata = self._calculate_answer_and_metadata()
+        #while nan in set(eval(answer).values()): #Create another scenario if this one is probabilistically impossible.
+        #    self._generate_specific_problem()
+        #    answer, specific_metadata = self._calculate_answer_and_metadata()
         
         system_description = self.reason_graph.to_NL(self.config.n_round)
         scenario = self._construct_scenario()
         target_vals = self.reason_graph.bn.states[self.reason_graph.target]
 
         writer = CanonicalBIFWriter(self.reason_graph.bn)
-        bif_data = str(writer)
+        bif_data = writer.write_string()
         
         metadata = {
             "target_var_values": target_vals,

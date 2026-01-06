@@ -121,7 +121,8 @@ class EquationSystem(Task):
                 "full_solution_map": {str(k): int(v) for k, v in sol_map.items()} if not was_modified else None,
                 "case": case
             }
-            return Problem(metadata=metadata, answer=str(answer))
+            a = str(answer).rstrip("0").rstrip(".")
+            return Problem(metadata=metadata, answer=a)
 
         raise RuntimeError(f"Failed to generate a valid problem. Config: {self.config}")
 

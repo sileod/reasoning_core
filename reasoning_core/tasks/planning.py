@@ -29,6 +29,8 @@ from unified_planning.interop import convert_problem_from_tarski
 from dataclasses import dataclass, field
 from collections import namedtuple
 from reasoning_core.template import Task, Problem, Reward, Config
+import logging
+logging.getLogger().setLevel(logging.WARNING)
 
 Range = namedtuple('Range', 'low high type')
 

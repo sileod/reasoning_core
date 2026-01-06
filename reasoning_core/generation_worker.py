@@ -3,6 +3,8 @@ import multiprocessing as mp
 from pathlib import Path
 from reasoning_core import list_tasks, get_task
 import string
+import random
+import numpy as np
 
 alphabet = string.ascii_lowercase + string.digits
 
@@ -17,6 +19,9 @@ def worker_loop(in_q, out_q, out_path, batch_size):
         try:
             T = get_task(name)()
             T.timeout = 20 * (1+lvl)**2
+            random.seed(None)
+            np.random.seed(None)
+
             examples = T.generate_balanced_batch(batch_size=batch_size, level=lvl)
 
             if examples:
@@ -104,7 +109,7 @@ def generate_and_monitor(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_examples', default=5_000_000, type=int)
+    parser.add_argument('--num_examples', default=10_000_000, type=int)
     parser.add_argument('-f', default=None)
     parser.add_argument('--id', required=True, type=str)
     parser.add_argument('--version', default='rc0', type=str)
