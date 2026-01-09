@@ -16,6 +16,8 @@ from tqdm.auto import tqdm
 from functools import cache
 from dataclasses import dataclass
 
+import re
+
 from ._logic_utils import cat_premises, satify_premise
 
 
@@ -62,16 +64,19 @@ preds_pattern = list(exrex.generate('pred[a-z]'))
 npreds_pattern = list(exrex.generate('~pred[a-z]'))
 
 
-def verbalize_predicates(x):
-    preds = random.sample(fol_nli_verbalization.predicates, len(preds_pattern))
+def verbalize_predicates(x, seed=None, strip_underscores=True):
+    rng = random.Random(seed)
+    preds = rng.sample(fol_nli_verbalization.predicates, len(preds_pattern), )
     npreds = [fol_nli_verbalization.negate_predicate(p) for p in preds]
     sub=dict()
     sub|=dict(zip(npreds_pattern,npreds))
     sub|=dict(zip(preds_pattern,preds))
 
     for k,v in sub.items():
+        if not strip_underscores:
+            v=v.replace(' ','_')
         x=x.replace(k,v)
-    return x.replace('_',' ')
+    return x.replace('_',' ') if strip_underscores else x
 
 def valid(x):
     for p in "", "~":
@@ -90,6 +95,34 @@ class LogicConfig(Config):
         self.n_formulas *= (1 + c)
 
 
+def get_cot(text: str) -> str:
+    lines, memo = [], {} # old_id -> (new_idx, formula)
+
+    for line in text.splitlines():
+        if not (m := re.match(r'^(\d+)\.\s+(.*?)\s+\[(.*?)\]', line)): continue
+        oid, form, meta = m.groups()
+
+        # Parse Refs & Rule
+        p_oids = re.findall(r'\b(\d+)\b', meta)
+        parents = [str(memo[p][0]) for p in p_oids if p in memo and 'input' not in meta]
+        rule = meta.split()[0]
+
+        # Dedupe: Skip if formula identical to single parent
+        if len(parents) == 1 and memo[p_oids[0]][1] == form:
+            memo[oid] = memo[p_oids[0]]
+            continue
+
+        # Format: [rule refs]
+        if 'input' in meta:
+            ctx = "assumption" if "hyp" in meta else f"input {re.search(r'input (\d+)', meta)[1]}"
+        else:
+            ctx = f"{rule} {', '.join(parents)}"
+
+        idx = len(lines) + 1
+        memo[oid] = (idx, form)
+        lines.append(f"{idx}. [{ctx}] {form}")
+
+    return "\n".join(lines)
 
 class LogicNLI(Task):
 
@@ -114,7 +147,9 @@ class LogicNLI(Task):
         #compute label        
         proofs = [run(premise+f"\nfof(hyp,axiom,{prefix}({hyp@tptp})).")
                 for prefix in ("", "~")]
+        meta.verbalize_seed = random.randint(0, int(1e6))
         meta.proof = proof = ([x for x in proofs if x.status=="Unsatisfiable"]+[None])[0]
+        meta.cot = verbalize_predicates(get_cot(proof.proof), seed=meta.verbalize_seed, strip_underscores=False) if proof else None
         labels = tuple([x.status for x in proofs])
 
         label = {
@@ -124,7 +159,6 @@ class LogicNLI(Task):
         }.get(labels,'other')
 
         meta.prem, meta.hyp = x.dict(), hyp.dict()
-
         return Problem(meta, label)
 
     def prompt(self, meta):
@@ -138,7 +172,7 @@ class LogicNLI(Task):
             "Answer with exactly one word, neutral|contradiction|entailment"
         )
 
-        P=verbalize_predicates(P)
+        P=verbalize_predicates(P, seed=meta.verbalize_seed)
         return P
 
     def balancing_key(self, problem):

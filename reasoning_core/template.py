@@ -74,7 +74,7 @@ def timeout_retry(seconds=10, attempts=10):
 
 
 class Problem(Mapping):
-    def __init__(self, metadata, answer=None):
+    def __init__(self, metadata, answer=None, cot=None):
         self.metadata = edict(metadata)
         self.answer = answer
         self.prompt = None
@@ -83,8 +83,8 @@ class Problem(Mapping):
     def to_dict(self):
         return {
             'prompt': self.prompt,
-            "answer": self.answer,
-            "metadata": self.metadata,
+            'answer': self.answer,
+            'metadata': self.metadata,
             'task': self.task,
         }
         

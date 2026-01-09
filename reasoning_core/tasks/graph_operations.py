@@ -95,6 +95,42 @@ class BaseGraphTask:
 
 
 class GraphPathfinding(BaseGraphTask, Task):
+    def make_cot(self, G, start, end):
+            # BFS State Initialization
+            queue = [(start, [start])] # Tuple: (Current Node, Path History)
+            visited = {start}
+            
+            lines = [f"Goal: Shortest path from {start} to {end} using BFS."]
+            lines.append(f"Initialize Queue: [{start}]")
+            
+            while queue:
+                curr, path = queue.pop(0)
+                lines.append(f"\nPop {curr}. Current Path: {path}")
+                
+                if curr == end:
+                    lines.append(f"Target {end} found! Search Complete.")
+                    return "\n".join(lines)
+                
+                # Explore Neighbors (Sorted for deterministic reasoning)
+                new_neighbors = []
+                for n in sorted(G.neighbors(curr)):
+                    if n not in visited:
+                        visited.add(n)
+                        new_neighbors.append(n)
+                        queue.append((n, path + [n]))
+                
+                # Reasoning Step: Explain the update
+                if new_neighbors:
+                    lines.append(f"  -> Found new neighbors: {new_neighbors}")
+                    lines.append(f"  -> Add to queue. Visited set updated.")
+                else:
+                    lines.append(f"  -> All neighbors visited or empty. Backtrack.")
+                    
+                # Explicit State Dump (Crucial for Transformer State Tracking)
+                q_state = [n for n, _ in queue]
+                lines.append(f"  -> Queue is now: {q_state}")
+
+            return "Target unreachable."
     def generate(self):
         G = self._generate_graph()
         start, end = random.sample(list(G.nodes()), 2)
@@ -103,6 +139,7 @@ class GraphPathfinding(BaseGraphTask, Task):
         metadata = {
             "graph_description": self._render_graph(G), "start_node": start, "end_node": end,
             "nodes": list(G.nodes()), "edges": list(G.edges()), "optimal_length": len(path),
+            "cot": self.make_cot(G, start, end)
         }
         return Problem(metadata=metadata, answer=str(path))
 

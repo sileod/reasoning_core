@@ -9,7 +9,7 @@ import numpy as np
 alphabet = string.ascii_lowercase + string.digits
 
 
-def worker_loop(in_q, out_q, out_path, batch_size):
+def worker_loop(in_q, out_q, out_path, batch_size,max_prompt_size):
     """Worker stays alive. No re-importing overhead."""
     while True:
         task = in_q.get()
@@ -23,7 +23,7 @@ def worker_loop(in_q, out_q, out_path, batch_size):
             np.random.seed(None)
 
             examples = T.generate_balanced_batch(batch_size=batch_size, level=lvl)
-
+            examples = [x for x in examples if len(x.prompt.split())<args.max_prompt_size]
             if examples:
                 # EDIT: Removed UUID. Use deterministic filename based on 'idx'.
                 dest = Path(out_path) / f'{name}-{idx}.jsonl'
@@ -42,7 +42,7 @@ def generate_and_monitor(args):
     out_path = Path(args.out_path) / args.version
     os.makedirs(out_path, exist_ok=True)
 
-    p = mp.Process(target=worker_loop, args=(task_q, res_q, str(out_path), args.batch_size))
+    p = mp.Process(target=worker_loop, args=(task_q, res_q, str(out_path), args.batch_size, args.max_prompt_size))
     p.start()
 
     status_file = Path(args.status_dir) / f"worker_{int(args.id):03d}.status"
@@ -118,6 +118,7 @@ if __name__ == '__main__':
     parser.add_argument("--levels", nargs="+", type=int, default=[0, 2, 4, 6])
     parser.add_argument('--status_dir', required=True, type=str)
     parser.add_argument('--tasks', nargs='+', type=str, default=[])
+    parser.add_argument('--max_prompt_size', default=5_000, type=int)
     args, unknown = parser.parse_known_args()
 
     generate_and_monitor(args)

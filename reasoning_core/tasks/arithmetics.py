@@ -6,20 +6,30 @@ import random
 import unigram
 import re
 from decimal import Decimal, getcontext
+import ast, operator
+
+import sympy
+from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 
 getcontext().prec = 50
 
-def _grammar():
-    g = init_grammar(['py'], name="arithmetics", preprocess_template=lambda s:s)
-    g('start(expr)',        '{0}')
-    g('expr(expr)',       '({0})',            weight=1)
-    g('expr(expr,expr)',  '{0} + {1}', weight=2)
-    g('expr(expr,expr)',  '{0} - {1}', weight=1)
+def _grammar(symbolic=False):
+    g = init_grammar(['py'], name="arith", preprocess_template=lambda s:s)
+    g('start(expr)',      '{0}')
+    g('expr(expr)',       '({0})',              weight=1)
+    g('expr(expr,expr)',  '{0} + {1}',          weight=2)
+    g('expr(expr,expr)',  '{0} - {1}',          weight=1)
     g('expr(expr,expr)',  '{0} * {1}')
-    g('expr(expr,expr)',  '{0} / {1}')
-    g('expr(expr)',       '({0})**2',         weight=.25)
-    g('expr(value)',       '{0}',weight= 10)
-    g('value',  'NUM')
+    
+    # Division is often excluded from basic symbolic simplification tasks to avoid fractions
+    if not symbolic: 
+        g('expr(expr,expr)', '{0} / {1}')
+        
+    g('expr(expr)',       '({0})**2',           weight=0.5 if symbolic else 0.25)
+    g('expr(atom)',       '{0}',                weight=8 if symbolic else 10)
+    
+    g('atom', 'NUM')
+    if symbolic: g('atom', 'VAR')
     return g
 
 g=_grammar()
@@ -85,16 +95,104 @@ class Arithmetics(Task):
 
 
     def generate(self):
-            x = unigram.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.generation_algorithm)
-            py_expr_template = x@'py'
-            final_expr, value = fill_num(py_expr_template, cfg=self.config)
-            quantizer = Decimal('1e-' + str(self.config.out_decimals))
-            rounded_value = value.quantize(quantizer)
-            ans_str = f"{rounded_value:f}".rstrip('0').rstrip('.')
-            return Problem(metadata=edict(expr=final_expr, height=x.height), answer=ans_str)
+        x = unigram.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.generation_algorithm)
+        py_expr_template = x@'py'
+        final_expr, value = fill_num(py_expr_template, cfg=self.config)
+        quantizer = Decimal('1e-' + str(self.config.out_decimals))
+        rounded_value = value.quantize(quantizer)
+        ans_str = f"{rounded_value:f}".rstrip('0').rstrip('.')
+        meta = edict(expr=final_expr, height=x.height)
+        meta.cot = self.get_cot(final_expr)
+        return Problem(metadata=meta, answer=ans_str)
     
     def prompt(self, metadata):
         return f"Evaluate {metadata.expr}.\n Answer with only a number."
 
     def score_answer(self, answer, entry):
         return score_scalar(answer, entry)
+
+    def get_cot(self, expr):
+        ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv, ast.Pow: operator.pow}
+        syms = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.Pow: '**'}
+        steps = []
+    
+        def visit(node):
+            if isinstance(node, ast.Constant): 
+                return Decimal(str(node.value))
+            # Handle UnaryOp (negative numbers) silently
+            if isinstance(node, ast.UnaryOp): 
+                return -visit(node.operand)
+            
+            l, r = visit(node.left), visit(node.right)
+            res = ops[type(node.op)](l, r)
+            steps.append(f"{l} {syms[type(node.op)]} {r} = {res}")
+            return res
+    
+        visit(ast.parse(expr, mode='eval').body)
+        return "\n".join(steps)
+
+
+@dataclass
+class SymbolicConfig(ArithmeticsConfig):
+    variables: tuple = ('x', 'y') # Start with just 2
+    max_int: int = 9              # Start with single digits
+
+def update(self, c):
+        super().update(c) 
+        
+        self.max_int += int(10 * c)
+        pool = "xyzabmnpqrstuvwdefghijkl"
+        target_len = int(len(self.variables) + c)
+        self.variables = tuple(pool[:min(len(pool), target_len)])
+
+class SymbolicArithmetics(Task):
+    def __init__(self, config=SymbolicConfig()):
+        super().__init__(config=config)
+
+    def generate(self):
+        # 1. Generate & Fill
+        g_sym = _grammar(symbolic=True)
+        x = unigram.generate(g_sym, depth=self.config.max_depth, min_depth=self.config.min_depth)
+        
+        filler = lambda m: random.choice(self.config.variables) if m.group()=='VAR' else str(random.randint(1,9))
+        final_expr = re.sub(r'\b(VAR|NUM)\b', filler, x @ 'py')
+        
+        # 2. Solve & Validate
+        try:
+            raw = parse_expr(final_expr, evaluate=False)
+            simplified = sympy.simplify(raw)
+            # Retry if trivial (no change or just a number)
+            if raw == simplified or (simplified.is_number and not raw.is_number): return self.generate()
+        except: return self.generate()
+
+        meta = edict(expr=final_expr, cot=self.make_cot(raw))
+        return Problem(metadata=meta, answer=str(simplified).replace('**', '^'))
+
+    def make_cot(self, node):
+        steps = []
+        def visit(n):
+            if n.is_Atom: return n
+            # Bottom-up reconstruction
+            new_n = n.func(*[visit(arg) for arg in n.args], evaluate=False)
+            # Check for simplification opportunities
+            simp = sympy.expand(new_n)
+            if simp == new_n: simp = sympy.simplify(new_n)
+            
+            if simp != new_n: steps.append(f"{new_n} = {simp}")
+            return simp
+        
+        visit(node)
+        return "\n".join(steps)
+
+    def prompt(self, meta):
+            # Clean prompt: No CoT here
+            return (f"Simplify the following algebraic expression:\n"
+                    f"{meta.expr}\n\n"
+                    f"Answer with the simplified expression.")
+    def score_answer(self, answer, entry):
+        try:
+            clean = lambda s: str(s).split('=')[-1].strip().replace('^', '**')
+            T = (standard_transformations + (implicit_multiplication_application,))
+            diff = parse_expr(clean(answer), transformations=T) - parse_expr(clean(entry['answer']), transformations=T)
+            return 1.0 if sympy.simplify(diff) == 0 else 0.0
+        except: return 0.0

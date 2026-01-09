@@ -2,7 +2,8 @@ from unigram import init_grammar, generate
 from tqdm.auto import tqdm
 from functools import cache
 from nltk.parse.generate import generate as nltk_generate
-from nltk import CFG, ChartParser 
+from nltk import CFG, ChartParser
+from nltk.parse.earleychart import EarleyChartParser
 import sys
 from reasoning_core.template import Task, Problem, Config, register_dataset
 import random
@@ -147,29 +148,44 @@ def perturb(tokens, config=GrammarConfig):
 
     ])(tokens)
 
+def make_cot(g, tokens):
+    chart = EarleyChartParser(g).chart_parse(tokens)
+    
+    get_action = lambda e: "[SCAN]    " if isinstance(e, str) else \
+                           "[COMPLETE]" if e.is_complete() else \
+                           "[PREDICT] " if e.dot() == 0 else "[ADVANCE] "
+
+    # Filter out 0-length predictions (noise), keep progress & tokens
+    edges = [e for e in chart.edges() if isinstance(e, str) or e.length() > 0]
+    edges.sort(key=lambda e: (e.end(), e.length())) # Sort by locality
+
+    cot = "\n".join(f"{get_action(e)} [{e.start()}:{e.end()}] {e}" for e in edges)
+    parses = [str(x) for x in chart.parses(g.start())]
+    
+    return cot, parses
+
 def generate_parse(config=GrammarConfig):
     meta = edict()
     while True:
         g = sample_cfg(config)
         g_u = nltk_to_unigram(g)
-        rule = g_u #g_u.get_rules("s", shuffle=True)[0]
+        
         try:
-            tokens = (generate(rule, depth=config.max_prod_depth, min_depth = config.min_prod_depth) @ "lang").split()
-        except ValueError:
-            continue
+            tokens = (generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth) @ "lang").split()
+        except ValueError: continue
+
         if random.random() < config.perturbation_rate:
             tokens = perturb(tokens, config)
+
         try:
             with timeout(2):
-                meta.parses = [str(x) for x in list(ChartParser(g).parse(tokens))]
-        except TimeoutError:
+                meta.cot, meta.parses = make_cot(g, tokens)
+        except (TimeoutError, ValueError):
             continue
-        except ValueError:
-            meta.parses = None
 
         meta.label = ("unparsable" if not meta.parses else 
-                 "ambiguous"   if len(meta.parses) > 1 else 
-                 "unambiguous")
+                     "ambiguous"   if len(meta.parses) > 1 else 
+                     "unambiguous")
         meta.tokens = tokens
         meta.g = str(g).split('\n',1)[-1].strip()
         return meta
