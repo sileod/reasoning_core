@@ -119,9 +119,12 @@ class EquationSystem(Task):
                 "equations": [f"{eq.lhs} = {eq.rhs}" for eq in eqs],
                 "query_variable": str(query_var),
                 "full_solution_map": {str(k): int(v) for k, v in sol_map.items()} if not was_modified else None,
-                "case": case
+                "case": case,
+                "cot": self.get_cot(eqs, variables)
             }
-            a = str(answer).rstrip("0").rstrip(".")
+            a = str(answer)
+            if "." in a:
+                a = a.rstrip("0").rstrip(".")
             return Problem(metadata=metadata, answer=a)
 
         raise RuntimeError(f"Failed to generate a valid problem. Config: {self.config}")
@@ -142,3 +145,50 @@ class EquationSystem(Task):
         if "solution" in entry.answer.lower():
             return 0.0
         return score_scalar(answer, entry)
+    
+            
+    def get_cot(self, eqs, variables):
+            try:
+                A, b = sp.linear_eq_to_matrix(eqs, variables)
+            except ValueError: return None
+            
+            M = A.row_join(b)
+            log = ["1. Forward:"]
+            piv = 0
+            
+            # Phase 1: Forward
+            for c in range(len(variables)):
+                if piv >= M.rows: break
+                if M[piv, c] == 0:
+                    if (swap := next((r for r in range(piv+1, M.rows) if M[r, c]), None)) is None: continue
+                    M.row_swap(piv, swap); log.append(f"Swap R{piv+1}, R{swap+1}")
+                
+                for r in range(piv+1, M.rows):
+                    if k := M[r, c] / M[piv, c]:
+                        M.row_op(r, lambda x, i: x - k * M[piv, i])
+                        log.append(f"R{r+1} -= {float(k):g}*R{piv+1}")
+                piv += 1
+    
+            # Phase 2: Backward & Check
+            log.append("\n2. Backward:")
+            sol = {}
+            for i in range(M.rows-1, -1, -1):
+                row = M.row(i)
+                # Check 0=k contradiction
+                if all(x==0 for x in row[:-1]):
+                    if abs(row[-1]) > 1e-9: return f"Contradiction: 0 != {float(row[-1]):g}"
+                    continue
+                
+                # Identify pivot variable for this row
+                p_idx = next(j for j, x in enumerate(row[:-1]) if x)
+                var = variables[p_idx]
+                
+                # Check for skipped variables (free)
+                # (If the previous variable we solved was p_idx+2, then p_idx+1 is free)
+                # For simplicity in concise code, we just rely on 'sol' defaults.
+    
+                val = (row[-1] - sum(row[j]*sol.get(variables[j],0) for j in range(p_idx+1, len(variables)))) / row[p_idx]
+                sol[var] = val
+                log.append(f"{var} = {float(val):g}")
+                
+            return "\n".join(log)

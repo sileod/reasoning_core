@@ -24,6 +24,8 @@ def worker_loop(in_q, out_q, out_path, batch_size,max_prompt_size):
 
             examples = T.generate_balanced_batch(batch_size=batch_size, level=lvl)
             examples = [x for x in examples if len(x.prompt.split())<args.max_prompt_size]
+            examples = [x for x in examples if len(x.metadata.get('cot', '').split())<args.max_prompt_size]
+
             if examples:
                 # EDIT: Removed UUID. Use deterministic filename based on 'idx'.
                 dest = Path(out_path) / f'{name}-{idx}.jsonl'
@@ -119,6 +121,7 @@ if __name__ == '__main__':
     parser.add_argument('--status_dir', required=True, type=str)
     parser.add_argument('--tasks', nargs='+', type=str, default=[])
     parser.add_argument('--max_prompt_size', default=5_000, type=int)
+
     args, unknown = parser.parse_known_args()
 
     generate_and_monitor(args)

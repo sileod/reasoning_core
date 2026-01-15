@@ -4,7 +4,7 @@
 __version__ = "0.1.17"
 
 import importlib
-import pkgutil
+#import pkgutil
 import ast
 import copy
 from itertools import islice, cycle
@@ -12,30 +12,32 @@ from math import ceil
 import json
 from tqdm.auto import tqdm
 import os
-from lazy_object_proxy import Proxy
-from .tasks import _reasoning_gym
 from .template import _REGISTRY, prepr_task_name
 from . import tasks
 
 _PACKAGE_NAME = __name__ 
 
-class _PrettyLazy:
-    __slots__ = ("name", "_p")
 
+class _PrettyLazy:
     def __init__(self, name, module_name):
         self.name = name
-        self._p = Proxy(lambda task=name, module=module_name: _lazy_loader(task, module))
+        self.module_name = module_name
+        self._obj = None
+
+    @property
+    def _resolved(self):
+        if self._obj is None:
+            self._obj = _lazy_loader(self.name, self.module_name)
+        return self._obj
 
     def __getattr__(self, attr):
-        return getattr(self._p, attr)
+        return getattr(self._resolved, attr)
 
     def __call__(self, *args, **kwargs):
-        return self._p(*args, **kwargs)
+        return self._resolved(*args, **kwargs)
 
     def __repr__(self):
         return f"<lazy:{self.name}>"
-
-
 
 def _discover_tasks():
     """
@@ -92,12 +94,15 @@ scorers = {
 }
 
 
-scorers['RG'] = _reasoning_gym.RG().score_answer
+def rg_scorer(a, e):
+    from .tasks import _reasoning_gym
+    return _reasoning_gym.RG().score_answer(a, e)
 
+scorers['RG'] = lambda a, e: rg_scorer(a, e)
 
 def match_task_name(name):
     norm = lambda x: x.replace('_','').lower()
-    matches = [t for t in DATASETS.keys() if norm(name) in norm(t)]
+    matches = [t for t in DATASETS.keys() if norm(name)==norm(t)]
     assert len(matches)==1, f"Could not uniquely identify task {name} in {list(DATASETS.keys())}"
     return matches[0]
 

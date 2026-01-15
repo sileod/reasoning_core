@@ -66,17 +66,17 @@ npreds_pattern = list(exrex.generate('~pred[a-z]'))
 
 def verbalize_predicates(x, seed=None, strip_underscores=True):
     rng = random.Random(seed)
-    preds = rng.sample(fol_nli_verbalization.predicates, len(preds_pattern), )
-    npreds = [fol_nli_verbalization.negate_predicate(p) for p in preds]
-    sub=dict()
-    sub|=dict(zip(npreds_pattern,npreds))
-    sub|=dict(zip(preds_pattern,preds))
-
-    for k,v in sub.items():
-        if not strip_underscores:
-            v=v.replace(' ','_')
-        x=x.replace(k,v)
-    return x.replace('_',' ') if strip_underscores else x
+    source = sorted(list(fol_nli_verbalization.predicates))
+    preds = rng.sample(source, len(preds_pattern))
+    
+    mapping = {**dict(zip(npreds_pattern, [fol_nli_verbalization.negate_predicate(p) for p in preds])), 
+               **dict(zip(preds_pattern, preds))}
+    
+    for k in sorted(mapping, key=len, reverse=True):
+        v = mapping[k].replace(' ', '_') if not strip_underscores else mapping[k]
+        x = x.replace(k, v)
+        
+    return x.replace('_', ' ') if strip_underscores else x
 
 def valid(x):
     for p in "", "~":
@@ -96,34 +96,32 @@ class LogicConfig(Config):
 
 
 def get_cot(text: str) -> str:
-    lines, memo = [], {} # old_id -> (new_idx, formula)
-
+    lines, memo = [], {}
     for line in text.splitlines():
-        if not (m := re.match(r'^(\d+)\.\s+(.*?)\s+\[(.*?)\]', line)): continue
+        # Fix: Greedy match (.*) anchored ($) ensures we parse until the final metadata block
+        if not (m := re.match(r'^(\d+)\.\s+(.*)\s+\[(.*?)\]$', line)): continue
         oid, form, meta = m.groups()
 
-        # Parse Refs & Rule
         p_oids = re.findall(r'\b(\d+)\b', meta)
+        # Map original parent IDs to new line numbers
         parents = [str(memo[p][0]) for p in p_oids if p in memo and 'input' not in meta]
-        rule = meta.split()[0]
 
-        # Dedupe: Skip if formula identical to single parent
+        # Dedupe: Skip if formula is identical to single parent
         if len(parents) == 1 and memo[p_oids[0]][1] == form:
-            memo[oid] = memo[p_oids[0]]
-            continue
+            memo[oid] = memo[p_oids[0]]; continue
 
-        # Format: [rule refs]
         if 'input' in meta:
-            ctx = "assumption" if "hyp" in meta else f"input {re.search(r'input (\d+)', meta)[1]}"
+            input_num = re.search(r'\d+', meta)
+            ctx = "assumption" if "hyp" in meta else f"input {input_num.group()}"
         else:
-            ctx = f"{rule} {', '.join(parents)}"
+            ctx = f"{meta.split()[0]} {', '.join(parents)}"
 
-        idx = len(lines) + 1
-        memo[oid] = (idx, form)
-        lines.append(f"{idx}. [{ctx}] {form}")
+        memo[oid] = (len(lines) + 1, form)
+        lines.append(f"{len(lines)}. [{ctx}] {form}")
 
     return "\n".join(lines)
 
+    
 class LogicNLI(Task):
 
     def __init__(self, config=LogicConfig()):
@@ -217,8 +215,9 @@ class EvidenceRetrieval(Task):
             f"Which statements in the premise {verb} the hypothesis?\n"
             f"Only answer the list of supporting statements, e.g. [0, 6, 7]."
         )
-        return verbalize_predicates(P)
-
+        P=verbalize_predicates(P, seed=meta.verbalize_seed)
+        return P
+    
     def score_answer(self, answer, entry):
         reference = entry['answer']
         prepr = lambda x: set(s.strip() for s in x.strip('[].').split(',') if s.strip())

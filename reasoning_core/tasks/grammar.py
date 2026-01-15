@@ -1,3 +1,5 @@
+from curses import meta
+from networkx import edges
 from unigram import init_grammar, generate
 from tqdm.auto import tqdm
 from functools import cache
@@ -22,7 +24,7 @@ from unigram import unigram_to_nltk
 
 fake = Faker()
 
-existing_grammars = [simple_english_grammar(), arith_grammar()]
+existing_grammars = [*[simple_english_grammar()]*2, arith_grammar()]
 existing_grammars = [unigram_to_nltk(g) for g in existing_grammars]
 
 wordlist = list(fake.words(nb=500,unique=True))
@@ -41,7 +43,7 @@ class GrammarConfig(Config):
     min_prod_depth:int=4
     max_prod_depth:int=6
 
-    random_grammar_prob:float = 0.5
+    random_grammar_prob:float = 0.3
     tagging_prob: float = 0.5
 
 
@@ -149,17 +151,18 @@ def perturb(tokens, config=GrammarConfig):
     ])(tokens)
 
 def make_cot(g, tokens):
+    header = "Action Span Rule\n"
     chart = EarleyChartParser(g).chart_parse(tokens)
     
-    get_action = lambda e: "[SCAN]    " if isinstance(e, str) else \
+    get_action = lambda e: "[SCAN]" if isinstance(e, str) else \
                            "[COMPLETE]" if e.is_complete() else \
-                           "[PREDICT] " if e.dot() == 0 else "[ADVANCE] "
+                           "[PREDICT]" if e.dot() == 0 else "[ADVANCE]"
 
     # Filter out 0-length predictions (noise), keep progress & tokens
-    edges = [e for e in chart.edges() if isinstance(e, str) or e.length() > 0]
+    edges = [e for e in chart.edges() if isinstance(e, str) or True]
     edges.sort(key=lambda e: (e.end(), e.length())) # Sort by locality
 
-    cot = "\n".join(f"{get_action(e)} [{e.start()}:{e.end()}] {e}" for e in edges)
+    cot = header + "\n".join(f"{get_action(e)} {e}" for e in edges)
     parses = [str(x) for x in chart.parses(g.start())]
     
     return cot, parses
@@ -187,7 +190,7 @@ def generate_parse(config=GrammarConfig):
                      "ambiguous"   if len(meta.parses) > 1 else 
                      "unambiguous")
         meta.tokens = tokens
-        meta.g = str(g).split('\n',1)[-1].strip()
+        meta.g = "\n".join(str(p) for p in g.productions())
         return meta
 
 
@@ -202,7 +205,6 @@ class Parsability(Task):
 
     def prompt(self, meta):
         g, tokens = meta.g, meta.tokens
-        g=" "*4+g
         return (
             f"(GRAMMAR)\n{g}\n\n"
             f"(STRING)\n{' '.join(tokens)}\n\n"

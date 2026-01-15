@@ -7,7 +7,7 @@ import unigram
 import re
 from decimal import Decimal, getcontext
 import ast, operator
-
+from fractions import Fraction
 import sympy
 from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 
@@ -106,30 +106,35 @@ class Arithmetics(Task):
         return Problem(metadata=meta, answer=ans_str)
     
     def prompt(self, metadata):
-        return f"Evaluate {metadata.expr}.\n Answer with only a number."
+        return f"Evaluate {metadata.expr}.\nAnswer with only a number."
 
     def score_answer(self, answer, entry):
         return score_scalar(answer, entry)
 
     def get_cot(self, expr):
-        ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv, ast.Pow: operator.pow}
-        syms = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.Pow: '**'}
-        steps = []
-    
-        def visit(node):
-            if isinstance(node, ast.Constant): 
-                return Decimal(str(node.value))
-            # Handle UnaryOp (negative numbers) silently
-            if isinstance(node, ast.UnaryOp): 
-                return -visit(node.operand)
+            ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv, ast.Pow: operator.pow}
+            syms = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.Pow: '**'}
+            steps = []
             
-            l, r = visit(node.left), visit(node.right)
-            res = ops[type(node.op)](l, r)
-            steps.append(f"{l} {syms[type(node.op)]} {r} = {res}")
-            return res
-    
-        visit(ast.parse(expr, mode='eval').body)
-        return "\n".join(steps)
+            def fmt(n):
+                d = n.denominator
+                while d % 2 == 0: d //= 2
+                while d % 5 == 0: d //= 5
+                
+                return f"{float(n):g}" if d == 1 else str(n)
+
+            def visit(node):
+                if isinstance(node, ast.Constant): return Fraction(str(node.value))
+                if isinstance(node, ast.UnaryOp): return -visit(node.operand)
+                
+                l, r = visit(node.left), visit(node.right)
+                res = ops[type(node.op)](l, r)
+                
+                steps.append(f"{fmt(l)} {syms[type(node.op)]} {fmt(r)} = {fmt(res)}")
+                return res
+
+            visit(ast.parse(expr, mode='eval').body)
+            return "\n".join(steps)
 
 
 @dataclass

@@ -48,6 +48,85 @@ def extract_useful_axioms(G: nx.DiGraph, node_id_str: str) :
 
     return useful_ax
 
+def make_cot(G: nx.DiGraph, target_node: str, formula_map: dict, hide_premise_derivation: bool = False) -> str:
+    """
+    Generates a CoT trace. 
+    Handles graph traversal stopping at premises and formats the output.
+    """
+    # 1. Graph Traversal (Select Subgraph)
+    if hide_premise_derivation:
+        relevant_nodes = {target_node}
+        stack = [target_node]
+        visited = {target_node}
+        
+        while stack:
+            curr = stack.pop()
+            node_data = G.nodes[curr]['data']
+            formula = node_data.clause_formula.strip().replace('\n', '')
+            
+            # Stop traversal if node is a mapped premise (but not the Theorem itself)
+            if formula in formula_map and str(formula_map[formula]) != "THEOREM":
+                continue
+
+            for p in G.predecessors(curr):
+                if p not in visited:
+                    visited.add(p)
+                    relevant_nodes.add(p)
+                    stack.append(p)
+        sub = G.subgraph(relevant_nodes)
+    else:
+        # Full history for Reconstruction tasks
+        nodes = nx.ancestors(G, target_node) | {target_node}
+        sub = G.subgraph(nodes)
+
+    # 2. Generate Output Lines
+    lines = []
+    seen_formulas = {} 
+    step_counter = 0
+
+    for node in nx.topological_sort(sub):
+        data = sub.nodes[node]['data']
+        formula = data.clause_formula.strip().replace('\n', '')
+        
+        if formula in seen_formulas: continue
+
+        # Determine parents in the subgraph
+        real_parents = [p for p in sub.predecessors(node) if p in sub.nodes]
+        
+        # Resolve Label and Parents
+        if formula in formula_map:
+            val = formula_map[formula]
+            if str(val) == "THEOREM":
+                label = "THEOREM"
+                parents = real_parents # Theorem always shows derivation
+            else:
+                label = f"premise_{val}"
+                # Premises act as leaves only if hiding derivation is requested
+                parents = [] if hide_premise_derivation else real_parents
+        else:
+            label = f"step_{step_counter}"
+            step_counter += 1
+            parents = real_parents
+
+        seen_formulas[formula] = label
+
+        # Format Parent Labels
+        parent_labels = sorted(list(set(
+            seen_formulas[sub.nodes[p]['data'].clause_formula.strip().replace('\n', '')] 
+            for p in parents 
+            if sub.nodes[p]['data'].clause_formula.strip().replace('\n', '') in seen_formulas
+        )))
+
+        # 3. Print
+        if not parent_labels:
+            if formula not in formula_map:
+                lines.append(f"{label} axiom: [ '{formula}' ]")
+        else:
+            lines.append(f"{label} inference({', '.join(parent_labels)}): [ '{formula}' ]")
+
+    return "\n".join(lines).strip()
+
+
 def perturb_list(input_l: list, base_domain: list, n_perturbations: int = 1) -> list:
     """Applies cumulative perturbations to a list."""
     lst = list(input_l) 
@@ -267,7 +346,6 @@ class ConjectureEntailment(Task):
             f"The following are the fundamental axioms of this domain, providing a general theoretical background:\n"
             f"Fundamental Axioms:\n"
             f"{axiom_text}\n\n"
-            f"--- \n\n"
             f"## Task\n"
             f"Now, you are given a specific **subset of axioms** and a theorem from this domain.\n\n"
             f"**Axiom Subset under consideration:**\n"
@@ -277,7 +355,7 @@ class ConjectureEntailment(Task):
             f"### Question\n"
             f"Is the **\"Axiom Subset under consideration\"** listed above **sufficient on its own** to prove the **\"Theorem to prove\"**?\n\n"
             f"### Response Format\n"
-            f"Respond **only** with `True` if the provided subset is sufficient, or `False` otherwise. Do not provide explanations."
+            f"Respond only with `True` if the provided subset is sufficient, or `False` otherwise. Do not provide explanations."
         )
 
     def score_answer(self, answer, entry):
@@ -372,9 +450,17 @@ class TheoremPremiseSelection(Task):
                 hypotheses_pool.index(h) + 1 for h in minimal_hypotheses
             ])
 
+           # Map the pool items to their prompt numbers
+            f_map = {h: i+1 for i, h in enumerate(hypotheses_pool)}
+            # Map the goal theorem to a fixed string
+            f_map[theorem] = "THEOREM"
+            
+            cot = make_cot(self.graph, theorem_node_id, f_map, hide_premise_derivation=True)
+
             metadata = edict({
                 'hypotheses_pool': hypotheses_pool, 
                 'theorem': theorem,
+                'cot': cot,
                 'correct_indices' : correct_indices ,
                 'correct_minimal_hypotheses': minimal_hypotheses , 
                 'correct_hypotheses' : superset_hypotheses ,
@@ -405,7 +491,6 @@ class TheoremPremiseSelection(Task):
             f"The following are the fundamental axioms of this domain. They provide general context. **Do not use them in the proof itself.**\n"
             f"Fundamental Axioms:\n"
             f"{axiom_text}\n\n"
-            f"--- \n\n"
             f"## Task\n"
             f"Your goal is to prove the following theorem:\n"
             f"**Theorem:**\n"
@@ -534,9 +619,14 @@ class ProofReconstruction(Task):
                 proof_structure_indices.append(f"{child_idx} <- {', '.join(map(str, parent_indices))}")
 
         proof_structure_ids = [f"{node} <- {', '.join(sorted(list(proof_graph.predecessors(node))))}" for node in proof_graph.nodes() if proof_graph.in_degree(node) > 0]
+        
+        f_map = {c: i+1 for i, c in enumerate(all_clauses_in_proof)}
+        cot = make_cot(proof_graph, theorem_node_id, f_map, hide_premise_derivation=False)
+        
         metadata = edict({
             'numbered_clauses': all_clauses_in_proof, 
             'conjecture': theorem_formula,
+            'cot': cot,
             'correct_proof_structure_indices' : proof_structure_indices,
             'correct_proof_structure_ids': sorted(proof_structure_ids),
             'correct_proof_graph' : str(proof_graph),

@@ -11,12 +11,17 @@ from ast import literal_eval
 
 ### Tool functions 🛠️
 
+class SetList(list):
+    def __repr__(self):
+        # f-strings call __str__, which for lists defaults to calling this.
+        return "{" + ", ".join(map(repr, self)) + "}"
+
 def return_shuffle(domain):
     """Domain must be a collection of element convertible in list"""
-    domain = list(domain)
+    # Cast to SetList so it prints with curly braces but behaves like a list
+    domain = SetList(domain)
     random.shuffle(domain)
     return domain
-
 
 def random_subdomain(domain, size=None):
     """Domain must be a collection of element convertible in list, and frac must be a float between 0 and 1. \n

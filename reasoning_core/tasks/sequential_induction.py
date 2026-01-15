@@ -286,7 +286,7 @@ class SequentialInduction(Task):
         "- Reference if necessary to previous terms as U[n - 1], U[n - 2], ..., U[n - d] where d is the given degree of recursion (use exactly this format)\n"
         "- You can use \"n\" as the current index (e.g., U[n] = n)\n"
         "- You must only provide the right-hand side of the formula (i.e., f(U[n], n) such that U[n] = f(...))\n"
-        """- ⚠️ This implies to not include "U[n] =" in your output.\n """
+        """- This implies to not include "U[n] =" in your output.\n """
         "- The degree of recursion of your guessed formula must be inferior or equal to the one of the true formula\n\n"
         "- The sequence you are asked to induce its recursive formula have the following properties:\n"
         f"Sequence: {metadata['first elements']}\n"
