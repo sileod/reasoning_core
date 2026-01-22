@@ -12,32 +12,34 @@ from pathlib import Path
 from reasoning_core.utils.udocker_process import prover_session
 from ._sat_graph import generate_derivation_graph
 from reasoning_core.template import Task, Problem, Config
+import ast
 
-
-def extract_problem_from_graph(G: nx.DiGraph, node_id_str: str, max_lengh_proof: int):
-    """Extracts a theorem and its premises up to a certain depth from the graph."""
-
-    predecessors = {node_id_str}
-    theorem = G.nodes[node_id_str].get('data').clause_formula
-
-    for _ in range(max_lengh_proof):
-        new_predecessors = set()
-        for pred in predecessors:
-            preds = list(G.predecessors(pred))
-            if preds:
-                new_predecessors.update(preds)
+def extract_problem_from_graph(G: nx.DiGraph, node_id_str: str, max_length_proof: int):
+    theorem = G.nodes[node_id_str]['data'].clause_formula
+    frontier = {node_id_str}
+    collected_hypotheses = set()
+    
+    for _ in range(max_length_proof):
+        nxt = set()
+        for v in frontier:
+            parents = list(G.predecessors(v))
+            if parents:
+                # Continue traversing up the graph
+                nxt.update(parents)
             else:
-                new_predecessors.add(pred) 
-        if not new_predecessors:
+                # FIX: Capture leaves (axioms) encountered on short branches
+                collected_hypotheses.add(v)
+        
+        if not nxt:
             break
-        predecessors = new_predecessors
-
-    dependence = set()
-    for i in predecessors :
-        dependence.add(G.nodes[i]['data'].clause_formula)
-
-    dependence.discard(theorem)
-    return list(dependence), theorem
+        frontier = nxt
+    
+    # The final frontier (nodes at max_depth) are also hypotheses
+    collected_hypotheses.update(frontier)
+    
+    hypotheses = [G.nodes[n]['data'].clause_formula for n in collected_hypotheses]
+    hypotheses = [h for h in hypotheses if h != theorem]
+    return hypotheses, theorem
 
 def extract_useful_axioms(G: nx.DiGraph, node_id_str: str) : 
     ancestors = nx.ancestors(G, node_id_str)
@@ -48,84 +50,85 @@ def extract_useful_axioms(G: nx.DiGraph, node_id_str: str) :
 
     return useful_ax
 
-def make_cot(G: nx.DiGraph, target_node: str, formula_map: dict, hide_premise_derivation: bool = False) -> str:
-    """
-    Generates a CoT trace. 
-    Handles graph traversal stopping at premises and formats the output.
-    """
-    # 1. Graph Traversal (Select Subgraph)
-    if hide_premise_derivation:
-        relevant_nodes = {target_node}
-        stack = [target_node]
-        visited = {target_node}
+
+def normalize_formula(f: str) -> str:
+    """Canonicalize formula: remove whitespace and anonymize variables."""
+    if not f: return ""
+    # Remove whitespace
+    f = re.sub(r"\s+", "", f)
+    # Replace variables (e.g., X123) with generic V to handle alpha-equivalence
+    f = re.sub(r"X\d+", "V", f)
+    return f
+
+# 2. FIX: Clean CoT generation with step collapsing and better labeling
+def make_cot(G: nx.DiGraph, target_node: str, formula_map: dict) -> str:
+    sub = G.subgraph(nx.ancestors(G, target_node) | {target_node})
+    lines = []
+    node_to_label = {}
+    step_counter = 0
+    sys_ax_counter = 0  # Fixed variable name
+
+    # Topological sort ensures we process parents before children
+    for node in nx.topological_sort(sub):
         
-        while stack:
-            curr = stack.pop()
-            node_data = G.nodes[curr]['data']
-            formula = node_data.clause_formula.strip().replace('\n', '')
-            
-            # Stop traversal if node is a mapped premise (but not the Theorem itself)
-            if formula in formula_map and str(formula_map[formula]) != "THEOREM":
+        # Optimization: Skip intermediate 1-parent nodes (normalization/copy steps)
+        # This removes "c_0_X" noise unless it's the final theorem
+        parents = sorted(list(sub.predecessors(node)))
+        if len(parents) == 1 and node != target_node:
+            # Inherit label from the single parent (collapse step)
+            p_lbl = node_to_label.get(parents[0])
+            if p_lbl:
+                node_to_label[node] = p_lbl
                 continue
 
-            for p in G.predecessors(curr):
-                if p not in visited:
-                    visited.add(p)
-                    relevant_nodes.add(p)
-                    stack.append(p)
-        sub = G.subgraph(relevant_nodes)
-    else:
-        # Full history for Reconstruction tasks
-        nodes = nx.ancestors(G, target_node) | {target_node}
-        sub = G.subgraph(nodes)
-
-    # 2. Generate Output Lines
-    lines = []
-    seen_formulas = {} 
-    step_counter = 0
-
-    for node in nx.topological_sort(sub):
         data = sub.nodes[node]['data']
-        formula = data.clause_formula.strip().replace('\n', '')
+        f_norm = normalize_formula(data.clause_formula)
         
-        if formula in seen_formulas: continue
-
-        # Determine parents in the subgraph
-        real_parents = [p for p in sub.predecessors(node) if p in sub.nodes]
+        val = formula_map.get(f_norm)
+        is_theorem = (node == target_node)
         
-        # Resolve Label and Parents
-        if formula in formula_map:
-            val = formula_map[formula]
-            if str(val) == "THEOREM":
+        # Determine Label
+        if not parents:
+            # Leaf / Axiom
+            if is_theorem:
                 label = "THEOREM"
-                parents = real_parents # Theorem always shows derivation
-            else:
+                lines.append(f"THEOREM [ '{data.clause_formula.strip()}' ] (axiom)")
+            elif val is not None and str(val) != "THEOREM":
                 label = f"premise_{val}"
-                # Premises act as leaves only if hiding derivation is requested
-                parents = [] if hide_premise_derivation else real_parents
+            else:
+                # Fallback for unmapped system axioms
+                label = f"sys_ax_{sys_ax_counter}"
+                sys_ax_counter += 1
+            node_to_label[node] = label
+            continue
+
+        # Derived Node
+        # Get parent labels
+        p_labels = [node_to_label.get(p) for p in parents if p in node_to_label]
+        if not p_labels: continue
+
+        if is_theorem:
+            label = "THEOREM"
         else:
             label = f"step_{step_counter}"
             step_counter += 1
-            parents = real_parents
+        
+        node_to_label[node] = label
 
-        seen_formulas[formula] = label
-
-        # Format Parent Labels
-        parent_labels = sorted(list(set(
-            seen_formulas[sub.nodes[p]['data'].clause_formula.strip().replace('\n', '')] 
-            for p in parents 
-            if sub.nodes[p]['data'].clause_formula.strip().replace('\n', '') in seen_formulas
-        )))
-
-        # 3. Print
-        if not parent_labels:
-            if formula not in formula_map:
-                lines.append(f"{label} axiom: [ '{formula}' ]")
+        # Clean Inference Rule Name
+        # Extract 'res', 'pm', 'rw' from string like "inference(rw,[status...])"
+        inf_str = data.inference or ""
+        rule_match = re.search(r'inference\(([a-zA-Z0-9_]+)', inf_str)
+        if rule_match:
+            rule_name = rule_match.group(1)
         else:
-            lines.append(f"{label} inference({', '.join(parent_labels)}): [ '{formula}' ]")
+            # Fallback cleanup for non-standard formats
+            rule_name = re.match(r'([a-zA-Z0-9_]+)', inf_str).group(1) if inf_str else "inference"
+            if rule_name.startswith("c_0"): rule_name = "processing"
+
+        lines.append(f"{label} {rule_name}({', '.join(p_labels)}): [ '{data.clause_formula.strip()}' ]")
 
     return "\n".join(lines).strip()
-
 
 def perturb_list(input_l: list, base_domain: list, n_perturbations: int = 1) -> list:
     """Applies cumulative perturbations to a list."""
@@ -157,7 +160,7 @@ def perturb_list(input_l: list, base_domain: list, n_perturbations: int = 1) -> 
             
     return lst
 
-def prove_conjecture(axiomes: list[str], conjecture: str,
+def prove_conjecture(axioms: list[str], conjecture: str,
                         time_limit_seconds: str ="2d", verb: bool = False):
     """
     Uses Vampire to prove or disprove a conjecture given a set of axioms.
@@ -165,8 +168,8 @@ def prove_conjecture(axiomes: list[str], conjecture: str,
     """
     
     with tempfile.NamedTemporaryFile(mode='w+', delete=True, suffix='.p') as temp_f:
-        for i, axiome in enumerate(axiomes, 1):
-            temp_f.write(f"cnf(axiom_{i}, axiom, {axiome}).\n")
+        for i, axiom in enumerate(axioms, 1):
+            temp_f.write(f"cnf(axiom_{i}, axiom, {axiom}).\n")
         temp_f.write(f"fof(conjecture_1, conjecture, {conjecture}).\n")
         temp_f.flush()
         
@@ -313,6 +316,8 @@ class ConjectureEntailment(Task):
             useful_axioms_formula = [self.graph.nodes[node]['data'].full_cnf_clause for node in useful_axioms]
             if random.random() < self.config.positive_problem_ratio:
                 hypotheses = correct_hypotheses
+                if prove_conjecture(hypotheses, theorem) is not True:
+                    continue
                 answer = True 
             else:
                 distraction_pool = list(set(self.all_formulas) - {theorem})
@@ -375,6 +380,7 @@ class SelectionConfig(Config):
         self.proof_depth += c
         self.num_distractors += c
 
+
 class TheoremPremiseSelection(Task):
     """
     A task that generates problems where one must select the essential hypotheses
@@ -385,6 +391,18 @@ class TheoremPremiseSelection(Task):
         super().__init__(config)
         
     _initialize_graph = ConjectureEntailment._initialize_graph
+
+    def _reprove_with_minimal(self, hypotheses: list) -> nx.DiGraph:
+            """
+            Run E-prover on ONLY the minimal set as AXIOMS. 
+            No conjecture is passed; we rely on derivation to find the theorem node.
+            """
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.p', delete=True) as tf:
+                for i, h in enumerate(hypotheses):
+                    tf.write(f"cnf(h_{i}, axiom, {h}).\n")
+                tf.flush()
+                # rank=False prevents unnecessary processing
+                return generate_derivation_graph(tf.name, save_output=False, e_limit=2, ranking=False)
 
     def find_minimal_hypotheses(self, initial_hypotheses: list[str], conjecture: str) -> list[str]:
         """
@@ -410,69 +428,80 @@ class TheoremPremiseSelection(Task):
 
     def generate(self):
         self._initialize_graph()
-
+    
         while True:
             if not self.interesting_thm:
-                raise RuntimeError("No interesting theorems found to generate a problem.")
+                self._initialize_graph()
+                if not self.interesting_thm: continue
 
             theorem_node_id = random.choice(self.interesting_thm)
-            useful_axioms = extract_useful_axioms(self.graph, theorem_node_id)
-            useful_axioms_formula = [self.graph.nodes[node]['data'].full_cnf_clause for node in useful_axioms]
-
-            # 1. Extract a superset of potentially correct hypotheses
-            superset_hypotheses, theorem = extract_problem_from_graph(
+            
+            # 1. Extract Superset & Minimize
+            superset, theorem = extract_problem_from_graph(
                 self.graph, theorem_node_id, self.config.proof_depth
             )
             
-            # 2. Reduce the set to a guaranteed minimal subset
             try:
-                minimal_hypotheses = self.find_minimal_hypotheses(superset_hypotheses, theorem)
-            except Exception as e:
-                #print(f"Warning: An error occurred during minimization: {e}. Skipping.")
-                continue
+                # Verify superset (optimization)
+                if prove_conjecture(superset, theorem) is not True: continue
+                
+                minimal = self.find_minimal_hypotheses(superset, theorem)
+                
+                # Verify minimal (safety)
+                if not minimal or prove_conjecture(minimal, theorem) is not True: continue
+            except Exception: continue
 
-            # If the proof is trivial or something went wrong, try again
-            if not minimal_hypotheses:
-                continue
+            # 2. RE-PROVE for Clean CoT (Forward Derivation)
+            clean_graph = self._reprove_with_minimal(minimal)
+            
+            # Locate theorem node in new graph
+            target_node = None
+            clean_theorem_str = normalize_formula(theorem)
+            
+            for n, d in clean_graph.nodes(data=True):
+                if normalize_formula(d['data'].clause_formula) == clean_theorem_str:
+                    target_node = n
+                    break
+            
+            if not target_node: continue 
 
-            # 3. Create a pool of distractors (unrelated formulas)
-
-            distractor_pool = list(set(self.all_formulas) - set(minimal_hypotheses) - {theorem})
-            if len(distractor_pool) < self.config.num_distractors:
-                continue # Not enough distractors available, try another theorem
-
-            # 4. Create the final problem
+            # 3. Create Distractors & Pool
+            distractor_pool = list(set(self.all_formulas) - set(minimal) - {theorem})
+            if len(distractor_pool) < self.config.num_distractors: continue 
+            
             distractors = random.sample(distractor_pool, self.config.num_distractors)
-            hypotheses_pool = minimal_hypotheses + distractors
-            random.shuffle(hypotheses_pool)
-            
-            correct_indices = sorted([
-                hypotheses_pool.index(h) + 1 for h in minimal_hypotheses
-            ])
+            pool = minimal + distractors
+            random.shuffle(pool)
 
-           # Map the pool items to their prompt numbers
-            f_map = {h: i+1 for i, h in enumerate(hypotheses_pool)}
-            # Map the goal theorem to a fixed string
-            f_map[theorem] = "THEOREM"
+            # 4. Generate CoT
+            # Map ONLY minimal premises to their pool indices.
+            # This ensures distractors (if derived coincidentally) aren't labeled as premises.
+            f_map = {normalize_formula(h): pool.index(h)+1 for h in minimal}
+            f_map[clean_theorem_str] = "THEOREM"
+
+            cot = make_cot(clean_graph, target_node, f_map)
+
+            # 5. Metadata & Context Filtering
+            pool_norm = set(normalize_formula(h) for h in pool)
+            useful_axioms_norm = []
+            orig_useful_ids = extract_useful_axioms(self.graph, theorem_node_id)
             
-            cot = make_cot(self.graph, theorem_node_id, f_map, hide_premise_derivation=True)
+            for uid in orig_useful_ids:
+                u_cnf = self.graph.nodes[uid]['data'].full_cnf_clause
+                if normalize_formula(self.graph.nodes[uid]['data'].clause_formula) not in pool_norm:
+                    useful_axioms_norm.append(u_cnf)
 
             metadata = edict({
-                'hypotheses_pool': hypotheses_pool, 
+                'hypotheses_pool': pool, 
                 'theorem': theorem,
                 'cot': cot,
-                'correct_indices' : correct_indices ,
-                'correct_minimal_hypotheses': minimal_hypotheses , 
-                'correct_hypotheses' : superset_hypotheses ,
-                'proof_depth' : self.config.proof_depth,
-                'num_distractors' : self.config.num_distractors ,
-                'useful_axioms' : useful_axioms_formula,
-                'axiom_set' : self.axiom_set
+                'correct_indices': sorted([pool.index(h) + 1 for h in minimal]),
+                'correct_minimal_hypotheses': minimal, 
+                'useful_axioms': useful_axioms_norm, 
+                'axiom_set': self.axiom_set
             })
             
-            answer = correct_indices
-
-            return Problem(metadata, str(answer))
+            return Problem(metadata, str(metadata.correct_indices))
 
     def prompt(self, metadata):
     
@@ -515,7 +544,7 @@ class TheoremPremiseSelection(Task):
             return 0.0
 
 
-        truth_indices = set(eval(entry.answer))
+        truth_indices = set(ast.literal_eval(entry.answer))
         pred_indices = set(map(int, re.findall(r'\d+', str(answer))))
 
 
@@ -620,9 +649,10 @@ class ProofReconstruction(Task):
 
         proof_structure_ids = [f"{node} <- {', '.join(sorted(list(proof_graph.predecessors(node))))}" for node in proof_graph.nodes() if proof_graph.in_degree(node) > 0]
         
-        f_map = {c: i+1 for i, c in enumerate(all_clauses_in_proof)}
-        cot = make_cot(proof_graph, theorem_node_id, f_map, hide_premise_derivation=False)
-        
+
+        f_map = {normalize_formula(c): i+1 for i, c in enumerate(all_clauses_in_proof)}
+        cot = make_cot(proof_graph, theorem_node_id, f_map)
+
         metadata = edict({
             'numbered_clauses': all_clauses_in_proof, 
             'conjecture': theorem_formula,
@@ -776,7 +806,7 @@ class ProofReconstruction(Task):
                     except TypeError:
                         # Fallbacks (depending on existing signature)
                         try:
-                            ok = prove_conjecture(axiomes=axioms_list, conjecture=conj)
+                            ok = prove_conjecture(axioms=axioms_list, conjecture=conj)
                         except Exception:
                             ok = prove_conjecture(axioms_list, conj)  # positional
                     if ok is True:

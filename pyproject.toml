@@ -16,9 +16,11 @@ description = "A RL env with procedurally generated symbolic reasoning data"
 dependencies = [
     "faker",
     "inflection",
+    "rapidfuzz",
     "unified-planning[pyperplan]",
     "tarski",
     "reasoning_gym",
+    "tiktoken",
     "prime",
     "networkx",
     "pooch",

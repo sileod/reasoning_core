@@ -1,4 +1,3 @@
-from curses import meta
 from networkx import edges
 from unigram import init_grammar, generate
 from tqdm.auto import tqdm
@@ -14,13 +13,14 @@ from nltk.data import path as nltk_path
 import string
 from easydict import EasyDict as edict
 from faker import Faker
-from nltk.metrics.distance import edit_distance
 import re
 from timeoutcontext import timeout
 from nltk.tree import Tree
 from collections import defaultdict
 from unigram.grammars import simple_english_grammar, arith_grammar
 from unigram import unigram_to_nltk
+from rapidfuzz.distance import Levenshtein
+from itertools import islice
 
 fake = Faker()
 
@@ -154,17 +154,19 @@ def make_cot(g, tokens):
     header = "Action Span Rule\n"
     chart = EarleyChartParser(g).chart_parse(tokens)
     
+    parses = [str(x) for x in islice(chart.parses(g.start()), 2)]
+    
+    if len(parses) == 2:  # Ambiguous → skip CoT construction
+        return "[EARLY EXIT: ambiguous]", parses
+    
     get_action = lambda e: "[SCAN]" if isinstance(e, str) else \
                            "[COMPLETE]" if e.is_complete() else \
                            "[PREDICT]" if e.dot() == 0 else "[ADVANCE]"
 
-    # Filter out 0-length predictions (noise), keep progress & tokens
     edges = [e for e in chart.edges() if isinstance(e, str) or True]
-    edges.sort(key=lambda e: (e.end(), e.length())) # Sort by locality
+    edges.sort(key=lambda e: (e.end(), e.length()))
 
     cot = header + "\n".join(f"{get_action(e)} {e}" for e in edges)
-    parses = [str(x) for x in chart.parses(g.start())]
-    
     return cot, parses
 
 def generate_parse(config=GrammarConfig):
@@ -254,8 +256,11 @@ class Parsing(Task):
             "Return the fully parenthesized parse tree of STRING in Lisp style.\n"
             f"{ex}")
 
+
     def score_answer(self, answer, entry):
-        reference = entry['answer']
         norm = lambda s: re.sub(r'\s+', ' ', str(s).strip()).replace('"','').replace("'",'')
-        dist = edit_distance(norm(answer), norm(reference))
-        return 1 / (1 + dist / (len(reference)**0.5 + 1))
+
+        reference = entry['answer']
+        if not answer: return 0.0
+        
+        return Levenshtein.normalized_similarity(norm(answer), norm(reference))

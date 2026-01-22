@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from nltk.metrics.distance import edit_distance
 from reasoning_core.template import Task, Problem, Config
 from reasoning_core.utils import score_scalar
+import csv
+import io
+from rapidfuzz.distance import Levenshtein
 
 @dataclass
 class TableQAConfig(Config):
@@ -44,9 +47,12 @@ class TableQA(Task):
         super().__init__(config=config)
     
     def _query(self, dataframe):
+        if len(dataframe) == 0: return "SELECT COUNT(*) FROM dataframe"
+
         num = dataframe.select_dtypes('number').columns.tolist()
         cat = dataframe.select_dtypes(exclude='number').columns.tolist()
         order = random.choice(['ASC', 'DESC'])
+        esc = lambda s: str(s).replace("'", "''")
         
         queries = []
         if num:
@@ -54,27 +60,36 @@ class TableQA(Task):
             queries += [
                 f"SELECT ROUND({random.choice(['SUM', 'AVG', 'MAX', 'MIN'])}({c}), 2) FROM dataframe",
                 f"SELECT COUNT(*) FROM dataframe WHERE {c} > {dataframe[c].quantile(random.choice([0.3, 0.5, 0.7]))}",
+                f"SELECT * FROM dataframe ORDER BY {c} {order} LIMIT {random.randint(1, 3)}"
             ]
+            if len(num) >= 2:
+                n1, n2 = random.sample(num, 2)
+                queries.append(f"SELECT ROUND(AVG({n1} * {n2}), 2) FROM dataframe")
+
         if num and cat:
             n, c = random.choice(num), random.choice(cat)
             queries.append(
-                f"SELECT {c} FROM (SELECT {c}, SUM({n}) v FROM dataframe GROUP BY {c}) "
+                f"SELECT {c}, SUM({n}) as v FROM dataframe GROUP BY {c} "
                 f"ORDER BY v {order} LIMIT {random.randint(1, 3)}"
             )
+            val = esc(dataframe[c].iloc[0])
+            queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} = '{val}' AND {n} > {dataframe[n].mean()}")
+
         if cat:
             c = random.choice(cat)
+            val = esc(dataframe[c].iloc[random.randint(0, len(dataframe)-1)])
             queries.append(f"SELECT COUNT(DISTINCT {c}) FROM dataframe")
-            v = dataframe[c].iloc[random.randint(0, len(dataframe)-1)]
-            queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} = '{v}'")
+            queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} = '{val}'")
+            if len(val) > 1:
+                queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} LIKE '%{val[1:]}%'")
         
         return random.choice(queries) if queries else "SELECT COUNT(*) FROM dataframe"
     
     def generate(self):
+        # ... [unchanged] ...
         dataframe = generate_random_table(self.config)
         q = self._query(dataframe)
-        # duckdb will find 'dataframe' in local scope
         result = duckdb.sql(q).df()
-
         render_func, fmt_name = random.choice(get_renderers(dataframe))
         is_scalar = result.shape == (1, 1)
         
@@ -101,9 +116,12 @@ class TableQA(Task):
             return score_scalar(ans, entry)
         
         if ans.strip() == entry.answer.strip(): return 1.0
+        
         try:
-            parse = lambda s: [[v.strip() for v in r.split(',')] for r in s.strip().split('\n')]
+            # Fix: Use csv module to handle quoted strings like "Smith, Jones & Co"
+            parse = lambda s: list(csv.reader(io.StringIO(s.strip())))
             a, e = parse(ans), parse(entry.answer)
+            
             if len(a) != len(e): return 0.0
             for ar, er in zip(a, e):
                 if len(ar) != len(er): return 0.0
@@ -111,7 +129,7 @@ class TableQA(Task):
                     try:
                         if abs(float(av) - float(ev)) > 0.01: return 0.0
                     except:
-                        if av != ev: return 0.0
+                        if av.strip() != ev.strip(): return 0.0
             return 1.0
         except:
             return 0.0
@@ -143,10 +161,8 @@ class TableConversion(Task):
         )
 
     def score_answer(self, answer, entry):
-        reference = entry.answer
-        norm = lambda s: re.sub(r'\s+', ' ', str(s).strip()).replace('"', '').replace("'", '')
+        reference = entry['answer']
+        if not answer: return 0.0
         
-        if not reference and not answer: return 1.0
-        
-        dist = edit_distance(norm(answer), norm(reference))
-        return 1 / (1 + dist / (len(reference)**0.5 + 1))
+        # normalized_similarity returns 0.0 - 1.0 (float)
+        return Levenshtein.normalized_similarity(str(answer).strip(), str(reference).strip())

@@ -27,7 +27,7 @@ from random import choice
 from unified_planning.interop import convert_problem_to_tarski
 from unified_planning.interop import convert_problem_from_tarski
 from dataclasses import dataclass, field
-from collections import namedtuple
+from collections import Counter, namedtuple
 from reasoning_core.template import Task, Problem, Reward, Config
 import logging
 logging.getLogger().setLevel(logging.WARNING)
@@ -52,7 +52,7 @@ def shutup():
 
 
 def combinations(lst):
-    return list(chain.from_iterable(permutations(lst, r) for r in range(1, len(lst) + 1)))
+    return list(chain.from_iterable(permutations(lst, r) for r in range(0, len(lst) + 1)))
 
 def trivial(problem):
     goals= problem.goals[0]
@@ -207,9 +207,16 @@ def generate_problem(N=5, domain=None):
 
     # Set goal state 🏁
     rr = lambda n: range(random.randint(1, n))
+    used_goals = set()  
+
     for _ in rr(max(1,N//2)):
         fluent = random.choice(problem.fluents)
         objects = [random.choice(list(problem.objects(fluent.signature[i].type))) for i in range(fluent.arity)]
+        objects = tuple(objects)
+        if (fluent, objects) in used_goals:
+            continue
+        used_goals.add((fluent, objects))
+
         expr = fluent(*objects)
         expr = random.choice([Not(expr)]+5*[expr])
         problem.add_goal(expr)
@@ -251,83 +258,85 @@ def to_pddl(s):
     actions = [a.strip('[]').strip().replace(',','').replace('(',' ') for a in s.split(')')]
     return "\n".join([f'({a})' for a in actions if a]).replace('))',')')
 
-
 def translate(problem: Problem, write_default=0.5) -> str:
-    description = []
+    desc = []
+    
+    # 1. Analyze Types
+    # If >1 type exists, types are crucial. If 1 type, they are noise.
+    types = list(problem.user_types)
+    multi_type = len(types) > 1
 
-    write_default = random.random()<write_default
-    # Introduction
-    description.append(f"I am playing with a set of objects.")
+    # --- [OBJECTS] ---
+    desc.append("[OBJECTS]")
+    if multi_type:
+        for t in types:
+            objs = list(problem.objects(t))
+            if objs:
+                desc.append(f"{t.name}: {', '.join(o.name for o in objs)}")
+    else:
+        # Flatten list if types don't matter
+        all_objs = list(itertools.chain.from_iterable(problem.objects(t) for t in types))
+        desc.append(", ".join(o.name for o in all_objs) if all_objs else "None")
 
-    # Actions
-    description.append("\nHere are the actions I can do:")
+    # --- [ACTIONS] ---
+    desc.append("\n[ACTIONS]")
     for action in problem.actions:
-        params = ", ".join([f"{p.name}" for p in action.parameters])
-        description.append(f"{action.name} with {params}")
+        # Map internal names (action_0_param_1) to logical names (x0, x1)
+        # We sort by length descending so regex doesn't match substrings (e.g. param1 inside param10)
+        param_map = {p.name: f"x{i}" for i, p in enumerate(action.parameters)}
+        sorted_keys = sorted(param_map.keys(), key=len, reverse=True)
 
-    description.append("\nI have the following restrictions on my actions:")
-    for action in problem.actions:
-        description.append('')
-        params = {p.name: p.type.name for p in action.parameters}
+        def clean(expr):
+            s = str(expr)
+            for old in sorted_keys:
+                # Regex \b ensures exact word matching
+                s = re.sub(rf"\b{re.escape(old)}\b", param_map[old], s)
+            return s
 
+        # Signature
+        params = []
+        for i, p in enumerate(action.parameters):
+            p_str = f"x{i}:{p.type.name}" if multi_type else f"x{i}"
+            params.append(p_str)
+        desc.append(f"{action.name}({', '.join(params)})")
+
+        # Logic
         if action.preconditions:
-            precond_str = ", ".join([str(precond).format(**params) for precond in action.preconditions])
-            description.append(f"To perform {action.name} action, the following facts need to be true: {precond_str}.")
+            pre = ", ".join([clean(p) for p in action.preconditions])
+            desc.append(f"  Requires: {pre}")
 
-        positive_effects = [effect for effect in action.effects if effect.value.is_true()]
-        if positive_effects:
-            effect_str = ", ".join([str(effect.fluent).format(**params) for effect in positive_effects])
-            description.append(f"Once {action.name} action is performed the following facts will be true: {effect_str}.")
+        # Combine positive and negative effects into one line
+        effects = []
+        for e in action.effects:
+            fluent = clean(e.fluent)
+            if e.value.is_true():
+                effects.append(fluent)
+            else:
+                effects.append(f"not {fluent}")
+        
+        if effects:
+            desc.append(f"  Effect: {', '.join(effects)}")
 
-        negative_effects = [effect for effect in action.effects if not effect.value.is_true()]
-        if negative_effects:
-            effect_str = ", ".join([str(effect.fluent).format(**params) for effect in negative_effects])
-            description.append(f"Once {action.name} action is performed the following facts will be false: {effect_str}.")
+    # --- [STATE] ---
+    desc.append("\n[STATE]")
+    
+    # Handle Default Value logic
+    if random.random() < write_default:
+        # Calculate majority value in initial state (True or False)
+        vals = [v.is_true() for v in problem.initial_values.values()]
+        # If vals is empty, default to False
+        default_val = Counter(vals).most_common(1)[0][0] if vals else False
+        desc.append(f"Default: {default_val}")
 
-    # Objects
-    objects = list(itertools.chain(*[problem.objects(t) for t in problem.user_types]))
-    if objects:
-        obj_by_type = {}
-        for obj in objects:
-            if obj.type not in obj_by_type:
-                obj_by_type[obj.type] = []
-            obj_by_type[obj.type].append(obj.name)
-        object_description = []
-        for type, objs in obj_by_type.items():
-            obj_list = ", ".join([f"{type.name} {obj}" for obj in objs])
-            object_description.append(obj_list)
-        object_str = ", ".join(object_description)
-        #description.append(f"The problem involves the following objects: {object_str}.")
+    # Init (Standard PDDL assumption: list only True facts)
+    init = [str(f) for f, v in problem.initial_values.items() if v.is_true()]
+    desc.append(f"Initial true values: {', '.join(init) if init else 'None'}")
 
-    # Initial state
-    initial_conditions = []
-    default = pd.Series(list(problem.initial_values.values())).value_counts().index[0]
-
-    for fluent, value in problem.initial_values.items():
-        #if write_default and value==default:
-        #    continue
-        #initial_conditions.append(f"{fluent} is {value}")
-        if value.is_true():
-            initial_conditions.append(f"{fluent}")
-
-    initial_str = ", ".join(initial_conditions)
-    if write_default or not initial_str:
-        description.append(f"\nEverything unspecified is {default} by default")
-    if initial_str:
-        description.append(f"[STATEMENT]\n As initial conditions I have that, {initial_str}.")
-
-    # Goals
-    if problem.goals:
-        goal_conditions = []
-        for goal in problem.goals:
-            goal_conditions.append(str(goal))
-        goal_str = ", ".join(goal_conditions)
-        description.append(f"\nMy goal is to have that {goal_str}.")
-
-    description = "\n".join(description)
-    if not re.search(r'_type_(?!0)\d+', description):
-        description=description.replace('_type_0','')
-    return description
+    desc.append('\n[GOAL]\n')
+    goals = [str(g) for g in problem.goals]
+    desc.append(', '.join(goals) if goals else 'None')
+    
+    return "\n".join(desc)
 
 
 
@@ -364,7 +373,7 @@ class PlanningConfig(Config):
     max_na: int = 3
     max_domain_seed: int = 500
     arity_weight = 0.5
-
+    hint_proba = 0.5
     #planner:str="fast-downward-opt"
     planner:str="pyperplan-opt"
     language: str = "en"
@@ -404,6 +413,7 @@ class Planning(Task):
                 print(f"ERR: {e}")
                 continue
             plan = str(solution.plan).replace('SequentialPlan:\n', '').replace('\t', '')
+
             meta.na = na = plan.count('(')
 
             if na < random.choice(list(range(config.min_na, config.max_na + 1))):
@@ -413,18 +423,22 @@ class Planning(Task):
             writer = PDDLWriter(problem)
             meta.problem_pddl = writer.get_problem()
             meta.domain_pddl = writer.get_domain()
+            if self.score_answer(plan, {'metadata': meta})<1:
+                continue
             return Problem(meta, plan)
 
 
     def prompt(self, meta):
-        s = meta.problem_english.strip()
-        s = (
-            f"{s}\n"
-            f"Hint: Reference solution has {meta.na} actions (but it may not be optimal). "
-            f"Return only the plan:\n"
-            f"Multiple lines if needed, one action i.e. actionx(objectx, objectx...) per line."
+        txt = meta.problem_english.strip()
+        txt += "\n\n[OUTPUT]"
+        
+        if random.random() < self.config.hint_proba:
+            txt += f"\nHint: Reference solution has {meta.na} actions (but it may not be optimal)."
+        txt += (
+            "\nReturn only the plan."
+            "\nFormat: Multiple lines, one action per line: action(obj1, obj2)"
         )
-        return s
+        return txt
 
     def score_answer(self, answer, entry):
         meta = entry['metadata']

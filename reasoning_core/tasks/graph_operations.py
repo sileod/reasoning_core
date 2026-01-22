@@ -17,7 +17,6 @@ _GRAPH_GENERATORS = [
     (nx.watts_strogatz_graph, {'k': (2, 4), 'p': (0.1, 0.3)}),
     (nx.barabasi_albert_graph, {'m': (1, 3)}),
     (nx.random_regular_graph, {'d': (2, 4)}), # Every node has d neighbors
-    (nx.lollipop_graph, {'m': (4, 8), 'n': (2, 4)}), # A clique connected to a path
     (nx.grid_2d_graph, {'m': (3, 5), 'n': (3, 5)}), # A grid
 ]
 
@@ -148,30 +147,30 @@ class GraphPathfinding(BaseGraphTask, Task):
                 f"Find the shortest path from Node {m['start_node']} to Node {m['end_node']}.\n"
                 "Answer with a Python list of integers. Example: `[0, 5, 3, 9]`.")
 
-def score_answer(self, answer, entry):
-        try: pred_path = literal_eval(answer)
-        except: return 0.0
-        if not isinstance(pred_path, list) or len(pred_path) < 1: return 0.0
-        
-        meta = entry.metadata
-        
-        def to_hashable(x):
-            return tuple(x) if isinstance(x, list) else x
+    def score_answer(self, answer, entry):
+            try: pred_path = literal_eval(answer)
+            except: return 0.0
+            if not isinstance(pred_path, list) or len(pred_path) < 1: return 0.0
+            
+            meta = entry.metadata
+            
+            def to_hashable(x):
+                return tuple(x) if isinstance(x, list) else x
 
-        nodes = [to_hashable(n) for n in meta['nodes']]
-        edges = [(to_hashable(u), to_hashable(v)) for u, v in meta['edges']]
-        
-        G = nx.Graph()
-        G.add_nodes_from(nodes)
-        G.add_edges_from(edges)
+            nodes = [to_hashable(n) for n in meta['nodes']]
+            edges = [(to_hashable(u), to_hashable(v)) for u, v in meta['edges']]
+            
+            G = nx.Graph()
+            G.add_nodes_from(nodes)
+            G.add_edges_from(edges)
 
-        start_node = to_hashable(meta['start_node'])
-        end_node = to_hashable(meta['end_node'])
-        pred_path = [to_hashable(n) for n in pred_path]
+            start_node = to_hashable(meta['start_node'])
+            end_node = to_hashable(meta['end_node'])
+            pred_path = [to_hashable(n) for n in pred_path]
 
-        if (pred_path[0] != start_node or pred_path[-1] != end_node or not nx.is_path(G, pred_path)):
-            return 0.0
-        return meta['optimal_length'] / len(pred_path)
+            if (pred_path[0] != start_node or pred_path[-1] != end_node or not nx.is_path(G, pred_path)):
+                return 0.0
+            return meta['optimal_length'] / len(pred_path)
 
 
 class GraphNodeCentrality(BaseGraphTask, Task):

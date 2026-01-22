@@ -56,7 +56,6 @@ TabularCPD.size_full = size_full
 TabularCPD.size_CI_model = size_CI_model
 BinaryInfluenceModel.to_nl = to_nl_BIM
 MultilevelInfluenceModel.to_nl = to_nl_MIM
-CausalInference.query = query_surgery
 
 # --- The Underlying Object Class (Adapted for pgmpy) --- 🔱
 class ReasoningGraph:
@@ -75,7 +74,7 @@ class ReasoningGraph:
         method = method,
         **kwargs)
 
-        self.ie = CausalInference(self.bn)
+        self.ie = CausalVE(self.bn) #Causal Variable Elimination Home Made
 
     def reset_inference(self):
         self.target = None
@@ -130,8 +129,6 @@ class ReasoningGraph:
             self.evidence_values[state] = rng.choice(possible_values)
 
 #### Bounded Generation ####
-
-    #non_root_variables = [node for node in self.bn.nodes() if self.bn.get_parents(node)]
 
     def generate_bounded_rung1_and_rung2(self, seed=None):
         """Generate matched Rung1 and Rung2 queries from the same seed."""
@@ -190,7 +187,7 @@ class ReasoningGraph:
         """Make observational predictions."""
         if self.ie is None:
             raise Exception("Inference engine not initialized. Generate a graph first.")
-        return self.ie.query([self.target], evidence=self.evidence_values, do = self.do_values)
+        return self.ie.query( variables = [self.target], evidence = self.evidence_values, do = self.do_values )
 
     def do_to_NL(self):
         """Convert interventional evidence to NL."""

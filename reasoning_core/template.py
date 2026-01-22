@@ -7,7 +7,6 @@ from easydict import EasyDict as edict
 from collections import Counter
 from collections.abc import Mapping
 from reasoning_gym.dataset import ProceduralDataset
-import reasoning_gym
 from dataclasses import dataclass, fields, field, asdict
 from typing import Any
 from types import SimpleNamespace
@@ -15,6 +14,7 @@ import random
 import copy
 import signal
 from inflection import underscore
+import tiktoken
 
 _REGISTRY = dict()
 
@@ -45,6 +45,7 @@ def seed():
     random.seed()
     np.random.seed()
 
+
 def timeout_retry(seconds=10, attempts=10):
     def decorator(func):
         @functools.wraps(func)
@@ -69,7 +70,44 @@ def timeout_retry(seconds=10, attempts=10):
         return wrapper
     return decorator
 
+import psutil  # pip install psutil
 
+class TimeoutException(Exception): pass
+
+def timeout_retry(seconds=10, attempts=10):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            def handler(signum, frame):
+                raise TimeoutException()
+
+            for attempt in range(1, attempts + 1):
+                old_handler = signal.signal(signal.SIGALRM, handler)
+                signal.alarm(seconds)
+                try:
+                    result = func(*args, **kwargs)
+                    signal.alarm(0)
+                    return result
+                except (TimeoutException, Exception) as e:
+                    signal.alarm(0) # Ensure alarm is off
+                    
+                    # --- CRITICAL: Kill external subprocesses (vampire/udocker) ---
+                    try:
+                        # Find all children spawned by this process and kill them
+                        children = psutil.Process().children(recursive=True)
+                        for child in children:
+                            child.kill()
+                        psutil.wait_procs(children, timeout=1)
+                    except: pass 
+                    # --------------------------------------------------------------
+
+                    if attempt == attempts:
+                        raise e  # Re-raise the last exception if out of retries
+                    time.sleep(0.5)
+                finally:
+                    signal.signal(signal.SIGALRM, old_handler)
+        return wrapper
+    return decorator
 
 
 
@@ -79,6 +117,8 @@ class Problem(Mapping):
         self.answer = answer
         self.prompt = None
         self.task = self.metadata.get('task', None)
+        if cot is not None and self.metadata.cot is None:
+            self.metadata.cot = cot
     
     def to_dict(self):
         return {
@@ -133,6 +173,7 @@ class Task(ProceduralDataset):
         for k,v in kwa.items():
             setattr(self.config, k, v)
 
+        self.tokenizer = tiktoken.get_encoding("o200k_base")
 
     def generate(self):
         raise NotImplementedError 
@@ -153,13 +194,13 @@ class Task(ProceduralDataset):
         return 0
         
 
-    def validate(self):
+    def validate(self, n_samples=10):
         """Sanity checks to ensure that generation and scoring are working as expected."""
         x=self.generate_example()
         assert isinstance(x, Problem), f"Generated example must be of type Problem, got {type(x)}"
         assert self.score_answer(x.answer, x)==1, "The generated answer must be correct"
         assert x.prompt, "Generated example must have a non-empty prompt"
-        ys=[self.generate_example() for _ in range(10)]
+        ys=[self.generate_example() for _ in range(n_samples)]
         score = [self.score_answer(y.answer, x) for y in ys]
         assert set(score)!={1}, "The scoring function must return values other than 1 for other answers"
         assert {self.score_answer(y.answer,y)==1 for y in ys}=={True}, "The generated answer must be correct"
@@ -173,7 +214,7 @@ class Task(ProceduralDataset):
         self.generate_example()
         r2=random.random()
         assert r1!=r2
-                
+        return ys
 
     def postprocess_dataset(self, df):
         """to override, apply deduplication and filtering"""
@@ -194,7 +235,9 @@ class Task(ProceduralDataset):
         return None
         
 
-    def generate_example(self, level=None, **kwargs):
+
+
+    def generate_example(self, level=None, max_tokens=8192, **kwargs):
         level = level or getattr(self.config, 'level', 0)
         self.timeout = int(self.base_timeout * (1+level))
         @timeout_retry(self.timeout)
@@ -204,9 +247,18 @@ class Task(ProceduralDataset):
                 self.config.set_level(level)
             for _ in range(1_000):
                 problem = self.generate(**kwargs)
-                if problem is not None:
-                    break
-            problem.prompt = self.prompt(problem.metadata)
+                if problem is None:
+                    continue
+                problem.prompt = self.prompt(problem.metadata)
+
+                prompt_tokens = len(self.tokenizer.encode(problem.prompt))
+                cot_tokens = len(self.tokenizer.encode(problem.metadata.get('cot','') + problem.answer))
+                if max_tokens and prompt_tokens > max_tokens:
+                    continue
+                if max_tokens and cot_tokens > max_tokens:
+                    continue
+                break  
+            
             problem.task = self.task_name
 
             problem.metadata = edict(problem.metadata)
@@ -214,20 +266,22 @@ class Task(ProceduralDataset):
             problem.metadata['_task']  = problem.task 
             problem.metadata['_level'] = self.config.level
             problem.metadata['_config'] = self.config.to_dict()
+            problem.metadata['_prompt_tokens'] = prompt_tokens
+            problem.metadata['_cot_tokens'] = cot_tokens
 
             problem.balancing_key = self.balancing_key(problem)
             problem.deduplication_key = self.deduplication_key(problem)
             return problem
         return inner()
 
-    def generate_balanced_batch(self, batch_size=32, level=None, max_per_key_frac=0.5, deduplication = False):
+    def generate_balanced_batch(self, batch_size=32, max_per_key_frac=0.5, deduplication = False, **kwargs):
         max_per_key = int(batch_size * max_per_key_frac)
         counts = Counter()
         if deduplication:
             deduplication_values = []
         batch = []
         while len(batch) < batch_size:
-            ex = self.generate_example(level=level)
+            ex = self.generate_example(**kwargs)
             b_key = ex.balancing_key
             d_key = ex.deduplication_key
             if d_key is not None and deduplication:
