@@ -72,7 +72,7 @@ def timeout_retry(seconds=10, attempts=10):
 
 import psutil  # pip install psutil
 
-class TimeoutException(Exception): pass
+class TimeoutException(BaseException): pass
 
 def timeout_retry(seconds=10, attempts=10):
     def decorator(func):
@@ -172,7 +172,7 @@ class Task(ProceduralDataset):
         self.task_name = prepr_task_name(self.__class__.task_name)
         for k,v in kwa.items():
             setattr(self.config, k, v)
-
+        self.balancing_key_ratio = 0.5
         self.tokenizer = tiktoken.get_encoding("o200k_base")
 
     def generate(self):
@@ -193,7 +193,9 @@ class Task(ProceduralDataset):
             return 1
         return 0
         
-
+    def __call__(self, *args, **kwargs):
+        return self.generate_example(*args, **kwargs)
+    
     def validate(self, n_samples=10):
         """Sanity checks to ensure that generation and scoring are working as expected."""
         x=self.generate_example()
@@ -274,8 +276,8 @@ class Task(ProceduralDataset):
             return problem
         return inner()
 
-    def generate_balanced_batch(self, batch_size=32, max_per_key_frac=0.5, deduplication = False, **kwargs):
-        max_per_key = int(batch_size * max_per_key_frac)
+    def generate_balanced_batch(self, batch_size=32, deduplication = False, **kwargs):
+        max_per_key = int(batch_size * self.balancing_key_ratio)
         counts = Counter()
         if deduplication:
             deduplication_values = []

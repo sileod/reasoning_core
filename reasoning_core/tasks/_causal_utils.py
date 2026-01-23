@@ -1051,129 +1051,210 @@ class CanonicalBIFReader(BIFReader):
 # 1. Semantic Tracker
 #    Tracks probability formulas (Heads | Tails)
 # ==========================================
+# ==========================================
+# 1. Semantic Tracker (Causal Aware)
+# ==========================================
 class SemanticTracker:
-    def __init__(self, heads=None, tails=None, evidence_dict=None):
+    def __init__(self, heads=None, tails=None, evidence_dict=None, do_dict=None):
         self.heads = set(heads) if heads else set()
         self.tails = set(tails) if tails else set()
         self.evidence = evidence_dict if evidence_dict else {}
+        self.do = do_dict if do_dict else {}
 
     @classmethod
-    def from_cpd(cls, cpd, evidence_dict):
-        """Initializes semantics from a base CPD, respecting evidence."""
+    def from_cpd(cls, cpd, evidence_dict, do_dict=None):
         heads = {cpd.variable}
         tails = set()
+        relevant_ev = {}
+        relevant_do = {}
+
+        # 1. Check Heads
+        if cpd.variable in evidence_dict:
+            relevant_ev[cpd.variable] = evidence_dict[cpd.variable]
+        if do_dict and cpd.variable in do_dict:
+            relevant_do[cpd.variable] = do_dict[cpd.variable]
+
+        # 2. Check Parents
         for parent in cpd.get_evidence():
-            if parent not in evidence_dict:
+            if parent in evidence_dict:
+                relevant_ev[parent] = evidence_dict[parent]
+            elif do_dict and parent in do_dict:
+                relevant_do[parent] = do_dict[parent]
+                # 'do' variables are technically tails (parents), just special ones
+                tails.add(parent) 
+            else:
                 tails.add(parent)
-        return cls(heads, tails, evidence_dict)
+                
+        return cls(heads, tails, relevant_ev, relevant_do)
 
     def multiply(self, other):
-        """Derives semantics for Tensor Product: P(A|B) * P(B|C) -> P(A,B|C)"""
         new_heads = self.heads.union(other.heads)
         raw_tails = self.tails.union(other.tails)
-        # Anything that becomes a Head is removed from Tails
         new_tails = raw_tails - new_heads
+        
         new_evidence = {**self.evidence, **other.evidence}
-        return SemanticTracker(new_heads, new_tails, new_evidence)
+        new_do = {**self.do, **other.do}
+        
+        return SemanticTracker(new_heads, new_tails, new_evidence, new_do)
 
     def marginalize(self, variable):
-        """Derives semantics for Summation: Sum_A P(A,B) -> P(B)"""
         new_heads = self.heads - {variable}
         new_tails = self.tails.copy()
-        return SemanticTracker(new_heads, new_tails, self.evidence)
+        return SemanticTracker(new_heads, new_tails, self.evidence, self.do)
     
     def project(self, active_variables):
-        """
-        Projects the semantics onto a specific set of variables.
-        Useful for cleaning up the final label (removing evidence vars from head).
-        """
         filtered_heads = self.heads.intersection(set(active_variables))
-        return SemanticTracker(filtered_heads, self.tails, self.evidence)
+        return SemanticTracker(filtered_heads, self.tails, self.evidence, self.do)
 
     def __str__(self):
         if not self.heads:
-            h_str = "Evidence_Scalar"
-        else:
-            h_str = ", ".join(sorted(list(self.heads)))
+            return "Evidence_Scalar"
         
-        conditions = []
-        if self.tails:
-            conditions.extend(sorted(list(self.tails)))
-        if self.evidence:
-            ev_strs = [f"{k}={v}" for k,v in self.evidence.items()]
-            conditions.extend(sorted(ev_strs))
+        # 1. Format Heads
+        head_parts = []
+        observed_heads = set()
+        
+        for h in sorted(list(self.heads)):
+            if h in self.evidence:
+                head_parts.append(f"{h}={self.evidence[h]}")
+                observed_heads.add(h)
+            # If head is a 'do' variable (rare but possible in factor P(D)), show do(D)
+            elif h in self.do:
+                head_parts.append(f"do({h}={self.do[h]})")
+                observed_heads.add(h)
+            else:
+                head_parts.append(h)
+        
+        h_str = ", ".join(head_parts)
+        
+        # 2. Format Tails
+        conditions = set()
+        
+        # Process Tails
+        for t in self.tails:
+            if t in self.evidence:
+                conditions.add(f"{t}={self.evidence[t]}")
+            elif t in self.do:
+                conditions.add(f"do({t}={self.do[t]})")
+            else:
+                conditions.add(t)
+        
+        # Process Remaining Context
+        for var, val in self.evidence.items():
+            if var not in observed_heads and var not in self.tails:
+                conditions.add(f"{var}={val}")
+
+        for var, val in self.do.items():
+            if var not in observed_heads and var not in self.tails:
+                 conditions.add(f"do({var}={val})")
+
+        cond_list = sorted(list(conditions))
             
-        if conditions:
-            return f"P({h_str} | {', '.join(conditions)})"
+        if cond_list:
+            return f"P({h_str} | {', '.join(cond_list)})"
         else:
             return f"P({h_str})"
 
 
 # ==========================================
-# 2. Base Semantic Inference Engine (Rung 1)
+# 2. Base Semantic Inference Engine
 # ==========================================
 class SemanticTraceVE(VariableElimination):
     def __init__(self, model):
         super().__init__(model)
         self.trace_log = []
-        self.factor_semantics = {} 
+        self.factor_semantics = {}
+        self.global_do = {} # New: store global intervention context
 
-    def _format_factor_table(self, factor, semantics=None):
+    def _format_value(self, val, scientific=False, precision=4):
+        if scientific:
+            fmt = f"{{:.{precision}e}}"
+            s = fmt.format(val)
+            base, exponent = s.split('e')
+            if '.' in base: base = base.rstrip('0').rstrip('.')
+            if exponent.startswith('+') or exponent.startswith('-'):
+                sign = exponent[0]
+                num = exponent[1:].lstrip('0')
+                exponent = sign + (num if num else '0')
+            return f"{base}e{exponent}"
+        else:
+            if float(val).is_integer(): return str(int(val))
+            s = f"{{:.{precision}f}}".format(val)
+            if '.' in s: s = s.rstrip('0').rstrip('.')
+            return s
+
+    def _render_factor_table(self, factor, semantics=None, scientific=False, precision=4):
         name = str(semantics) if semantics else "Unknown Factor"
         vars = factor.variables
         values = factor.values.flatten()
         card = factor.cardinality
         
         if not vars:
-            return f"Table for {name}:\n  [] = {values[0]:.4f}"
+            val_str = self._format_value(values[0], scientific, precision)
+            return f"Table for {name}:\n  [] = {val_str}"
 
         states = [range(c) for c in card]
         combinations = list(itertools.product(*states))
-        
         lines = [f"Table for {name}:"]
         for i, comb in enumerate(combinations):
             assignments = ", ".join([f"{v}={s}" for v, s in zip(vars, comb)])
-            lines.append(f"  [{assignments}] = {values[i]:.4f}")
+            val_str = self._format_value(values[i], scientific, precision)
+            lines.append(f"  [{assignments}] = {val_str}")
         return "\n".join(lines)
 
-    def query(self, variables, evidence=None, virtual_evidence=None, elimination_order="MinFill", joint=True, show_progress=True):
-        """
-        Overridden query method to ensure recursion uses the SemanticTraceVE class
-        and shares the trace log state.
-        """
-        evidence = evidence if evidence is not None else dict()
+    def _map_factors_to_cpds(self, working_factors, evidence):
+        unique_factors = {}
+        for bucket in working_factors.values():
+            for factor, _ in bucket:
+                unique_factors[id(factor)] = factor
         
+        if not hasattr(self.model, 'cpds'): return 
+
+        for cpd in self.model.cpds:
+            temp_factor = cpd.to_factor()
+            reduce_list = [(var, state) for var, state in evidence.items() if var in temp_factor.variables]
+            if reduce_list:
+                try: reduced_factor = temp_factor.reduce(reduce_list, inplace=False)
+                except: continue
+            else:
+                reduced_factor = temp_factor
+
+            for factor in unique_factors.values():
+                if set(factor.variables) == set(reduced_factor.variables) and \
+                   np.allclose(factor.values, reduced_factor.values):
+                    # Pass the global 'do' context here
+                    tracker = SemanticTracker.from_cpd(cpd, evidence, self.global_do)
+                    self.factor_semantics[id(factor)] = tracker
+                    
+        for factor in unique_factors.values():
+            if id(factor) not in self.factor_semantics:
+                rel_ev = {k:v for k,v in evidence.items() if k in factor.variables}
+                rel_do = {k:v for k,v in self.global_do.items() if k in factor.variables}
+                self.factor_semantics[id(factor)] = SemanticTracker(
+                    heads=set(factor.variables), 
+                    evidence_dict=rel_ev,
+                    do_dict=rel_do
+                )
+
+    def base_query(self, variables, evidence=None, virtual_evidence=None, elimination_order="MinFill", joint=True, show_progress=True):
+        evidence = evidence if evidence is not None else dict()
         if isinstance(self.model, DiscreteBayesianNetwork):
             model_reduced, evidence = self._prune_bayesian_model(variables, evidence)
         else:
             model_reduced = self.model
 
-        # Recursion with state sharing
         reduced_ve = self.__class__(model_reduced)
         reduced_ve.trace_log = self.trace_log
         reduced_ve.factor_semantics = self.factor_semantics
+        reduced_ve.global_do = self.global_do # Share Do Context
         reduced_ve._initialize_structures()
 
-        return reduced_ve._variable_elimination(
-            variables=variables,
-            operation="marginalize",
-            evidence=evidence,
-            elimination_order=elimination_order,
-            joint=joint,
-            show_progress=show_progress,
-        )
+        return reduced_ve._variable_elimination(variables, "marginalize", evidence, elimination_order, joint, show_progress)
 
     def query_with_trace(self, variables, evidence=None, elimination_order="MinFill", joint=True):
-        """Entry point for Rung 1 queries."""
         self.trace_log = []
         self.factor_semantics = {}
-        result = self.query(
-            variables=variables, 
-            evidence=evidence, 
-            elimination_order=elimination_order, 
-            joint=joint, 
-            show_progress=False
-        )
+        result = self.base_query(variables, evidence, elimination_order=elimination_order, joint=joint, show_progress=False)
         return result, self.trace_log
 
     def _variable_elimination(self, variables, operation, evidence=None, elimination_order="MinFill", joint=True, show_progress=True):
@@ -1184,57 +1265,45 @@ class SemanticTraceVE(VariableElimination):
         working_factors = self._get_working_factors(evidence)
         elimination_order = self._get_elimination_order(variables, evidence, elimination_order, show_progress)
         
-        # --- INIT SEMANTICS ---
-        # Robustly map working factors back to original CPDs to get correct labels (e.g. P(S|I) vs P(I))
-        for bucket_key, bucket_list in working_factors.items():
-            for factor, origin_name in bucket_list:
-                # If origin is None, it means the factor belongs to the bucket's key
-                actual_origin = origin_name if origin_name is not None else bucket_key
-                try:
-                    cpd = self.model.get_cpds(actual_origin)
-                    tracker = SemanticTracker.from_cpd(cpd, evidence)
-                    self.factor_semantics[id(factor)] = tracker
-                except:
-                    # Fallback for Edge cases
-                    self.factor_semantics[id(factor)] = SemanticTracker(heads=set(factor.variables), evidence_dict=evidence)
-
+        self._map_factors_to_cpds(working_factors, evidence)
         self.trace_log.append({"step": "INIT", "elimination_order": elimination_order})
 
         for var in elimination_order:
             factors = [f for f, _ in working_factors[var] if not set(f.variables).intersection(eliminated_variables)]
             
-            input_trackers = [self.factor_semantics.get(id(f)) for f in factors]
-            input_tables = [self._format_factor_table(f, t) for f, t in zip(factors, input_trackers)]
+            if not factors:
+                del working_factors[var]
+                eliminated_variables.add(var)
+                continue
 
-            # PRODUCT
+            input_data = []
+            for f in factors:
+                tracker = self.factor_semantics.get(id(f))
+                input_data.append((f, tracker))
+
             phi = factor_product(*factors)
-            phi_tracker = input_trackers[0]
-            for next_tracker in input_trackers[1:]:
+            phi_tracker = input_data[0][1]
+            for _, next_tracker in input_data[1:]:
                 phi_tracker = phi_tracker.multiply(next_tracker)
             self.factor_semantics[id(phi)] = phi_tracker
             
-            input_formulas = [str(t) for t in input_trackers]
-            product_expr = " * ".join(input_formulas)
+            product_expr = " * ".join([str(t) for _, t in input_data])
             product_formula = str(phi_tracker)
-            product_table = self._format_factor_table(phi, phi_tracker)
 
-            # SUM
             tau = getattr(phi, operation)([var], inplace=False)
             tau_tracker = phi_tracker.marginalize(var)
             self.factor_semantics[id(tau)] = tau_tracker
-            
             sum_formula = str(tau_tracker)
-            sum_table = self._format_factor_table(tau, tau_tracker)
 
             self.trace_log.append({
                 "step": "ELIMINATE",
                 "variable": var,
+                "input_data": input_data,
+                "product_data": (phi, phi_tracker),
+                "sum_data": (tau, tau_tracker),
                 "product_expr": product_expr,
                 "product_formula": product_formula,
-                "sum_formula": sum_formula,
-                "input_tables": input_tables,
-                "product_table": product_table,
-                "sum_table": sum_table
+                "sum_formula": sum_formula
             })
 
             del working_factors[var]
@@ -1247,81 +1316,123 @@ class SemanticTraceVE(VariableElimination):
                 working_factors[variable].add((tau, var))
             eliminated_variables.add(var)
 
-        # Final Result Collection
-        final_factors = set()
+        final_factors_map = {}
         for bucket in working_factors.values():
             for factor, _ in bucket:
                 if not set(factor.variables).intersection(eliminated_variables):
-                    final_factors.add(factor)
+                    final_factors_map[id(factor)] = factor
         
-        unique_factors = list(final_factors)
+        unique_factors = list(final_factors_map.values())
         
+        final_input_data = []
+        for f in unique_factors:
+            tracker = self.factor_semantics.get(id(f))
+            final_input_data.append((f, tracker))
+
         if unique_factors:
             final_tracker = self.factor_semantics[id(unique_factors[0])]
             for f in unique_factors[1:]:
                 final_tracker = final_tracker.multiply(self.factor_semantics[id(f)])
             
             unnormalized = factor_product(*unique_factors)
-            
-            # Project semantics to clean up final label
             clean_tracker = final_tracker.project(unnormalized.variables)
-            unnormalized_table = self._format_factor_table(unnormalized, clean_tracker)
             
             if joint:
                 normalized = unnormalized.normalize(inplace=False)
-                normalized_table = self._format_factor_table(normalized, clean_tracker)
                 self.trace_log.append({
                     "step": "NORMALIZE",
-                    "unnormalized_table": unnormalized_table,
-                    "normalized_table": normalized_table,
+                    "final_input_data": final_input_data,
+                    "unnormalized_data": (unnormalized, clean_tracker),
+                    "normalized_data": (normalized, clean_tracker),
                     "final_formula": str(clean_tracker)
                 })
                 return normalized
             else:
                 return unnormalized
         else:
-             return factor_product(TabularCPD("dummy", 1, [[1]]))
+             return DiscreteFactor(variables=[], cardinality=[], values=[1.0])
 
-    def generate_natural_language_proof(self):
+    def generate_natural_language_proof(self, scientific_notation=False, precision=4):
         proof = []
         for entry in self.trace_log:
-            if entry['step'] == 'INIT':
-                proof.append(f"Initialization: Selected Elimination Order = {entry['elimination_order']}\n")
-            elif entry['step'] == 'ELIMINATE':
-                var = entry['variable']
-                proof.append(f"--- Step: Eliminate Variable '{var}' ---")
-                proof.append(f"1. Retrieve relevant factors containing '{var}':")
-                for table in entry['input_tables']:
-                    table_indented = "\n".join(["   " + line for line in table.split('\n')])
-                    proof.append(f"{table_indented}")
-                proof.append(f"\n2. Compute the Intermediate Joint (Product):")
-                proof.append(f"   Formula: {entry['product_formula']} = {entry['product_expr']}")
-                proof.append("\n".join(["   " + line for line in entry['product_table'].split('\n')]))
-                proof.append(f"\n3. Marginalize (Sum) out variable '{var}':")
-                proof.append(f"   Formula: {entry['sum_formula']} = \u2211_{{{var}}} {entry['product_formula']}")
-                proof.append("\n".join(["   " + line for line in entry['sum_table'].split('\n')]))
-                proof.append("\n")
-            elif entry['step'] == 'NORMALIZE':
-                proof.append(f"--- Final Step: Normalization ---")
-                proof.append(f"1. Unnormalized Joint Distribution ({entry['final_formula']}):")
-                proof.append("\n".join(["   " + line for line in entry['unnormalized_table'].split('\n')]))
-                proof.append(f"\n2. Normalized Probability Distribution:")
-                proof.append("\n".join(["   " + line for line in entry['normalized_table'].split('\n')]))
+            # We delegate the formatting of each step to a helper method.
+            # This allows child classes to handle custom steps (like SURGERY).
+            text = self._render_trace_entry(entry, scientific_notation, precision)
+            if text:
+                proof.append(text)
         return "\n".join(proof)
 
+    def _render_trace_entry(self, entry, scientific, precision):
+        """
+        Renders a single trace entry. 
+        Can be overridden by subclasses to handle specific step types.
+        """
+        step = entry['step']
+        
+        if step == 'GOAL':
+            return f"Goal: {entry['description']}\n"
+        
+        elif step == 'INIT':
+            return f"Initialization: Selected Elimination Order = {entry['elimination_order']}\n"
+        
+        elif step == 'ELIMINATE':
+            var = entry['variable']
+            lines = [f"--- Step: Eliminate Variable '{var}' ---"]
+            
+            lines.append(f"1. Retrieve relevant factors containing '{var}':")
+            for (factor, tracker) in entry['input_data']:
+                table_str = self._render_factor_table(factor, tracker, scientific, precision)
+                lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
+            
+            lines.append(f"\n2. Compute the Intermediate Joint (Product):")
+            lines.append(f"   Formula: {entry['product_formula']} = {entry['product_expr']}")
+            phi, phi_track = entry['product_data']
+            table_str = self._render_factor_table(phi, phi_track, scientific, precision)
+            lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
+            
+            lines.append(f"\n3. Marginalize (Sum) out variable '{var}':")
+            lines.append(f"   Formula: {entry['sum_formula']} = \u2211_{{{var}}} {entry['product_formula']}")
+            tau, tau_track = entry['sum_data']
+            table_str = self._render_factor_table(tau, tau_track, scientific, precision)
+            lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
+            lines.append("\n")
+            return "\n".join(lines)
+
+        elif step == 'NORMALIZE':
+            lines = [f"--- Final Step: Normalization ---"]
+            
+            lines.append(f"1. Gather all remaining factors (Query Variables + Priors):")
+            for (factor, tracker) in entry['final_input_data']:
+                table_str = self._render_factor_table(factor, tracker, scientific, precision)
+                lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
+
+            lines.append(f"\n2. Compute Unnormalized Joint Distribution ({entry['final_formula']}):")
+            u_factor, u_track = entry['unnormalized_data']
+            table_str = self._render_factor_table(u_factor, u_track, scientific, precision)
+            lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
+            
+            lines.append(f"\n3. Normalize to obtain Probability Distribution:")
+            n_factor, n_track = entry['normalized_data']
+            table_str = self._render_factor_table(n_factor, n_track, scientific, precision)
+            lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
+            return "\n".join(lines)
+        
+        return None
+
 
 # ==========================================
-# 3. Optimized Causal Inference Engine (Rung 2)
+# 3. Optimized Causal Inference Engine
 # ==========================================
 class CausalVE(SemanticTraceVE):
-    def query_causal(self, variables, do=None, evidence=None, elimination_order="MinFill", show_progress=False):
+    def query(self, variables, do=None, evidence=None, elimination_order="MinFill", show_progress=False):
         if do is None: do = {}
         if evidence is None: evidence = {}
         
         self.trace_log = []
-        self.factor_semantics = {} 
+        self.factor_semantics = {}
+        self.global_do = do 
         
-        # --- 1. Log Goal ---
+        # 1. Format the Goal
         do_str = ", ".join([f"do({k}={v})" for k, v in do.items()])
         ev_str = ", ".join([f"{k}={v}" for k, v in evidence.items()])
         query_parts = [p for p in [do_str, ev_str] if p]
@@ -1330,14 +1441,26 @@ class CausalVE(SemanticTraceVE):
         
         self.trace_log.append({
             "step": "GOAL",
-            "description": f"Compute Causal Effect: {query_str}"
+            "description": f"Compute {'Causal Effect' if do else 'Observational Probability'}: {query_str}"
         })
 
-        # --- 2. Causal Surgery (Optimized) ---
+        # --- OPTIMIZATION: If no DO variables, skip surgery entirely ---
+        if not do:
+            # Just run standard VE on the existing model
+            result, trace = self.query_with_trace(
+                variables=variables, 
+                evidence=evidence, 
+                elimination_order=elimination_order, 
+                joint=True
+            )
+            # Append the standard trace to our Goal log
+            self.trace_log.extend(trace)
+            return result
+
+        # --- Surgery (Only if do exists) ---
         model_prime = copy.deepcopy(self.model)
         surgery_details = []
 
-        # 2a. Cut Edges (Mutilation)
         for y in do:
             predecessors = list(model_prime.predecessors(y))
             if predecessors:
@@ -1347,80 +1470,66 @@ class CausalVE(SemanticTraceVE):
             else:
                 surgery_details.append(f"Node '{y}' has no parents to cut.")
 
-        # 2b. Reset CPDs (Validity check) and mark for Evidence
         logging.disable(logging.WARNING) 
         try:
             for d, val in do.items():
-                cpd_old = self.model.get_cpds(d)
+                cpd_old = model_prime.get_cpds(d)
+                if cpd_old:
+                    model_prime.remove_cpds(cpd_old)
+                
                 state_names = cpd_old.state_names[d]
                 k = len(state_names)
-                
-                # Uniform distribution (1/k) just to keep the object valid in pgmpy
-                values = np.ones(k) / k
-                values = values.reshape(k, 1)
+                probs = np.zeros(k)
+                idx = state_names.index(val) if val in state_names else int(val)
+                probs[idx] = 1.0 
+                values = np.array(probs).reshape(k, 1)
 
                 new_cpd = TabularCPD(variable=d, variable_card=k, values=values, state_names={d: state_names})
                 model_prime.add_cpds(new_cpd)
-                surgery_details.append(f"Set P({d}) := Uniform Root (Parents removed).")
-                surgery_details.append(f"Treat do({d}={val}) as Evidence on the mutilated graph.")
+                surgery_details.append(f"Set P({d}) := Point Mass at {d}={val}.")
         finally:
             logging.disable(logging.NOTSET)
 
         self.trace_log.append({"step": "SURGERY", "details": surgery_details})
 
-        # --- 3. Merge 'do' into 'evidence' ---
-        # Optimization: Treating intervention as evidence on the mutilated graph simplifies the trace
-        total_evidence = {**evidence, **do}
-        
-        # --- 4. Run Inference on M' ---
+        # --- Fix Elimination Order for Surgery Graph ---
+        final_order = elimination_order
+        if isinstance(elimination_order, list):
+            missing_vars = [
+                node for node in model_prime.nodes() 
+                if node not in variables 
+                and node not in evidence 
+                and node not in elimination_order
+            ]
+            if missing_vars:
+                final_order = elimination_order + missing_vars
+
+        # --- Run Inference on Mutilated Graph ---
         inference_prime = CausalVE(model_prime)
+        inference_prime.global_do = self.global_do 
         
         result, prime_trace = inference_prime.query_with_trace(
             variables=variables,
-            evidence=total_evidence,
-            elimination_order=elimination_order,
+            evidence=evidence, 
+            elimination_order=final_order, 
             joint=True
         )
 
         self.trace_log.extend(prime_trace)
         return result
 
-    def generate_NL_proof(self):
-        proof = []
-        for entry in self.trace_log:
-            if entry['step'] == 'GOAL':
-                proof.append(f"Goal: {entry['description']}\n")
-            elif entry['step'] == 'SURGERY':
-                proof.append("--- Step 0: Causal Graph Surgery (Intervention) ---")
-                proof.append("To compute the causal effect, we simulate the intervention by modifying the graph:")
-                for detail in entry['details']:
-                    proof.append(f"   - {detail}")
-                proof.append("   - We proceed with Variable Elimination using the 'do' values as Evidence.\n")
-            
-            # Standard steps handled by parent class logic structure
-            elif entry['step'] == 'INIT':
-                proof.append(f"Initialization: Selected Elimination Order = {entry['elimination_order']}\n")
-            elif entry['step'] == 'ELIMINATE':
-                var = entry['variable']
-                proof.append(f"--- Step: Eliminate Variable '{var}' ---")
-                proof.append(f"1. Retrieve relevant factors containing '{var}':")
-                for table in entry['input_tables']:
-                    table_indented = "\n".join(["   " + line for line in table.split('\n')])
-                    proof.append(f"{table_indented}")
-                
-                proof.append(f"\n2. Compute the Intermediate Joint (Product):")
-                proof.append(f"   Formula: {entry['product_formula']} = {entry['product_expr']}")
-                proof.append("\n".join(["   " + line for line in entry['product_table'].split('\n')]))
-                
-                proof.append(f"\n3. Marginalize (Sum) out variable '{var}':")
-                proof.append(f"   Formula: {entry['sum_formula']} = \u2211_{{{var}}} {entry['product_formula']}")
-                proof.append("\n".join(["   " + line for line in entry['sum_table'].split('\n')]))
-                proof.append("\n")
-
-            elif entry['step'] == 'NORMALIZE':
-                proof.append(f"--- Final Step: Normalization ---")
-                proof.append(f"1. Unnormalized Joint Distribution ({entry['final_formula']}):")
-                proof.append("\n".join(["   " + line for line in entry['unnormalized_table'].split('\n')]))
-                proof.append(f"\n2. Normalized Probability Distribution:")
-                proof.append("\n".join(["   " + line for line in entry['normalized_table'].split('\n')]))
-        return "\n".join(proof)
+    def _render_trace_entry(self, entry, scientific, precision):
+        """
+        Override to handle SURGERY. 
+        Delegates everything else to parent.
+        """
+        if entry['step'] == 'SURGERY':
+            lines = ["--- Step 0: Causal Graph Surgery (Intervention) ---"]
+            lines.append("To compute the causal effect, we simulate the intervention by modifying the graph:")
+            for detail in entry['details']:
+                lines.append(f"   - {detail}")
+            lines.append("   - We proceed with Variable Elimination on the mutilated graph.\n")
+            return "\n".join(lines)
+        
+        # Delegate standard steps to the parent class
+        return super()._render_trace_entry(entry, scientific, precision)

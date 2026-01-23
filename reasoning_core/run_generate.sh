@@ -1,7 +1,9 @@
 #!/bin/bash
 
 threads=$(python3 -c "import math, os; print(math.ceil(os.cpu_count() * 0.4))")
-MEM_LIMIT="8G"
+#threads=1
+
+MEM_LIMIT="12G"
 
 STATUS_DIR="/dev/shm/gen_status_$$"
 trap 'rm -rf "$STATUS_DIR"' EXIT

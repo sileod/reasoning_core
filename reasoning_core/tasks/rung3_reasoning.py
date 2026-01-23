@@ -367,7 +367,7 @@ class FloatCounterfactual(Task):
         target = metadata['target']
         
         return (
-            f"### System Instructions\n"
+            f"### Instructions\n"
             f"You are an expert in Causal Inference performing Counterfactual Analysis.\n"
             f"Use the 'Abduction-Action-Prediction' method:\n"
             f"1. ABDUCTION: Use the Observed Data and Equations to calculate the hidden noise terms (N).\n"

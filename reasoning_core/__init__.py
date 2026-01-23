@@ -106,9 +106,9 @@ def match_task_name(name):
     assert len(matches)==1, f"Could not uniquely identify task {name} in {list(DATASETS.keys())}"
     return matches[0]
 
-def get_task(k):
+def get_task(k, *args, **kwargs):
     k=match_task_name(k)
-    return DATASETS[k]
+    return DATASETS[k](*args, **kwargs)
 
 def list_tasks():
     return list(DATASETS.keys())

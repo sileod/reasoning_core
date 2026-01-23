@@ -13,6 +13,8 @@ from reasoning_core.utils.udocker_process import prover_session
 from ._sat_graph import generate_derivation_graph
 from reasoning_core.template import Task, Problem, Config
 import ast
+from reasoning_core.template import TimeoutException
+
 
 def extract_problem_from_graph(G: nx.DiGraph, node_id_str: str, max_length_proof: int):
     theorem = G.nodes[node_id_str]['data'].clause_formula
@@ -161,7 +163,7 @@ def perturb_list(input_l: list, base_domain: list, n_perturbations: int = 1) -> 
     return lst
 
 def prove_conjecture(axioms: list[str], conjecture: str,
-                        time_limit_seconds: str ="2d", verb: bool = False):
+                        time_limit_seconds: str ="30", verb: bool = False):
     """
     Uses Vampire to prove or disprove a conjecture given a set of axioms.
     Returns True (provable), False (disprovable/countersatisfiable), or an error string.
@@ -388,8 +390,8 @@ class TheoremPremiseSelection(Task):
     And a minimality check to ensure the ground truth is correct.
     """
     def __init__(self, config=SelectionConfig()):
-        super().__init__(config)
-        
+        super().__init__(config, timeout=60)
+
     _initialize_graph = ConjectureEntailment._initialize_graph
 
     def _reprove_with_minimal(self, hypotheses: list) -> nx.DiGraph:
@@ -397,13 +399,21 @@ class TheoremPremiseSelection(Task):
             Run E-prover on ONLY the minimal set as AXIOMS. 
             No conjecture is passed; we rely on derivation to find the theorem node.
             """
-            with tempfile.NamedTemporaryFile(mode='w+', suffix='.p', delete=True) as tf:
+            # Change delete=True to delete=False
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.p', delete=False) as tf:
                 for i, h in enumerate(hypotheses):
                     tf.write(f"cnf(h_{i}, axiom, {h}).\n")
+                # No need to flush if we close immediately, but good practice
                 tf.flush()
-                # rank=False prevents unnecessary processing
+                
+            # File is now closed and safe for subprocesses to read
+            try:
                 return generate_derivation_graph(tf.name, save_output=False, e_limit=2, ranking=False)
-
+            finally:
+                # Clean up manually
+                if os.path.exists(tf.name):
+                    os.remove(tf.name)
+                    
     def find_minimal_hypotheses(self, initial_hypotheses: list[str], conjecture: str) -> list[str]:
         """
         Prunes an initial set of hypotheses down to a minimal subset that is
@@ -429,7 +439,7 @@ class TheoremPremiseSelection(Task):
     def generate(self):
         self._initialize_graph()
     
-        while True:
+        for _ in range(50):
             if not self.interesting_thm:
                 self._initialize_graph()
                 if not self.interesting_thm: continue
@@ -440,6 +450,8 @@ class TheoremPremiseSelection(Task):
             superset, theorem = extract_problem_from_graph(
                 self.graph, theorem_node_id, self.config.proof_depth
             )
+            if len(superset)>20:
+                continue
             
             try:
                 # Verify superset (optimization)
@@ -449,8 +461,10 @@ class TheoremPremiseSelection(Task):
                 
                 # Verify minimal (safety)
                 if not minimal or prove_conjecture(minimal, theorem) is not True: continue
-            except Exception: continue
-
+            except TimeoutException:
+                raise TimeoutException
+            except Exception:
+                continue
             # 2. RE-PROVE for Clean CoT (Forward Derivation)
             clean_graph = self._reprove_with_minimal(minimal)
             
@@ -495,6 +509,7 @@ class TheoremPremiseSelection(Task):
                 'hypotheses_pool': pool, 
                 'theorem': theorem,
                 'cot': cot,
+                'len_superset': len(superset),
                 'correct_indices': sorted([pool.index(h) + 1 for h in minimal]),
                 'correct_minimal_hypotheses': minimal, 
                 'useful_axioms': useful_axioms_norm, 
@@ -702,13 +717,6 @@ class ProofReconstruction(Task):
         3) Semantic score: ratio of (sampled) steps validated by prove_conjecture.
         4) Combination: score = w_gold * F1 + (1 - w_gold) * semantic_ratio.
         """
-
-        import re, random
-        try:
-            import networkx as nx
-        except Exception:
-            # If networkx is unavailable, DAG cannot be verified
-            return 0.0
 
         clauses_pool = entry.metadata.get('numbered_clauses')
         gold = entry.metadata.get('correct_proof_structure_indices') or []

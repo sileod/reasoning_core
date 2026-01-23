@@ -30,7 +30,7 @@ NAMES = ['mary', 'paul', 'fred', 'alice', 'john', 'susan', 'lucy']
 
 G = FOL_grammar
 
-def make_hyps(N=1000):
+def make_hyps(G, N=1000):
     hyps = [generate(G().get_rules('hypothesis')[0], mode="sequential") for _ in range(N)]
     def dedup_by(xs, key):
         seen = set()
@@ -91,10 +91,14 @@ def valid(x):
 class LogicConfig(Config):
     n_formulas: int = 6
     generation_algorithm: str = "sequential"
+    n_names: int = 2
+    n_adjectives: int = 2
+
     def update(self, c):
         self.n_formulas *= (1 + c)
-
-
+        self.n_names += c
+        self.n_adjectives += c
+        
 def get_cot(text: str) -> str:
     lines, memo = [], {}
     for line in text.splitlines():
@@ -126,38 +130,49 @@ class LogicNLI(Task):
 
     def __init__(self, config=LogicConfig()):
         super().__init__(config=config)
-        self.hyps, self.hyps_weights=make_hyps()
+        self.names = NAMES[:self.config.n_names]
+        self.adjectives = ADJECTIVES[:self.config.n_adjectives]
+        self.G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives)
+        self.hyps, self.hyps_weights=make_hyps(self.G)
+        self.balancing_key_ratio=1/3
 
     def generate(self):
         meta = edict()
-        # generate premise
-        x = generate_N_premises(self.config.n_formulas, G, mode=self.config.generation_algorithm)
-        premise = split_clauses(x@tptp)
+        for _ in range(100):    
+            # generate premise
+            x = generate_N_premises(self.config.n_formulas, self.G, mode=self.config.generation_algorithm)
+            premise = split_clauses(x@tptp)
 
-        # generate hypothesis
-        xl = (x@eng).splitlines()
-        for hyp in sample_hyps(self.hyps, self.hyps_weights):
-            concepts = [x for x in re.findall(r'\w+(?=\()', hyp@tptp)  if x!='room']
-            concept_match =  any(c in premise for c in concepts)
-            if hyp@eng not in xl and valid(hyp) and concept_match :
-                break
+            # generate hypothesis
+            xl = (x@eng).splitlines()
+            for hyp in sample_hyps(self.hyps, self.hyps_weights):
+                concepts = [x for x in re.findall(r'\w+(?=\()', hyp@tptp)  if x!='room']
+                concept_match =  any(c in premise for c in concepts)
+                if hyp@eng not in xl and valid(hyp) and concept_match :
+                    break
 
-        #compute label        
-        proofs = [run(premise+f"\nfof(hyp,axiom,{prefix}({hyp@tptp})).")
-                for prefix in ("", "~")]
-        meta.verbalize_seed = random.randint(0, int(1e6))
-        meta.proof = proof = ([x for x in proofs if x.status=="Unsatisfiable"]+[None])[0]
-        meta.cot = verbalize_predicates(get_cot(proof.proof), seed=meta.verbalize_seed, strip_underscores=False) if proof else None
-        labels = tuple([x.status for x in proofs])
+            #compute label        
+            proofs = [run(premise+f"\nfof(hyp,axiom,{prefix}({hyp@tptp})).")
+                    for prefix in ("", "~")]
+            meta.verbalize_seed = random.randint(0, int(1e6))
+            meta.proof = proof = ([x for x in proofs if x.status=="Unsatisfiable"]+[None])[0]
+            meta.cot = verbalize_predicates(get_cot(proof.proof), seed=meta.verbalize_seed, strip_underscores=False) if proof else ""
+            labels = tuple([x.status for x in proofs])
 
-        label = {
-            ('Satisfiable', 'Unsatisfiable'): 'entailment',
-            ('Satisfiable', 'Satisfiable'): 'neutral',
-            ('Unsatisfiable', 'Satisfiable'): 'contradiction'
-        }.get(labels,'other')
+            label = {
+                ('Satisfiable', 'Unsatisfiable'): 'entailment',
+                ('Satisfiable', 'Satisfiable'): 'neutral',
+                ('Unsatisfiable', 'Satisfiable'): 'contradiction',
+                ('Unsatisfiable', 'Unsatisfiable'): 'paradox'
+            }.get(labels,'other')
 
-        meta.prem, meta.hyp = x.dict(), hyp.dict()
-        return Problem(meta, label)
+            if label=="paradox":
+                continue
+            if label=="other":
+                print("WARNING","\n".join(proofs))
+                continue
+            meta.prem, meta.hyp = x.dict(), hyp.dict()
+            return Problem(meta, label)
 
     def prompt(self, meta):
         prem, hyp = meta.prem.eng, meta.hyp.eng

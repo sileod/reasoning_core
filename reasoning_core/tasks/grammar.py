@@ -199,6 +199,7 @@ def generate_parse(config=GrammarConfig):
 class Parsability(Task):
     def __init__(self, config: GrammarConfig = GrammarConfig()):
         super().__init__(config=config)
+        self.balancing_key_ratio=1/3
 
     def generate(self):
         meta = generate_parse(self.config)

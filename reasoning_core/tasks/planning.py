@@ -31,6 +31,8 @@ from collections import Counter, namedtuple
 from reasoning_core.template import Task, Problem, Reward, Config
 import logging
 logging.getLogger().setLevel(logging.WARNING)
+from unified_planning.shortcuts import SequentialSimulator
+from unified_planning.plans import ActionInstance
 
 Range = namedtuple('Range', 'low high type')
 
@@ -58,6 +60,89 @@ def trivial(problem):
     goals= problem.goals[0]
     init = [k for k,v in problem.initial_values.items() if v.is_true()]
     return all(g in init for g in goals.args)
+
+def make_cot(problem, plan):
+    simulator = SequentialSimulator(problem)
+    state = simulator.get_initial_state()
+    
+    # Helper to clean PDDL strings
+    fmt = lambda s: str(s).replace('(', ' ').replace(')', '').replace(',', '')
+    
+    trace = []
+    goals = [fmt(g) for g in problem.goals]
+    trace.append(f"Target Goals: {', '.join(goals)}")
+    
+    # Use _values to access state efficiently
+    get_state_dict = lambda s: s._values if hasattr(s, '_values') else s.values
+    
+    current_facts = {fmt(k) for k, v in get_state_dict(state).items() if v.is_true()}
+    
+    for i, action_instance in enumerate(plan.actions):
+        trace.append(f"\nStep {i+1}:")
+        
+        # --- RE-BINDING LOGIC ---
+        # 1. Get action schema from original problem
+        act_name = action_instance.action.name
+        original_action = problem.action(act_name)
+        
+        # 2. Map parameters from Plan (FNodes) -> Original Problem (Objects)
+        original_params = []
+        for p in action_instance.actual_parameters:
+            if p.is_object_exp():
+                # Extract the UP Object from the FNode, then get its name
+                obj_name = p.object().name
+            else:
+                # Fallback for constants (e.g. Bool/Int)
+                obj_name = str(p)
+            
+            # Fetch the specific object instance from the original problem
+            original_params.append(problem.object(obj_name))
+            
+        # 3. Create valid instance for this simulator
+        valid_instance = ActionInstance(original_action, tuple(original_params))
+        # ------------------------
+
+        # Formatting
+        params_str = [str(p) for p in valid_instance.actual_parameters]
+        action_str = f"({valid_instance.action.name} {' '.join(params_str)})"
+        
+        # Verify Preconditions
+        if not simulator.is_applicable(state, valid_instance):
+            trace.append(f"ERR: Action {action_str} is not applicable in current state.")
+            break
+            
+        trace.append(f"Selected Action: {action_str}")
+        trace.append("  - Preconditions met. Applying action.")
+        
+        # State Transition
+        next_state = simulator.apply(state, valid_instance)
+        if next_state is None:
+            trace.append("  - Error: Simulation failed.")
+            break
+
+        # Calculate Effects
+        next_facts = {fmt(k) for k, v in get_state_dict(next_state).items() if v.is_true()}
+        added = next_facts - current_facts
+        removed = current_facts - next_facts
+        
+        if added:
+            trace.append(f"  - Added effects: {', '.join(sorted(list(added)))}")
+        if removed:
+            trace.append(f"  - Removed effects: {', '.join(sorted(list(removed)))}")
+            
+        # Update loop state
+        current_facts = next_facts
+        state = next_state
+        
+        # Goal check
+        remaining_goals = [g for g in goals if g not in current_facts]
+        if not remaining_goals and i == len(plan.actions) - 1:
+            trace.append("  - Goal condition satisfied.")
+        elif remaining_goals:
+            trace.append(f"  - Remaining goals: {len(remaining_goals)}")
+
+    trace.append("\nPlan found.")
+    return "\n".join(trace)
 
 def fetch_domain(domain):
     
@@ -423,6 +508,7 @@ class Planning(Task):
             writer = PDDLWriter(problem)
             meta.problem_pddl = writer.get_problem()
             meta.domain_pddl = writer.get_domain()
+            meta.cot = make_cot(problem, solution.plan)
             if self.score_answer(plan, {'metadata': meta})<1:
                 continue
             return Problem(meta, plan)

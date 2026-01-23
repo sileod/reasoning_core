@@ -87,7 +87,7 @@ def safe_regex(r, max_tries=10, timeout_seconds=0.5):
 
 def sample_regex(config, max_tries=100):
     max_depth = config.max_depth
-    min_depth = config.max_depth
+    min_depth = config.min_depth
     G = regex_grammar()
     for _ in range(max_tries):
         x = generate(G.start(), depth=max_depth, min_depth=min_depth)

@@ -17,7 +17,7 @@ def worker_loop(in_q, out_q, out_path, batch_size, max_tokens):
         
         name, idx, lvl = task
         try:
-            T = get_task(name)()
+            T = get_task(name)
             T.timeout = 20 * (1+lvl)**2
             random.seed(None)
             np.random.seed(None)
@@ -48,8 +48,8 @@ def generate_and_monitor(args):
 
     status_file = Path(args.status_dir) / f"worker_{int(args.id):03d}.status"
     tasks_done = 0
-    #'bayesian_association','bayesian_intervention'
-    blocklist = {'proof_reconstruction','float_counterfactual', 'theorem_premise_selection'}
+    #'bayesian_association','bayesian_intervention', 'theorem_premise_selection'
+    blocklist = {'float_counterfactual','theorem_premise_selection'}
     tasks = [t for t in (args.tasks or list_tasks()) if t.lower() not in blocklist]
             
     try:
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--id', required=True, type=str)
     parser.add_argument('--version', default='rc0', type=str)
     parser.add_argument('--out_path', default='generated_data', type=str)
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument("--levels", nargs="+", type=int, default=[0, 2, 4, 6])
     parser.add_argument('--status_dir', required=True, type=str)
     parser.add_argument('--tasks', nargs='+', type=str, default=[])

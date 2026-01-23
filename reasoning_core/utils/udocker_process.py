@@ -167,6 +167,9 @@ class Embeded_process:
                 capture_output=True, text=True, timeout=timeout
             )
         except Exception as e:
+            self.kill()
+            if "timeout" in type(e).__name__.lower(): # Dirty string check
+                raise e 
             raise TimeoutError
 
         os.remove(problem_path_host) 
