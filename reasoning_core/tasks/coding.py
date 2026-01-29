@@ -97,6 +97,9 @@ from reasoning_core.template import Task, Problem, Config, edict
 
 fake = Faker()
 
+def with_lineno(lines: List[str]) -> str:
+    return "\n".join(f"{i+1:<4} | {line}" for i, line in enumerate(lines))
+
 def get_short_hash():
     """Generates a git-style short hash (7 chars)."""
     r = str(random.random()).encode('utf-8')
@@ -167,6 +170,7 @@ class VersionedTask:
     def __init__(self, config=DiffConfig()):
         super().__init__(config=config)
         self.vocab = list(fake.words(nb=500, unique=True))
+        self.balancing_key_ratio = 0.1
 
     def generate_version_chain(self):
         lines = [fake.sentence(nb_words=6).rstrip('.') for _ in range(self.config.nb_lines)]
@@ -193,13 +197,13 @@ class DiffPrediction(VersionedTask, Task):
     def generate(self):
         chain = self.generate_version_chain()
         src, tgt = self.select_pair(chain)
-        
-        # Diff without headers
         diff_str = get_git_diff(src['lines'], tgt['lines'])
-        
+        if not diff_str.strip() and  self.balancing_key_ratio<random.random():
+            # No changes between versions; regenerate
+            return self.generate()
         history_text = []
         for v in chain:
-            content = "\n".join(v['lines'])
+            content = with_lineno(v['lines'])
             history_text.append(f"Version {v['id']}:\n{content}\n")
 
         meta = edict(
@@ -220,18 +224,18 @@ class DiffPrediction(VersionedTask, Task):
 
 class DiffPatching(VersionedTask, Task):
     def generate(self):
-        chain = self.generate_version_chain()
-        src, tgt = self.select_pair(chain)
-        
-        diff_str = get_git_diff(src['lines'], tgt['lines'])
-        
-        meta = edict(
-            src_text="\n".join(src['lines']),
-            src_id=src['id'],
-            tgt_id=tgt['id'],
-            diff=diff_str
-        )
-        return Problem(meta, "\n".join(tgt['lines']))
+            chain = self.generate_version_chain()
+            src, tgt = self.select_pair(chain)
+            diff_str = get_git_diff(src['lines'], tgt['lines'])
+            
+            meta = edict(
+                # Edit: Apply line numbering to source text
+                src_text=with_lineno(src['lines']),
+                src_id=src['id'],
+                tgt_id=tgt['id'],
+                diff=diff_str
+            )
+            return Problem(meta, "\n".join(tgt['lines']))
 
     def prompt(self, meta):
         return (f"Apply the following Unified Diff to the text.\n\n"

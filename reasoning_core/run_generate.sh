@@ -29,8 +29,11 @@ while ps -p $PARALLEL_PID > /dev/null; do
     curr_ts=$(date +%s)
     elapsed=$(( curr_ts - start_ts ))
     curr_readable=$(date "+%H:%M:%S") 
+    
+    # Count non-zero exit codes (Col 7) in joblog, skipping header
+    errs=$(awk 'NR>1 && $7!=0' generation.log 2>/dev/null | wc -l)
 
-    echo "--- Dashboard (PID: $PARALLEL_PID) | Time: ${curr_readable} | Elapsed: ${elapsed}s ---"
+    echo "--- Dashboard (PID: $PARALLEL_PID) | Time: ${curr_readable} | Elapsed: ${elapsed}s | Errors: ${errs} ---"
     grep . "$STATUS_DIR"/* 2>/dev/null | sort -V || echo "Waiting for workers..."
     sleep 1
 done

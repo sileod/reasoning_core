@@ -303,7 +303,7 @@ class Rung12Config(Config):
     Noisy_mode = True
     cpt_relative_threshold: float = 0
     cot_scientific_notation: bool = False
-    cot_num: int = 4
+    cot_num: int = 2
 
     def update(self, c):
         self.n_nodes+= c
@@ -342,15 +342,26 @@ class Rung(ABC):
 
     def generate(self):
         
-        self._generate_network(n=self.config.n_nodes,
-            method=self.config.graph_generation_mode,
-            edge_prob=self.config.edge_prob,
-            max_domain_size = self.config.max_domain_size,
-           )
+        for attempt in range(200):
+            if attempt % 10 == 0:
+                # Regenerate network after every 10 failed attempts
+                self._generate_network(
+                    n=self.config.n_nodes,
+                    method=self.config.graph_generation_mode,
+                    edge_prob=self.config.edge_prob,
+                    max_domain_size=self.config.max_domain_size,
+                )
+            
+            self._generate_specific_problem()
+            answer, specific_metadata = self._calculate_answer_and_metadata()
+            
+            if any(e['step'] == 'ELIMINATE' for e in self.reason_graph.ie.trace_log) \
+               and nan not in eval(answer).values():
+                break
+        else:
+            raise RuntimeError(f"Failed to generate non-trivial problem after 200 attempts")
+            answer, specific_metadata = self._calculate_answer_and_metadata()
 
-        self._generate_specific_problem()
-        
-        answer, specific_metadata = self._calculate_answer_and_metadata()
         cot = self.reason_graph.ie.generate_natural_language_proof(scientific_notation=self.config.cot_scientific_notation, precision=self.config.cot_num)
         #while nan in set(eval(answer).values()): #Create another scenario if this one is probabilistically impossible.
         #    self._generate_specific_problem()
@@ -378,40 +389,19 @@ class Rung(ABC):
 
     def prompt(self, metadata):
         bif_data = metadata["bif_description"]
-        model = ReasoningGraph( CanonicalBIFReader( string = bif_data ).get_model() )
+        model = ReasoningGraph(CanonicalBIFReader(string=bif_data).get_model())
         system_description = model.to_NL(self.config.n_round)
 
-        #system_description = metadata["system_description"]
-        scenario = metadata["scenario"]
-        target_variable = metadata["target"]
-        target_var_values = metadata["target_var_values"]
+        target = metadata["target"]
+        values = metadata["target_var_values"]
 
-        output_format_instructions = (
-            "You must return the probability distribution over all values of the target variable "
-            "in the format of a Python dictionary. The output should map each value to its estimated probability.\n"
-            f"If necessary, round the answer to {self.config.n_round} decimal places.\n"
-            "You will be evaluated based on how close your estimated probability distribution is to the true one.\n"
-            "For example, if the target variable is V01 (which can take values 0 or 1) "
-            "and you estimate that P(V01 = 0) = 0.4 and P(V01 = 1) = 0.6, "
-            "your answer must be: {0: 0.4, 1: 0.6} "
-        )
-        task_description = (
-            f"Calculate the probability distribution for the target variable {target_variable}, "
-            f"which can take the following values: {target_var_values}."
-        )
         return (
-            f"### System Description\n"
-            f"""Imagine a self-contained, hypothetical world with only the following conditions, and without any unmentioned factors or causal relationships:\n"""
-            f"{system_description}\n\n"
-            f"### Scenario\n"
-            f"Given the system described above, consider the following specific conditions:\n"
-            f"{scenario}\n\n"
-            f"### Your Task\n"
-            f"{task_description}\n\n"
-            f"### Required Output Format\n"
-            f"{output_format_instructions}"
+            f"System:\n{system_description}\n"
+            f"Observed conditions:\n{metadata['scenario']}\n"
+            f"Task: Compute probability distribution for {target} (possible values: {values}).\n\n"
+            f"Output: Python dict mapping each value to its probability, rounded to {self.config.n_round} decimals.\n"
+            f"Example: {{0: 0.4, 1: 0.6}}"
         )
-
     def get_cot(self, expr):
         return expr.cot
 
@@ -508,7 +498,11 @@ def _to_dict(x):
         try:
             x = ast.literal_eval(x)
         except (ValueError, SyntaxError, Exception):
-            raise TypeError(f"Could not parse string: {x}")
+            # Try with eval and a safe namespace that includes nan
+            try:
+                x = eval(x, {"nan": float('nan'), "inf": float('inf'), "__builtins__": {}})
+            except Exception:
+                raise TypeError(f"Could not parse string: {x}")
 
     if not isinstance(x, dict):
         raise TypeError(f"Expected a dict (or its string repr), got {type(x)}")

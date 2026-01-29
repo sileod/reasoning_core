@@ -12,9 +12,11 @@ from typing import Any
 from types import SimpleNamespace
 import random
 import copy
+import math
 import signal
 from inflection import underscore
 import tiktoken
+import psutil 
 
 _REGISTRY = dict()
 
@@ -46,31 +48,7 @@ def seed():
     np.random.seed()
 
 
-def timeout_retry(seconds=10, attempts=10):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            def handler(signum, frame):
-                #raise TimeoutError(f"Timed out after {seconds}s")
-                pass
-            
-            for attempt in range(1, attempts + 1):
-                try:
-                    signal.signal(signal.SIGALRM, handler)
-                    signal.alarm(seconds)
-                    result = func(*args, **kwargs)
-                    signal.alarm(0)
-                    return result
-                except Exception as e:
-                    signal.alarm(0)
-                    if attempt == attempts:
-                        raise
-                    time.sleep(0.5)
-            
-        return wrapper
-    return decorator
 
-import psutil  # pip install psutil
 
 class TimeoutException(BaseException): pass
 
@@ -277,7 +255,7 @@ class Task(ProceduralDataset):
         return inner()
 
     def generate_balanced_batch(self, batch_size=32, deduplication = False, **kwargs):
-        max_per_key = int(batch_size * self.balancing_key_ratio)
+        max_per_key = math.ceil(batch_size * self.balancing_key_ratio)
         counts = Counter()
         if deduplication:
             deduplication_values = []

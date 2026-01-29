@@ -378,6 +378,6 @@ class FloatCounterfactual(Task):
             f"Calculate the counterfactual value of **{target}**."
         )
 
-from template import _REGISTRY
+from reasoning_core.template import _REGISTRY
 if 'float_counterfactual' in _REGISTRY:
     del _REGISTRY['float_counterfactual']

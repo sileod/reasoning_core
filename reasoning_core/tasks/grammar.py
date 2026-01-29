@@ -21,10 +21,12 @@ from unigram.grammars import simple_english_grammar, arith_grammar
 from unigram import unigram_to_nltk
 from rapidfuzz.distance import Levenshtein
 from itertools import islice
+from nltk.grammar import CFG, Nonterminal
+
 
 fake = Faker()
 
-existing_grammars = [*[simple_english_grammar()]*2, arith_grammar()]
+existing_grammars = [simple_english_grammar(),simple_english_grammar(questions=False), arith_grammar()]
 existing_grammars = [unigram_to_nltk(g) for g in existing_grammars]
 
 wordlist = list(fake.words(nb=500,unique=True))
@@ -45,7 +47,7 @@ class GrammarConfig(Config):
 
     random_grammar_prob:float = 0.3
     tagging_prob: float = 0.5
-
+    target_num_rules=10
 
     def update(self, c):
         self.n_types += c
@@ -107,26 +109,123 @@ def nltk_to_unigram(g):
         R(sig, ' '.join(tokens))
     return R
 
-def drop_rules(grammar, frac=0.5):
-    # Group by LHS
+
+def trim_grammar(grammar, target_size=10, retries=10, shrink_tries=1000, seed=None, max_steps=10000):
+    rng = random.Random(seed)
+
     by_lhs = defaultdict(list)
     for p in grammar.productions():
         by_lhs[p.lhs()].append(p)
 
-    kept_prods = []
-    for prods in by_lhs.values():
-        # Guarantee at least one rule survives per LHS to maintain validity
-        mandatory = random.choice(prods)
-        candidates = [p for p in prods if p != mandatory]
-        
-        kept_prods.append(mandatory)
-        kept_prods.extend(p for p in candidates if random.random() > frac)
+    def get_new_deps(rule, defined):
+        return [s for s in rule.rhs() if isinstance(s, Nonterminal) and s not in defined]
 
-    return CFG(grammar.start(), kept_prods)
+    def prune(prods):
+        if not prods:
+            return []
+
+        # map for reachability walk
+        local_map = defaultdict(list)
+        for p in prods:
+            local_map[p.lhs()].append(p)
+
+        # 1) reachable
+        reachable = {grammar.start()}
+        stack = [grammar.start()]
+        while stack:
+            lhs = stack.pop()
+            for p in local_map.get(lhs, []):
+                for s in p.rhs():
+                    if isinstance(s, Nonterminal) and s not in reachable:
+                        reachable.add(s)
+                        stack.append(s)
+
+        prods = [p for p in prods if p.lhs() in reachable]
+
+        # 2) productive (fixed point)
+        productive = set()
+        changed = True
+        while changed:
+            changed = False
+            for p in prods:
+                if p.lhs() in productive:
+                    continue
+                if all((not isinstance(s, Nonterminal)) or (s in productive) for s in p.rhs()):
+                    productive.add(p.lhs())
+                    changed = True
+
+        if grammar.start() not in productive:
+            return []
+
+        # 3) drop rules that reference unproductive NTs
+        return [p for p in prods
+                if p.lhs() in productive and
+                   all((not isinstance(s, Nonterminal)) or (s in productive) for s in p.rhs())]
+
+    for _ in range(retries):
+        kept = set()
+        defined = set()
+        pending = [grammar.start()]
+
+        # --- PHASE 1: GROW ---
+        steps = 0
+        while steps < max_steps:
+            steps += 1
+
+            if pending:
+                lhs = pending.pop()
+                if lhs in defined:
+                    continue
+                options = by_lhs.get(lhs, [])
+                if not options:
+                    break
+            elif len(kept) < target_size:
+                expandable = [(l, [p for p in by_lhs[l] if p not in kept]) for l in defined]
+                expandable = [(l, opts) for l, opts in expandable if opts]
+                if not expandable:
+                    break
+                lhs, options = rng.choice(expandable)
+            else:
+                break
+
+            if not options:
+                continue
+
+            # Improved near-budget selection: minimize number of NEW deps
+            if len(kept) >= target_size:
+                dep_counts = [(len(get_new_deps(p, defined)), p) for p in options]
+                m = min(c for c, _ in dep_counts)
+                options = [p for c, p in dep_counts if c == m]
+
+            rule = rng.choice(options)
+            kept.add(rule)
+            defined.add(lhs)
+            pending.extend(get_new_deps(rule, defined))
+
+        # --- PHASE 2: SHRINK ---
+        current = prune(list(kept))
+        if not current:
+            continue
+
+        for _ in range(shrink_tries):
+            if len(current) <= target_size:
+                break
+            cand = rng.choice(current)
+            trial = [p for p in current if p != cand]
+            trial = prune(trial)
+            if trial:
+                current = trial
+
+        return CFG(grammar.start(), current)
+
+    print(f"Warning: trimming failed after {retries} retries.")
+    return grammar
+
+
 
 def sample_cfg(config=GrammarConfig):
     if random.random()>config.random_grammar_prob:
-        return drop_rules(random.choice(existing_grammars))
+        return trim_grammar(random.choice(existing_grammars), config.target_num_rules)
         
     for _ in range(1000):
         MG = meta_grammar(config).start()
@@ -151,23 +250,19 @@ def perturb(tokens, config=GrammarConfig):
     ])(tokens)
 
 def make_cot(g, tokens):
-    header = "Action Span Rule\n"
-    chart = EarleyChartParser(g).chart_parse(tokens)
+    # Get up to 2 parses to detect ambiguity without exhaustively searching
+    ps = list(islice(EarleyChartParser(g).parse(tokens), 2))
     
-    parses = [str(x) for x in islice(chart.parses(g.start()), 2)]
-    
-    if len(parses) == 2:  # Ambiguous → skip CoT construction
-        return "[EARLY EXIT: ambiguous]", parses
-    
-    get_action = lambda e: "[SCAN]" if isinstance(e, str) else \
-                           "[COMPLETE]" if e.is_complete() else \
-                           "[PREDICT]" if e.dot() == 0 else "[ADVANCE]"
+    lines = []
+    for i, t in enumerate(ps, 1):
+        lines.append(f"Parse {i}:")
+        for idx in t.treepositions('leaves'):
+            # Construct path: Root -> ... -> POS
+            path = [t[idx[:k]].label() for k in range(len(idx))]
+            lines.append(f"'{t[idx]}': {' > '.join(path)} (Depth: {len(path)})")
 
-    edges = [e for e in chart.edges() if isinstance(e, str) or True]
-    edges.sort(key=lambda e: (e.end(), e.length()))
 
-    cot = header + "\n".join(f"{get_action(e)} {e}" for e in edges)
-    return cot, parses
+    return "\n".join(lines), [str(p) for p in ps]
 
 def generate_parse(config=GrammarConfig):
     meta = edict()
@@ -225,9 +320,10 @@ class Parsing(Task):
         while True:
             meta = generate_parse(self.config)
             if meta.label != 'unambiguous': continue
+            meta.cot = meta.cot.split('\n',1)[1]  # Remove first line
 
             tree_str = meta.parses[0] # Get the Lisp-style string
-            
+            #meta.cot = make_tree_cot(meta.parses[0])
             if random.random() < self.config.tagging_prob:
                 meta.mode = 'tagging'
                 t = Tree.fromstring(tree_str)

@@ -79,6 +79,8 @@ def generate_and_monitor(args):
             max_l = max(args.levels)
             if d_name in {'proof_reconstruction', 'bayesian_association', 'bayesian_intervention','graph_isomorphism'}: max_l = min(max_l, 2)
             if d_name in {"planning", 'logic_nli','evidence_retrieval'}: max_l = min(max_l, 4)
+            #if d_name in {"bayesian_intervention", 'bayesian_association'}: max_l = 0
+
             level = random.choice([l for l in args.levels if l <= max_l])
 
             task_q.put((d_name, idx, level))

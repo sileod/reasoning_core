@@ -618,7 +618,6 @@ def to_nl_DBN(
         It iterates over each node and calls its CPD's .to_NL() method.
         """
         full_description = []
-        full_description.append("=" * 40)
 
         for cpd in self.get_cpds():
             node_nl_lines = cpd.to_nl(
@@ -630,61 +629,23 @@ def to_nl_DBN(
         
         return " \n".join(full_description)
 
-def to_nl_CPD(
-    self, n_round: int = 4, minimalist: bool = False, random_minimalist: bool = True
-) -> List[str]:
-        """
-        Converts the full TabularCPD into a Natural Language description.
-
-        This method is robust for both root nodes (no parents) and
-        conditional nodes (with parents).
-        """
-        descriptions = []
-        self.evidence = self.variables[1:]
-        if len(self.evidence) == 0:
-            self.evidence = None
-        
-        if self.evidence:
-            parent_vars = self.evidence
-            parent_states = [self.state_names[parent] for parent in parent_vars]
-            parent_combos = list(product(*parent_states))
-        else:
-            parent_vars = []  
-            parent_combos = [()]
-            
+def to_nl_CPD(self, n_round: int = 4, minimalist: bool = False, random_minimalist: bool = True) -> List[str]:
+        """Converts TabularCPD to compact notation."""
+        self.evidence = self.variables[1:] or None
         child_states = self.state_names[self.variable]
         probs_table = self.get_values()
-
+        
+        if not self.evidence:
+            probs = {repr(s): float(round(probs_table[j, 0], n_round)) for j, s in enumerate(child_states)}
+            return [f"P({self.variable}) = {probs}"]
+        
+        lines = []
+        parent_combos = list(product(*[self.state_names[p] for p in self.evidence]))
         for i, combo in enumerate(parent_combos):
-            
-            cond_parts = [
-                f"{var} = {repr(val)}" for var, val in zip(parent_vars, combo)
-            ]
-            cond_desc = " and ".join(cond_parts)
-
-            probs_col = probs_table[:, i]
-            prob_list = []
-            for j, state in enumerate(child_states):
-                prob = round(probs_col[j], n_round)
-                prob_list.append((state, prob))
-
-            if minimalist and len(prob_list) > 1:
-                drop_i = 0
-                if random_minimalist:
-                    drop_i = random.randint(0, len(prob_list) - 1)
-                prob_list.pop(drop_i)
-
-            prob_text = " and ".join(
-                f"The probability of {self.variable} = {repr(val)} is {prob}"
-                for val, prob in prob_list
-            )
-
-            if cond_desc:
-                descriptions.append(f"If {cond_desc}, then {prob_text}.")
-            else:
-                descriptions.append(f"{prob_text}.")
-                
-        return descriptions
+            cond = ", ".join(f"{p}={repr(v)}" for p, v in zip(self.evidence, combo))
+            probs = {repr(s): float(round(probs_table[j, i], n_round)) for j, s in enumerate(child_states)}
+            lines.append(f"P({self.variable}|{cond}) = {probs}")
+        return lines
 
 def to_nl_BIM(self, n_round: int = 4, **kwargs) -> List[str]: 
         """ 
@@ -1352,11 +1313,92 @@ class SemanticTraceVE(VariableElimination):
         else:
              return DiscreteFactor(variables=[], cardinality=[], values=[1.0])
 
-    def generate_natural_language_proof(self, scientific_notation=False, precision=4):
-        proof = []
+    def generate_natural_language_proof(self, scientific_notation=False, precision=2, concise=True):
+        """Generate proof. If concise=True, use compact token-efficient format."""
+        if concise:
+            return self._generate_concise_proof(scientific_notation, precision)
+        return self._generate_verbose_proof(scientific_notation, precision)
+    
+    def _render_inline_dist(self, factor, precision=2):
+        """Render distribution as inline dict: {0: 0.65, 1: 0.35}"""
+        vars = factor.variables
+        values = factor.values.flatten()
+        if len(vars) == 1:
+            card = factor.cardinality[0]
+            return "{" + ", ".join(f"{i}: {round(values[i], precision)}" for i in range(card)) + "}"
+        # Multi-var: use compact tuple notation
+        card = factor.cardinality
+        states = [range(c) for c in card]
+        combos = list(itertools.product(*states))
+        parts = [f"{comb}: {round(values[i], precision)}" for i, comb in enumerate(combos)]
+        return "{" + ", ".join(parts) + "}"
+    
+    def _generate_concise_proof(self, scientific, precision):
+        """Token-efficient proof format for LLM pre-training."""
+        lines = []
+        
         for entry in self.trace_log:
-            # We delegate the formatting of each step to a helper method.
-            # This allows child classes to handle custom steps (like SURGERY).
+            step = entry['step']
+            
+            if step == 'GOAL':
+                lines.append(f"Goal: {entry['description']}")
+            
+            elif step == 'SURGERY':
+                surgery_parts = []
+                for d in entry['details']:
+                    if "Point Mass" in d:
+                        surgery_parts.append(d.replace("Set P(", "P(").replace(") :=", ")="))
+                    elif "no parents" not in d:
+                        surgery_parts.append(d)
+                if surgery_parts:
+                    lines.append("Surgery: " + "; ".join(surgery_parts))
+            
+            elif step == 'INIT':
+                order = entry.get('elimination_order', [])
+                if order:
+                    lines.append(f"Elim order: {order}")
+            
+            elif step == 'ELIMINATE':
+                var = entry['variable']
+                tau, tau_track = entry['sum_data']
+                result_str = self._render_inline_dist(tau, precision)
+                lines.append(f"Sum out {var} -> {entry['sum_formula']} = {result_str}")
+            
+            elif step == 'TRIVIAL_DO':
+                do_var, do_val, target = entry['do_var'], entry['do_val'], entry['target']
+                result = entry['result']
+                result_str = self._render_inline_dist(result, precision)
+                lines.append(f"do({do_var}={do_val}) trivial -> P({target}) = {result_str}")
+            
+            elif step == 'NORMALIZE':
+                n_factor, n_track = entry['normalized_data']
+                u_factor, _ = entry['unnormalized_data']
+                u_sum = u_factor.values.sum()
+                result_str = self._render_inline_dist(n_factor, precision)
+                if abs(u_sum - 1.0) < 1e-6:
+                    lines.append(f"Result: {entry['final_formula']} = {result_str}")
+                else:
+                    lines.append(f"Normalize (sum={round(u_sum, precision)}) -> {entry['final_formula']} = {result_str}")
+        
+        return "\n".join(lines)
+    
+    def _generate_verbose_proof(self, scientific_notation, precision):
+        """Original verbose proof format with full tables."""
+        proof = []
+        has_eliminations = any(e['step'] == 'ELIMINATE' for e in self.trace_log)
+        for entry in self.trace_log:
+            step = entry['step']
+            if step == 'INIT' and not entry.get('elimination_order'):
+                continue
+            if step == 'NORMALIZE' and not has_eliminations:
+                final_input = entry.get('final_input_data', [])
+                n_factor, n_track = entry['normalized_data']
+                if len(final_input) > 1:
+                    factors_str = " * ".join(str(t) for _, t in final_input if t)
+                    proof.append(f"Combining factors: {factors_str}")
+                table_str = self._render_factor_table(n_factor, n_track, scientific_notation, precision)
+                proof.append(f"Result:\n{table_str}")
+                continue
             text = self._render_trace_entry(entry, scientific_notation, precision)
             if text:
                 proof.append(text)
@@ -1446,16 +1488,24 @@ class CausalVE(SemanticTraceVE):
 
         # --- OPTIMIZATION: If no DO variables, skip surgery entirely ---
         if not do:
-            # Just run standard VE on the existing model
-            result, trace = self.query_with_trace(
-                variables=variables, 
-                evidence=evidence, 
-                elimination_order=elimination_order, 
-                joint=True
-            )
-            # Append the standard trace to our Goal log
-            self.trace_log.extend(trace)
-            return result
+            return self.base_query(variables, evidence, elimination_order=elimination_order, joint=True, show_progress=False)
+
+        # --- OPTIMIZATION: Trivial causal case (do-var has no parents, target is direct child) ---
+        if len(do) == 1 and len(variables) == 1:
+            do_var, do_val = list(do.items())[0]
+            target = variables[0]
+            if not list(self.model.predecessors(do_var)) and do_var in self.model.predecessors(target):
+                # Just lookup from CPT: P(target | do(do_var=val)) = P(target | do_var=val)
+                cpd = self.model.get_cpds(target)
+                combined_ev = {**evidence, do_var: do_val}
+                result = cpd.to_factor().reduce([(k, v) for k, v in combined_ev.items()], inplace=False)
+                result = result.normalize(inplace=False)
+                self.trace_log.append({
+                    "step": "TRIVIAL_DO",
+                    "do_var": do_var, "do_val": do_val, "target": target,
+                    "result": result
+                })
+                return result
 
         # --- Surgery (Only if do exists) ---
         model_prime = copy.deepcopy(self.model)
@@ -1519,17 +1569,18 @@ class CausalVE(SemanticTraceVE):
         return result
 
     def _render_trace_entry(self, entry, scientific, precision):
-        """
-        Override to handle SURGERY. 
-        Delegates everything else to parent.
-        """
+        """Override to handle SURGERY and TRIVIAL_DO."""
+        if entry['step'] == 'TRIVIAL_DO':
+            do_var, do_val, target = entry['do_var'], entry['do_val'], entry['target']
+            result = entry['result']
+            table_str = self._render_factor_table(result, None, scientific, precision)
+            return f"Since {do_var} has no parents, do({do_var}={do_val}) = P({target}|{do_var}={do_val})\nResult:\n{table_str}"
+        
         if entry['step'] == 'SURGERY':
-            lines = ["--- Step 0: Causal Graph Surgery (Intervention) ---"]
-            lines.append("To compute the causal effect, we simulate the intervention by modifying the graph:")
+            lines = ["--- Causal Graph Surgery ---"]
             for detail in entry['details']:
-                lines.append(f"   - {detail}")
-            lines.append("   - We proceed with Variable Elimination on the mutilated graph.\n")
+                lines.append(f"  - {detail}")
+            lines.append("")
             return "\n".join(lines)
         
-        # Delegate standard steps to the parent class
         return super()._render_trace_entry(entry, scientific, precision)
