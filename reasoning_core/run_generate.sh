@@ -1,6 +1,6 @@
 #!/bin/bash
 
-threads=$(python3 -c "import math, os; print(math.ceil(os.cpu_count() * 0.4))")
+threads=$(python3 -c "import math, os; print(math.ceil(os.cpu_count() * 0.5))")
 #threads=1
 
 MEM_LIMIT="12G"

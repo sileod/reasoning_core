@@ -14,7 +14,7 @@ import scmodels.parser
 if "Normal" not in scmodels.parser.all_stats_imports:
     scmodels.parser.all_stats_imports.add("Normal")
 
-from reasoning_core.template import Task, Problem, Config
+from reasoning_core.template import DevTask, Problem, Config
 
 # --- 1. Configuration ---
 
@@ -300,7 +300,7 @@ class ComplexSCMGraph(BaseSCMGraph):
 
 # --- 3. The Rung 3 Task ---
 
-class FloatCounterfactual(Task):
+class FloatCounterfactual(DevTask):
     def __init__(self, config=Rung3FloatConfig(), mode="complex"):
         super().__init__(config=config)
         
@@ -378,6 +378,3 @@ class FloatCounterfactual(Task):
             f"Calculate the counterfactual value of **{target}**."
         )
 
-from reasoning_core.template import _REGISTRY
-if 'float_counterfactual' in _REGISTRY:
-    del _REGISTRY['float_counterfactual']

@@ -141,6 +141,7 @@ class Task(ProceduralDataset):
         cls.task_name = getattr(cls, 'task_name', prepr_task_name(cls.__name__))
         register_dataset(cls.task_name, cls)
 
+
     def __init__(self, config=dict(), timeout=10, seed=None, _level=0, *a, **kwa):
         self.seed = seed
         self.config=copy.deepcopy(config)
@@ -288,6 +289,12 @@ class Task(ProceduralDataset):
             "metadata": example.metadata
             }
         
+
+class DevTask(Task):
+    """Task subclass for development/experimental tasks that won't be auto-registered."""
+    def __init_subclass__(cls):
+        cls.task_name = getattr(cls, 'task_name', prepr_task_name(cls.__name__))
+        # Don't call register_dataset - skip auto-registration
 
 
 @dataclass

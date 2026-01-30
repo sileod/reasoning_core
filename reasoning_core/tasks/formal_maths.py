@@ -11,7 +11,7 @@ from appdirs import AppDirs
 from pathlib import Path
 from reasoning_core.utils.udocker_process import prover_session
 from ._sat_graph import generate_derivation_graph
-from reasoning_core.template import Task, Problem, Config
+from reasoning_core.template import Task, DevTask, Problem, Config
 import ast
 from reasoning_core.template import TimeoutException
 
@@ -371,7 +371,7 @@ class SelectionConfig(Config):
         self.num_distractors += c
 
 
-class TheoremPremiseSelection(Task):
+class TheoremPremiseSelection(DevTask):
     """
     A task that generates problems where one must select the essential hypotheses
     required to prove a given conjecture from a larger pool of axioms.
