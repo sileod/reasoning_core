@@ -190,6 +190,11 @@ class Task(ProceduralDataset):
         self.score_answer('',x) # should not error out
         self.score_answer('import fakemodule',x) # should not eval strings 
 
+        c0=self.config
+        self.config.set_level(1)
+        self.config.set_level(0)
+        assert self.config==c0
+        
         self.generate_example()
         r1=random.random()
         self.generate_example()

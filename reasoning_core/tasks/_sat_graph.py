@@ -4,7 +4,7 @@ import networkx as nx
 from pathlib import Path
 from typing import Dict, Tuple, List
 from dataclasses import dataclass, field
-from reasoning_core.utils.udocker_process import prover_session
+from reasoning_core.utils.udocker_process import get_prover_session
 import traceback
 
 @dataclass
@@ -48,7 +48,7 @@ def run_eprover_and_build_graph(axiom_file: str, save_output: bool = True,
     ]
     
     try:
-        result = prover_session.run_prover('eprover',cmd,axiom_file)
+        result = get_prover_session().run_prover('eprover',cmd,axiom_file)
         stdout, stderr = result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         print("E-prover timeout")
@@ -240,7 +240,7 @@ def _extract_tptp_from_graph(graph: nx.DiGraph) -> str:
 
 def _call_agint(tptp_content: str) -> str:
     """Calls the AGInT with udocker and returns the output."""
-    return prover_session.run_agint(tptp_content)
+    return get_prover_session().run_agint(tptp_content)
             
 
 

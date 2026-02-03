@@ -19,8 +19,10 @@ class TableQAConfig(Config):
         self.num_rows = int(self.num_rows * (1+c))
         self.num_columns += c
 
+_faker = Faker()
+
 def generate_random_table(config):
-    f = Faker()
+    f = _faker
     pool = [
         ('customer', f.name), ('city', f.city), ('country', f.country), ('email', f.email),
         ('company', f.company), ('product', lambda: f.word().capitalize()), ('job', f.job),
@@ -86,10 +88,10 @@ class TableQA(Task):
         return random.choice(queries) if queries else "SELECT COUNT(*) FROM dataframe"
     
     def generate(self):
-        # ... [unchanged] ...
         dataframe = generate_random_table(self.config)
         q = self._query(dataframe)
-        result = duckdb.sql(q).df()
+        conn = duckdb.connect()  # fresh in-memory connection
+        result = conn.execute(q).df()
         render_func, fmt_name = random.choice(get_renderers(dataframe))
         is_scalar = result.shape == (1, 1)
         
@@ -118,7 +120,6 @@ class TableQA(Task):
         if ans.strip() == entry.answer.strip(): return 1.0
         
         try:
-            # Fix: Use csv module to handle quoted strings like "Smith, Jones & Co"
             parse = lambda s: list(csv.reader(io.StringIO(s.strip())))
             a, e = parse(ans), parse(entry.answer)
             

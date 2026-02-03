@@ -127,6 +127,7 @@ class SetIntersection(Task):
 @dataclass
 class SetMissingElementConfig(SetOpsConfig):
     set_size: int = 10
+    prob_no_missing: float = 0.1
     def update(self, c):
         self.set_size *= 1 + c
         self.n_max_perturbation *= 1 + c
@@ -140,15 +141,25 @@ class SetMissingElement(Task):
     def generate(self):
         chosen_domain = random.choice(self.domains)
         intention = create_intension(chosen_domain, self.config.set_size)
-        missing_element = np.random.choice(intention[1:-1])
-        intention.remove(missing_element)
-        return Problem(metadata = {'element_list' : return_shuffle(intention) }, answer = str(missing_element))
+        n_missing = 0 if random.random() < self.config.prob_no_missing else random.randint(1, 3)
+        removable = intention[1:-1]
+        missing = sorted(random.sample(removable, min(n_missing, len(removable))), key=str)
+        for e in missing: intention.remove(e)
+        answer = "{" + ", ".join(map(repr, missing)) + "}"
+        return Problem(metadata={'element_list': return_shuffle(intention)}, answer=answer)
 
     def prompt(self, metadata) -> str:
         return (
             f"Set_A: {metadata['element_list']}\n"
-            "Only return the string element missing from Set_A."
+            "Only return the missing elements from Set_A as a Python set."
         )
+
+    def score_answer(self, answer, entry):
+        try:
+            pred, truth = set(literal_eval(answer)), set(literal_eval(entry['answer']))
+            return int(pred == truth) if not truth else intersection_metric(pred, truth)
+        except:
+            return 0
 
 @dataclass
 class SetEquality(Task):

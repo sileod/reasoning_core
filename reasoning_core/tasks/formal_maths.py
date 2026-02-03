@@ -9,7 +9,7 @@ from easydict import EasyDict as edict
 from dataclasses import dataclass
 from appdirs import AppDirs
 from pathlib import Path
-from reasoning_core.utils.udocker_process import prover_session
+from reasoning_core.utils.udocker_process import get_prover_session
 from ._sat_graph import generate_derivation_graph
 from reasoning_core.template import Task, DevTask, Problem, Config
 import ast
@@ -186,7 +186,7 @@ def prove_conjecture(axioms: list[str], conjecture: str,
 
         vampire_command_disproove = ["-t", str(time_limit_seconds),"-sa", "fmb"]
 
-        result_proove = prover_session.run_prover('vampire',vampire_command_proove,temp_f.name)
+        result_proove = get_prover_session().run_prover('vampire',vampire_command_proove,temp_f.name)
 
         if verb == True:
             print(f"output proove vampire :  {result_proove.stdout} ")
@@ -196,7 +196,7 @@ def prove_conjecture(axioms: list[str], conjecture: str,
         if "% SZS status CounterSatisfiable" in result_proove.stdout :
             return False
 
-        result_disproove = prover_session.run_prover('vampire',vampire_command_disproove,temp_f.name)
+        result_disproove = get_prover_session().run_prover('vampire',vampire_command_disproove,temp_f.name)
     
         if verb == True:
             print(f"output disproove vampire :  {result_disproove.stdout} ")
@@ -281,6 +281,10 @@ class ConjectureEntailment(Task):
     """
     def __init__(self, config=EntailConfig()):
         super().__init__(config)
+        # Initialize prover session at task init (pulls docker image if needed)
+        # This ensures docker setup happens before any generation timing
+        from reasoning_core.utils.udocker_process import initialize_prover_session
+        initialize_prover_session()
 
     def _initialize_graph(self):    
         for _ in range(100):
@@ -379,6 +383,9 @@ class TheoremPremiseSelection(DevTask):
     """
     def __init__(self, config=SelectionConfig()):
         super().__init__(config, timeout=60)
+        # Initialize prover session at task init
+        from reasoning_core.utils.udocker_process import initialize_prover_session
+        initialize_prover_session()
 
     _initialize_graph = ConjectureEntailment._initialize_graph
 
@@ -576,6 +583,9 @@ class ProofReconstruction(Task):
     """
     def __init__(self, config=ReconstructionConfig()):
         super().__init__(config)
+        # Initialize prover session at task init
+        from reasoning_core.utils.udocker_process import initialize_prover_session
+        initialize_prover_session()
         
     _initialize_graph = ConjectureEntailment._initialize_graph
     

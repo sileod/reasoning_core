@@ -469,7 +469,7 @@ class PlanningConfig(Config):
         self.N += c
         self.min_na += c
         self.max_na += c
-        self.config.arity_weight += c
+        self.arity_weight += c
 
 class Planning(Task):
     task_name = "planning" 
