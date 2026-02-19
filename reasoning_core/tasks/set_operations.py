@@ -49,7 +49,7 @@ def make_domains(size):
     gen = itertools.chain.from_iterable((''.join(p) for p in itertools.product(string.ascii_lowercase, repeat=n)) for n in itertools.count(1))
     LETTERS = list(itertools.islice(gen, size))
 
-    domains = [NUM, NUM_EN, NUM_FR, DATES, DATES_EN, LETTERS]
+    domains = [NUM, NUM_EN, DATES, DATES_EN, LETTERS]
     return domains
 
 def perturb_list(input_l, base_domain, n_perturbation=1):
@@ -80,11 +80,12 @@ class SetOpsConfig(Config):
     set_size: int = 8
     n_max_perturbation: int = 2
     prob_equal: float = 0.5
+    n_domains : int = 1
     def update(self, c):
         self.set_size *= 1 + c
         self.domain_size *= 1 + c
         self.n_max_perturbation *= 1 + c
-
+        self.n_domains += c
         
 class SetIntersection(Task):
     def __init__(self, config=SetOpsConfig()):
@@ -92,7 +93,7 @@ class SetIntersection(Task):
         self.domains = make_domains(self.config.domain_size)
     
     def generate(self):
-        chosen_domain = random.choice(self.domains)
+        chosen_domain = random.choice(self.domains[:self.config.n_domains])
         N=6
         set_1 = random_subdomain( chosen_domain, size=self.config.set_size) 
         others = list(set(chosen_domain) - set(set_1))
@@ -132,6 +133,7 @@ class SetMissingElementConfig(SetOpsConfig):
         self.set_size *= 1 + c
         self.n_max_perturbation *= 1 + c
         self.domain_size *= 1 + c
+        self.n_domains += c
 
 class SetMissingElement(Task):
     def __init__(self, config=SetMissingElementConfig()):
@@ -139,7 +141,7 @@ class SetMissingElement(Task):
         self.domains = make_domains(self.config.domain_size)
         
     def generate(self):
-        chosen_domain = random.choice(self.domains)
+        chosen_domain = random.choice(self.domains[:self.config.n_domains])
         intention = create_intension(chosen_domain, self.config.set_size)
         n_missing = 0 if random.random() < self.config.prob_no_missing else random.randint(1, 3)
         removable = intention[1:-1]
@@ -160,6 +162,38 @@ class SetMissingElement(Task):
             return int(pred == truth) if not truth else intersection_metric(pred, truth)
         except:
             return 0
+
+@dataclass
+class CountElementsConfig(Config):
+    max_count: int = 3
+    list_size: int = 10
+    domain_size: int = 20
+    def update(self, c):
+        self.max_count += c
+        self.list_size += c
+        self.domain_size *= 1 + c
+
+class CountElements(Task):
+    def __init__(self, config=CountElementsConfig()):
+        super().__init__(config=config)
+        self.domains = make_domains(self.config.domain_size)
+
+    def generate(self):
+        count = random.randint(0, self.config.max_count)
+        domain = random.choice(self.domains)
+        target = random.choice(domain)
+        others = [e for e in domain if e != target]
+        n_others = self.config.list_size - count
+        elements = [target] * count + random.choices(others, k=n_others)
+        random.shuffle(elements)
+        return Problem(metadata={'elements': elements, 'target': target}, answer=str(count))
+
+    def prompt(self, metadata) -> str:
+        return f"List: {metadata['elements']}\nHow many times does {metadata['target']!r} appear? Only return the number."
+
+    def score_answer(self, answer, entry):
+        try: return 1 / (1 + abs(int(answer.strip()) - int(entry['answer'])))
+        except: return 0
 
 @dataclass
 class SetEquality(Task):

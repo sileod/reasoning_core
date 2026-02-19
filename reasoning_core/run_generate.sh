@@ -21,7 +21,7 @@ for i in "$@"; do
 done
 
 # Default: 45% of CPUs, or use --threads override
-[[ -z "$threads" ]] && threads=$(python3 -c "import math, os; print(math.ceil(os.cpu_count() * 0.45))")
+[[ -z "$threads" ]] && threads=$(python3 -c "import math, os; print(math.ceil(os.cpu_count() * 0.4))")
 
 
 STATUS_DIR="/dev/shm/gen_status_$$"
@@ -32,11 +32,12 @@ start_ts=$(date +%s)
 echo "- Starting at: $(date)"
 echo "- Starting $threads workers..."
 
-seq "$threads" | parallel \
+MEM_LIMIT_KB=$((50*1024*1024))  # 50GB in KB
+seq $((threads * 200)) | parallel \
   -j"$threads" \
   --joblog generation.log \
   --line-buffer \
-  'python generation_worker.py --id {} --status_dir '"$STATUS_DIR"' '"$@"'' &
+  'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python generation_worker.py --id {} --status_dir '"$STATUS_DIR"' '"$@"'' &
 
 PARALLEL_PID=$!
 

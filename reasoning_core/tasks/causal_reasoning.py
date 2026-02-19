@@ -4,7 +4,7 @@ import pandas as pd
 import networkx as nx
 import numbers
 from itertools import product
-from math import log, nan
+from math import log, nan, floor, ceil
 import ast
 from abc import ABC, abstractmethod
 
@@ -66,12 +66,17 @@ class ReasoningGraph:
             self.bn = DiscreteBayesianNetwork()
         self.reset_inference()
 
-    def generate_new_graph(self, n=4, edge_prob= 0.5, max_domain_size = 3, method="erdos",**kwargs):
+    def generate_new_graph(self, n=4, edge_prob= 0.5, max_domain_size = 3,**kwargs):
+        method = kwargs.pop('method', 'erdos')
+        seed = kwargs.pop('seed', None)
+        conditionning_seed = kwargs.pop('conditionning_seed', None)
         self.bn = DiscreteBayesianNetwork.get_random(
         n_nodes = n,
         edge_prob = edge_prob,
         n_states = [ k+1 for k in range(1,max_domain_size)],
         method = method,
+        seed = seed,
+        conditionning_seed = conditionning_seed,
         **kwargs)
 
         self.ie = CausalVE(self.bn) #Causal Variable Elimination Home Made
@@ -212,8 +217,8 @@ class ReasoningGraph:
     def target_to_NL(self):
         return f"""Provide the probability over the state named {self.target} """
 
-    def to_NL(self, n_round: int = 4, minimalist : bool = False, random_minimalist : bool = True) -> str:     
-        return self.bn.to_nl(n_round, minimalist, random_minimalist)
+    def to_NL(self, n_round: int = 4, verbose = False) -> str:     
+        return self.bn.to_nl(n_round, verbose)
 
     def convert_complex_nodes_to_ci(
         self, 
@@ -221,6 +226,7 @@ class ReasoningGraph:
         seed: int = None,
         binari_ci_modes: List[str] = ['or', 'and'],
         multi_ci_modes: List[str] = ['max', 'min'],
+        n_round: Optional[int] = None,
     ) -> list:
         """
         Post-processing step to convert large TabularCPDs to CI models.
@@ -261,6 +267,8 @@ class ReasoningGraph:
                         cardinality = cardinalities,
                         mode = chosen_mode,
                         seed = seed)
+                if n_round != None:
+                    new_cpd.round(n_round)
                 if new_cpd:
                     self.bn.remove_cpds(old_cpd)
                     self.bn.add_cpds(new_cpd)
@@ -291,30 +299,69 @@ class Rung12Config(Config):
         Method for generating the graph (e.g., "erdos").
     n_round : int
         Number of decimal places to round probabilities to.
+    Noisy_mode : bool
+        Whether to use the sparser Noisy interaction within the network.
+    cpt_relative_threshold : float
+        If Noisy_mode is True, set the conversion relative threshold in gain of parameter size (classical/Noisy), to converte a classical CDP interaction into a random Noisy one.
+    cot_scientific_notation : bool
+        Whether to use scientific notation for chain of thought.
+    generate_trivial : bool
+        Whether to accept problem where no computationn only retriavial skills are necessary (mainly usefull for law level problems).
+    is_verbose : bool
+        Whether to use a more humanlike description of the system, or a less verbose one that describe the Bayesian Network by listing all the conditional probabilities.
     """
     n_nodes: int = 3
     max_domain_size: int = 2
     edge_prob: float = 0.5
     graph_generation_mode: str = "erdos"
-    n_round: int = 2
-    Graph_seed = None
-    Conditionning_seed = None
-    seed = None
+    n_round: int = 1
     Noisy_mode = True
     cpt_relative_threshold: float = 0
     cot_scientific_notation: bool = False
-    cot_num: int = 2
+    graph_seed = None
+    conditionning_seed = None
+    seed = None
+    is_verbose = False
+    concise_cot = True
+
+    def set_level(self, i: int):
+        # 1. Call the parent to handle the standard progression logic
+        super().set_level(i)
+        
+        # 2. Handle specific levels
+        if i == 0:
+            self.generate_trivial = False
+        else:
+            self.generate_trivial = True
+        return self
 
     def update(self, c):
-        self.n_nodes+= c
-        self.max_domain_size+= 0.5 * c
-        self.cpt_relative_threshold += 0.5 * c 
+            self.n_round += .5 * c
+            self.n_nodes += .5 * c
+            self.max_domain_size += .5 * c
+            self.cpt_relative_threshold += .5 * c 
 
-    def set_seed(self, Graph_seed = None, Conditionning_seed = None):
-        self.Graph_seed = Graph_seed
-        self.seed = Graph_seed
 
-        self.Conditionning_seed = Conditionning_seed
+    def set_seed(self, graph_seed = None, conditionning_seed = None):
+        """
+        Sets the random seeds for reproducibility of the graph structure and the specific query.
+
+        Parameters
+        ----------
+        Graph_seed : int, optional
+            The seed used to control the generation of the Bayesian Network structure 
+            (topology, edges) and the parameters (CPDs). If provided, it ensures 
+            the "laws of the world" are consistent across runs.
+        conditionning_seed : int, optional
+            The seed used to control the selection of the target variable, 
+            evidence variables, and intervention values (the "scenario"). 
+            Allows generating different questions/conditions on the exact same graph.
+            Morever, the conditionning accross rungs (association/intervention) are twined.
+        """
+        self.graph_seed = graph_seed
+        self.seed = graph_seed
+
+        self.conditionning_seed = conditionning_seed
 
 
 class Rung(ABC):
@@ -341,46 +388,40 @@ class Rung(ABC):
         pass
 
     def generate(self):
-        
-        for attempt in range(200):
-            if attempt % 10 == 0:
-                # Regenerate network after every 10 failed attempts
-                self._generate_network(
-                    n=self.config.n_nodes,
-                    method=self.config.graph_generation_mode,
-                    edge_prob=self.config.edge_prob,
-                    max_domain_size=self.config.max_domain_size,
-                )
-            
-            self._generate_specific_problem()
-            answer, specific_metadata = self._calculate_answer_and_metadata()
-            
-            if any(e['step'] == 'ELIMINATE' for e in self.reason_graph.ie.trace_log) \
-               and nan not in eval(answer).values():
-                break
-        else:
-            raise RuntimeError(f"Failed to generate non-trivial problem after 200 attempts")
-            answer, specific_metadata = self._calculate_answer_and_metadata()
+        n_round = self.config.n_round #stochastic rounding value, that we will use for all subfunction to be coherent within the example    
+        self._generate_network(n=self.config.n_nodes,
+            method=self.config.graph_generation_mode,
+            edge_prob=self.config.edge_prob,
+            max_domain_size = self.config.max_domain_size,
+            n_round = n_round,
+           )
 
-        cot = self.reason_graph.ie.generate_natural_language_proof(scientific_notation=self.config.cot_scientific_notation, precision=self.config.cot_num)
-        #while nan in set(eval(answer).values()): #Create another scenario if this one is probabilistically impossible.
-        #    self._generate_specific_problem()
-        #    answer, specific_metadata = self._calculate_answer_and_metadata()
+        self._generate_specific_problem(n_round)
         
-        system_description = self.reason_graph.to_NL(self.config.n_round)
+        answer, specific_metadata = self._calculate_answer_and_metadata(n_round)
+        cot = self.reason_graph.ie.generate_natural_language_proof(scientific_notation=self.config.cot_scientific_notation, precision=n_round, concise=self.config.concise_cot)
+        while nan in set(eval(answer).values()): #Create another scenario if this one is probabilistically impossible.
+            if self.config.graph_seed != None:
+                self.config.graph_seed += 1
+            self._generate_specific_problem(n_round)
+            answer, specific_metadata = self._calculate_answer_and_metadata(n_round)
+        
         scenario = self._construct_scenario()
         target_vals = self.reason_graph.bn.states[self.reason_graph.target]
 
         writer = CanonicalBIFWriter(self.reason_graph.bn)
         bif_data = writer.write_string()
+
+        if 'nan' in cot: #case where the problem is tricky for concise Cot solving
+            cot = None
         
         metadata = {
             "target_var_values": target_vals,
             "bif_description":bif_data,
-            #"system_description": system_description,
             "scenario": scenario,
             "target": self.reason_graph.target,
             "variables": list(self.reason_graph.bn.nodes()),
+            "n_round": n_round,
             "cot": cot
         }
         metadata.update(specific_metadata)
@@ -390,7 +431,8 @@ class Rung(ABC):
     def prompt(self, metadata):
         bif_data = metadata["bif_description"]
         model = ReasoningGraph(CanonicalBIFReader(string=bif_data).get_model())
-        system_description = model.to_NL(self.config.n_round)
+        n_round = metadata['n_round']
+        system_description = model.to_NL(n_round, self.config.is_verbose) 
 
         target = metadata["target"]
         values = metadata["target_var_values"]
@@ -399,9 +441,10 @@ class Rung(ABC):
             f"System:\n{system_description}\n"
             f"Observed conditions:\n{metadata['scenario']}\n"
             f"Task: Compute probability distribution for {target} (possible values: {values}).\n\n"
-            f"Output: Python dict mapping each value to its probability, rounded to {self.config.n_round} decimals.\n"
-            f"Example: {{0: 0.4, 1: 0.6}}"
+            f"Output: Python dict mapping each value to its probability, rounded to {n_round} decimals.\n"
+            f"Example: {{0: {round(0.123456789,n_round)}, 1: {round(0.876543211,n_round)}}}"
         )
+
     def get_cot(self, expr):
         return expr.cot
 
@@ -419,24 +462,27 @@ class BayesianAssociation(Rung, Task):
     def __init__(self, config=Rung12Config()):
         super().__init__(config=config)
 
-    def _generate_network(self, method="erdos",**kwargs):
-        self.reason_graph.generate_new_graph(method=method, seed=self.config.Graph_seed, **kwargs)
+    def _generate_network(self,**kwargs):
+        self.reason_graph.generate_new_graph(seed= self.config.seed,
+         graph_seed = self.config.graph_seed,
+         **kwargs)
 
-    def _generate_specific_problem(self):   
+    def _generate_specific_problem(self,n_round):   
         if self.config.Noisy_mode:     
             self.reason_graph.convert_complex_nodes_to_ci(
                 cpt_relative_threshold=self.config.cpt_relative_threshold,
-                seed=self.config.Graph_seed,
+                seed=self.config.graph_seed,
+                n_round=n_round,
                 )
 
-        if self.config.Conditionning_seed:
-            self.reason_graph.generate_bonded_rung1(self.config.Conditionning_seed)
+        if self.config.conditionning_seed:
+            self.reason_graph.generate_bonded_rung1(self.config.conditionning_seed)
         else:
             self.reason_graph.generate_rung1()
 
-    def _calculate_answer_and_metadata(self):
+    def _calculate_answer_and_metadata(self, n_round):
         pred_factor = self.reason_graph.predict()
-        answer = str(factor_to_dict(pred_factor, self.config.n_round))
+        answer = str(factor_to_dict(pred_factor, n_round))
         return answer, {}
 
     def _construct_scenario(self):
@@ -447,24 +493,27 @@ class BayesianIntervention(Rung, Task):
     def __init__(self, config=Rung12Config()):
         super().__init__(config=config)
 
-    def _generate_network(self, method="erdos",**kwargs):
-        self.reason_graph.generate_new_graph(method=method, seed=self.config.Graph_seed, **kwargs)
-        
-    def _generate_specific_problem(self): 
+    def _generate_network(self,**kwargs):
+        self.reason_graph.generate_new_graph(seed = self.config.seed,
+         graph_seed = self.config.graph_seed,
+          **kwargs)
+       
+    def _generate_specific_problem(self,n_round): 
         if self.config.Noisy_mode:       
             self.reason_graph.convert_complex_nodes_to_ci(
                 cpt_relative_threshold=self.config.cpt_relative_threshold,
-                seed=self.config.Graph_seed,
+                seed=self.config.graph_seed,
+                n_round=n_round,
                 )
 
-        if self.config.Conditionning_seed:
-            self.reason_graph.generate_bonded_rung2(self.config.Conditionning_seed)
+        if self.config.conditionning_seed:
+            self.reason_graph.generate_bonded_rung2(self.config.conditionning_seed)
         else:
             self.reason_graph.generate_rung2()
 
-    def _calculate_answer_and_metadata(self):
+    def _calculate_answer_and_metadata(self, n_round):
         pred_factor = self.reason_graph.predict()
-        answer = str(factor_to_dict(pred_factor, self.config.n_round))
+        answer = str(factor_to_dict(pred_factor, n_round))
         return answer, {}
 
     def _construct_scenario(self):
@@ -498,11 +547,7 @@ def _to_dict(x):
         try:
             x = ast.literal_eval(x)
         except (ValueError, SyntaxError, Exception):
-            # Try with eval and a safe namespace that includes nan
-            try:
-                x = eval(x, {"nan": float('nan'), "inf": float('inf'), "__builtins__": {}})
-            except Exception:
-                raise TypeError(f"Could not parse string: {x}")
+            raise TypeError(f"Could not parse string: {x}")
 
     if not isinstance(x, dict):
         raise TypeError(f"Expected a dict (or its string repr), got {type(x)}")
@@ -547,7 +592,7 @@ def js_divergence(d1, d2):
     js = 0.5 * kl_divergence(p, m) + 0.5 * kl_divergence(q, m)
     return js
 
-def js_reward(dg, dt, power=512):
+def js_reward(dg, dt, power=256):
     """reward of guessing dg where the true distribution is dt"""
     js = js_divergence(dg, dt)
     return (1 - js / log(2)) ** power

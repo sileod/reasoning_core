@@ -1,7 +1,7 @@
 import copy
 import random
 import re
-from unigram.solver_utils.tptp import split_clauses, run, to_tptp, extract_inferences_and_formulas
+from gramforge.solver_utils.tptp import split_clauses, run, to_tptp, extract_inferences_and_formulas
 
 def satify_premise(x, n=3,verbose=False, background=''):
     def unslot_object(obj):

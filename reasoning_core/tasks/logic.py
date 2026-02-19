@@ -1,16 +1,16 @@
-from unigram import Substitution, Constraint, generate, init_grammar
+from gramforge import Substitution, Constraint, generate, init_grammar
 S,C=Substitution,Constraint
 
 import funcy as fc
 from tqdm.auto import tqdm
 import random, re, exrex
 import itertools
-from unigram.solver_utils.tptp import split_clauses, run, to_tptp, extract_inferences_and_formulas
-from unigram.assets import fol_nli_verbalization
+from gramforge.solver_utils.tptp import split_clauses, run, to_tptp, extract_inferences_and_formulas
+from gramforge.assets import fol_nli_verbalization
 
 import sys
 from reasoning_core.template import Task, Problem, Config, register_dataset
-from unigram.grammars.FOL import FOL_grammar
+from gramforge.grammars.FOL import FOL_grammar
 from easydict import EasyDict as edict
 from tqdm.auto import tqdm
 from functools import cache

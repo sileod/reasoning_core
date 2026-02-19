@@ -52,7 +52,7 @@ def seed():
 
 class TimeoutException(BaseException): pass
 
-def timeout_retry(seconds=10, attempts=10):
+def timeout_retry(seconds=15, attempts=10):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -155,9 +155,10 @@ class Task(ProceduralDataset):
         self.tokenizer = tiktoken.get_encoding("o200k_base")
 
     def generate(self):
-        raise NotImplementedError 
         """To override, return one problem"""
-        return Problem(metadata=edict(), answer="")
+        #return Problem(metadata=edict(), answer="")
+        raise NotImplementedError 
+
         
     def prompt(self,metadata):
         """To override, turns a problem metadata into a prompt"""
@@ -363,6 +364,12 @@ class Config:
             
         return object.__getattribute__(self, name)
 
+    def get_true_value(self, name: str) -> float:
+        """Returns the unrounded float value of a stochastic field."""
+        if name in self._stochastic_fields:
+            return getattr(self._unrounded, name)
+        return getattr(self, name)
+
     def __setattr__(self, name: str, value: Any):
         try:
             if name in object.__getattribute__(self, '_stochastic_fields'):
@@ -383,6 +390,7 @@ class Config:
         # Set the flag to enable deterministic updates.
         object.__setattr__(self, '_is_updating', True)
         try:
+            object.__setattr__(self, 'level', i)             
             for _ in range(i):
                 self.update(self.c)
         finally:

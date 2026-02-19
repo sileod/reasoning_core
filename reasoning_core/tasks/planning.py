@@ -320,7 +320,7 @@ def compile(problem):
         return qr_result.problem
 
 
-@timeout_decorator.timeout(10)
+#@timeout_decorator.timeout(10)
 def solve(problem, planner="pyperplan-opt", lexicographic=True):
     if "pyperplan" in planner:
         problem=compile(problem)    

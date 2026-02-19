@@ -58,7 +58,7 @@ def load_downstream(config):
 
 
 
-def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16):
+def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use_chat_template=False):
     disable_progress_bar(), model.eval()
     tasks = get_dataset_config_names("madrylab/platinum-bench")
     tasks.remove('vqa')
@@ -69,7 +69,7 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16):
         ds = load_dataset("madrylab/platinum-bench", t, split=f"test[:{limit}]")
         ds = ds.filter(lambda x: x['platinum_target'] is not None)
         def process(x):
-            if tokenizer.chat_template:
+            if tokenizer.chat_template and use_chat_template:
                 q_ids = tokenizer.apply_chat_template([{"role":"user", "content":x['platinum_prompt_no_cot']}], tokenize=True, add_generation_prompt=True)
             else:
                 q_ids = tokenizer(x['platinum_prompt_no_cot']).input_ids

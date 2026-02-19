@@ -2,6 +2,7 @@
 """Generation worker - runs tasks directly (no internal multiprocessing)."""
 import random, argparse, os, time, json, math
 from pathlib import Path
+from datetime import datetime
 
 # Thread controls (must be before numpy/scipy imports)
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -10,6 +11,19 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from reasoning_core import list_tasks, get_task
 import numpy as np
+
+MEM_LIMIT_GB, MEM_WARN_RATIO = 50, 0.8
+def get_rss_gb():
+    try:
+        with open('/proc/self/status') as f:
+            for l in f:
+                if l.startswith('VmRSS:'): return int(l.split()[1]) / 1024 / 1024
+    except: pass
+    return 0
+def check_mem(log_file, worker_id, task_str):
+    rss = get_rss_gb()
+    if rss > MEM_LIMIT_GB * MEM_WARN_RATIO:
+        with open(log_file, 'a') as f: f.write(f"Worker {worker_id} | {task_str}: MEM_WARN {rss:.1f}GB\n")
 
 def run_task(name, idx, level, out_path, batch_size, max_tokens):
     """Run a single task batch, return (success, message)."""
@@ -56,6 +70,12 @@ def main(args):
                 lock_f = out_path / f'{d_name}-{idx}.lock'
                 
                 if final_f.exists(): continue
+                # Clean stale locks (older than 900s = before worker timeout)
+                if lock_f.exists():
+                    try:
+                        if time.time() - lock_f.stat().st_mtime > 900: lock_f.unlink()
+                        else: continue
+                    except: continue
                 
                 try:
                     fd = os.open(lock_f, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -65,10 +85,20 @@ def main(args):
                 
                 claimed_any = True
                 max_l = max(args.levels)
-                if d_name in {'proof_reconstruction', 'bayesian_association', 'bayesian_intervention', 'graph_isomorphism'}: 
-                    max_l = min(max_l, 2)
-                if d_name in {'planning', 'logic_nli', 'evidence_retrieval'}: 
-                    max_l = min(max_l, 4)
+
+                custom_max = {
+                    'proof_reconstruction': 2,
+                    'bayesian_association': 2,
+                    'bayesian_intervention': 2,
+                    'planning': 4,
+                    'logic_nli': 3,
+                    'evidence_retrieval': 3,
+                    'table_qa': 4,
+                    'table_conversion': 4,
+                }
+                if d_name in custom_max:
+                     max_l = min(max_l, custom_max[d_name])
+  
                 
                 level = random.choice([l for l in args.levels if l <= max_l])
                 task_str = f"{d_name}-{level}"
@@ -77,7 +107,7 @@ def main(args):
                 
                 try:
                     success, msg = run_task(d_name, idx, level, out_path, args.batch_size, args.max_tokens)
-                    
+                    check_mem(error_log, args.id, task_str)
                     if success:
                         tasks_done += 1
                     else:
@@ -96,14 +126,15 @@ def main(args):
         if status_file.exists(): status_file.unlink()
 
 if __name__ == '__main__':
+    date = int(datetime.now().timestamp())
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_examples', default=10_000_000, type=int)
     parser.add_argument('-f', default=None)
     parser.add_argument('--id', required=True, type=str)
-    parser.add_argument('--version', default='rc0', type=str)
+    parser.add_argument('--version', default=f'rc-{date}', type=str)
     parser.add_argument('--out_path', default='generated_data', type=str)
     parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--levels', nargs='+', type=int, default=[0, 2, 4])
+    parser.add_argument('--levels', nargs='+', type=int, default=[0,1,2])
     parser.add_argument('--status_dir', required=True, type=str)
     parser.add_argument('--tasks', nargs='+', type=str, default=[])
     parser.add_argument('--max_tokens', default=5_000, type=int)

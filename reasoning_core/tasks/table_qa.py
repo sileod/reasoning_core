@@ -8,6 +8,7 @@ from nltk.metrics.distance import edit_distance
 from reasoning_core.template import Task, Problem, Config
 from reasoning_core.utils import score_scalar
 import csv
+import yaml
 import io
 from rapidfuzz.distance import Levenshtein
 
@@ -40,8 +41,9 @@ def get_renderers(dataframe):
         (dataframe.to_markdown, 'to_markdown'),
         (dataframe.to_csv, 'to_csv'),
         (dataframe.to_html, 'to_html'),
-        (dataframe.to_latex, 'to_latex'),
-        (lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4), 'to_json')
+        (lambda index=False: dataframe.style.hide(axis='index' if not index else None).to_latex(), 'to_latex'),
+        (lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4), 'to_json'),
+        (lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False), 'to_yaml')
     ]
 
 class TableQA(Task):

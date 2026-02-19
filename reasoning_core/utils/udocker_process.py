@@ -56,6 +56,19 @@ def _file_lock(lock_path):
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
 
+def _get_tmpfs_dir():
+    """
+    Find a suitable directory for temp files used in prover execution.
+    Prefers /dev/shm for speed, but falls back to temp directories if unavailable.
+    """
+    import tempfile
+    candidates = ['/dev/shm', os.getenv('TMPDIR'), '/tmp', tempfile.gettempdir()]
+    for base in filter(None, candidates):
+        if os.path.isdir(base) and os.access(base, os.W_OK):
+            return base
+    # Ultimate fallback
+    return tempfile.gettempdir()
+
 def _get_udocker_dir():
     if 'UDOCKER_DIR' in os.environ: return os.environ['UDOCKER_DIR']
     candidates = [os.path.expanduser('~'), '/dev/shm', os.getenv('TMPDIR'), '/tmp']
@@ -151,7 +164,7 @@ class Embeded_process:
         
         self.uid = f"{self.pid}-{uuid.uuid4().hex[:8]}"
         self.container_name = f"prover-sess-{self.uid}"
-        self.tmpfs_host = os.path.join("/dev/shm", self.container_name)
+        self.tmpfs_host = os.path.join(_get_tmpfs_dir(), self.container_name)
         # Use /tmp inside container since --contain isolates /dev/shm
         self.tmpfs_cont = f"/tmp/{self.container_name}"
 
@@ -209,7 +222,7 @@ class Embeded_process:
             
             # Debugging slow executions
             dur = time.time() - t_start
-            if dur > 5.0 and DEBUG:
+            if dur > 30.0 and DEBUG:
                 log(f"Slow execution ({dur:.2f}s): {' '.join(cmd)}")
                 
             return res

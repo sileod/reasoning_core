@@ -1,6 +1,6 @@
 import random
 import sympy as sp
-from unigram import init_grammar, generate
+from gramforge import init_grammar, generate
 import re
 import numpy as np
 from dataclasses import dataclass

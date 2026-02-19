@@ -6,7 +6,7 @@ import string
 import exrex
 import regex
 from dataclasses import dataclass
-from unigram import init_grammar, generate
+from gramforge import init_grammar, generate
 from reasoning_core.template import Task, Problem, register_dataset, Reward, Config
 from easydict import EasyDict as edict
 from faker import Faker

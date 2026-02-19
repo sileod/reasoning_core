@@ -1,5 +1,4 @@
-from networkx import edges
-from unigram import init_grammar, generate
+from gramforge import init_grammar, generate, generate_with_choices
 from tqdm.auto import tqdm
 from functools import cache
 from nltk.parse.generate import generate as nltk_generate
@@ -14,11 +13,10 @@ import string
 from easydict import EasyDict as edict
 from faker import Faker
 import re
-from timeoutcontext import timeout
 from nltk.tree import Tree
 from collections import defaultdict
-from unigram.grammars import simple_english_grammar, arith_grammar
-from unigram import unigram_to_nltk
+from gramforge.grammars import simple_english_grammar, arith_grammar, dyck_grammar
+from gramforge import gramforge_to_nltk, unigram_to_nltk
 from rapidfuzz.distance import Levenshtein
 from itertools import islice
 from nltk.grammar import CFG, Nonterminal
@@ -26,8 +24,11 @@ from nltk.grammar import CFG, Nonterminal
 
 fake = Faker()
 
-existing_grammars = [simple_english_grammar(),simple_english_grammar(questions=False), arith_grammar()]
-existing_grammars = [unigram_to_nltk(g) for g in existing_grammars]
+existing_grammars = [
+    simple_english_grammar(), simple_english_grammar(questions=False),
+    dyck_grammar(), dyck_grammar(include_unicode=False)
+]
+existing_grammars = [gramforge_to_nltk(g) for g in existing_grammars]
 
 wordlist = list(fake.words(nb=500,unique=True))
 
@@ -92,7 +93,7 @@ def meta_grammar(config):
 
     return R
 
-def nltk_to_unigram(g):
+def nltk_to_gramforge(g):
     import nltk
     R = init_grammar(['lang'])
     for p in g.productions():
@@ -225,7 +226,11 @@ def trim_grammar(grammar, target_size=10, retries=10, shrink_tries=1000, seed=No
 
 def sample_cfg(config=GrammarConfig):
     if random.random()>config.random_grammar_prob:
-        return trim_grammar(random.choice(existing_grammars), config.target_num_rules)
+        g = random.choice(existing_grammars)
+        # Only trim if grammar is larger than target
+        if len(g.productions()) > config.target_num_rules:
+            return trim_grammar(g, config.target_num_rules)
+        return g
         
     for _ in range(1000):
         MG = meta_grammar(config).start()
@@ -233,9 +238,8 @@ def sample_cfg(config=GrammarConfig):
             x=generate(MG,depth=config.max_depth,min_depth=config.min_depth)
             g = CFG.fromstring(x@"cfg")
             try:
-                with timeout(1):
-                    prods=list(nltk_generate(g ,depth=config.max_prod_depth,n=10))
-            except TimeoutError:
+                prods=list(islice(nltk_generate(g ,depth=config.max_prod_depth), 10))
+            except (RecursionError, ValueError):
                 continue
             if len(prods)>3:
                 return g
@@ -245,7 +249,7 @@ def perturb(tokens, config=GrammarConfig):
         lambda t: random.sample(t, len(t)),
         lambda t: (lambda i: t[:i]+t[i+1:])(random.randrange(len(t))) if len(t)>1 else t,
         #lambda _: (generate(nltk_to_unigram(sample_cfg(config)).get_rules('s', shuffle=True)[0], depth=5) @ 'lang').split()
-        lambda _: (generate(nltk_to_unigram(sample_cfg(config)), depth=5) @ 'lang').split()
+        lambda _: (generate(nltk_to_gramforge(sample_cfg(config)), depth=5) @ 'lang').split()
 
     ])(tokens)
 
@@ -268,7 +272,7 @@ def generate_parse(config=GrammarConfig):
     meta = edict()
     while True:
         g = sample_cfg(config)
-        g_u = nltk_to_unigram(g)
+        g_u = nltk_to_gramforge(g)
         
         try:
             tokens = (generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth) @ "lang").split()
@@ -278,9 +282,8 @@ def generate_parse(config=GrammarConfig):
             tokens = perturb(tokens, config)
 
         try:
-            with timeout(2):
-                meta.cot, meta.parses = make_cot(g, tokens)
-        except (TimeoutError, ValueError):
+            meta.cot, meta.parses = make_cot(g, tokens)
+        except (RecursionError, ValueError):
             continue
 
         meta.label = ("unparsable" if not meta.parses else 
@@ -361,3 +364,163 @@ class Parsing(Task):
         if not answer: return 0.0
         
         return Levenshtein.normalized_similarity(norm(answer), norm(reference))
+
+
+def get_valid_next_tokens(grammar, prefix):
+    """
+    Given a CFG and a prefix (list of tokens), return:
+    - set of valid next terminals
+    - whether STOP is valid (prefix is a complete sentence)
+    - dict mapping each token to its justification from the chart edge
+    
+    Uses EarleyChartParser to consider ALL possible parse interpretations.
+    """
+    from functools import lru_cache
+    
+    parser = EarleyChartParser(grammar)
+    
+    @lru_cache(maxsize=None)
+    def first_with_path(symbol, depth=0):
+        """Return dict mapping terminals to derivation paths from symbol (max 2 levels)"""
+        if depth > 2:
+            return {}
+        if isinstance(symbol, str):
+            return {symbol: symbol}
+        result = {}
+        for prod in grammar.productions(lhs=symbol):
+            if not prod.rhs():
+                continue
+            first_sym = prod.rhs()[0]
+            if isinstance(first_sym, str):
+                result[first_sym] = f"{symbol}→{first_sym}"
+            else:
+                for tok, path in first_with_path(first_sym, depth+1).items():
+                    if tok not in result:
+                        # Show one level of derivation instead of →..→
+                        result[tok] = f"{symbol}→{first_sym}→{tok}"
+        return result
+    
+    chart = parser.chart_parse(prefix)
+    
+    valid_tokens = set()
+    justifications = {}
+    can_stop = False
+    n = len(prefix)
+    
+    # Use chart.select for efficiency - only look at boundary edges
+    for edge in chart.select(end=n):
+        if edge.is_complete():
+            if edge.start() == 0 and edge.lhs() == grammar.start():
+                can_stop = True
+                justifications['STOP'] = f"{edge.lhs()}•"
+        else:
+            nextsym = edge.nextsym()
+            if nextsym:
+                # Format edge as "A→α•β" style
+                lhs = edge.lhs()
+                rhs = edge.rhs()
+                dot_pos = edge.dot()
+                before = ' '.join(str(s) for s in rhs[:dot_pos])
+                after = ' '.join(str(s) for s in rhs[dot_pos:])
+                edge_str = f"{lhs}→{before}•{after}" if before else f"{lhs}→•{after}"
+                
+                if isinstance(nextsym, str):
+                    valid_tokens.add(nextsym)
+                    if nextsym not in justifications:
+                        justifications[nextsym] = edge_str
+                else:
+                    for tok, path in first_with_path(nextsym).items():
+                        valid_tokens.add(tok)
+                        if tok not in justifications:
+                            justifications[tok] = f"{edge_str}, {path}"
+    
+    return valid_tokens, can_stop, justifications
+
+
+def _build_cot(tokens, can_stop, justifications):
+    """Build CoT string, grouping tokens that share the same edge."""
+    parts = []
+    
+    # Handle STOP first
+    if can_stop and 'STOP' in justifications:
+        parts.append(f"{justifications['STOP']}⇒STOP")
+    
+    # Group tokens by their edge (everything before the final →tok)
+    edge_to_tokens = defaultdict(list)
+    for tok in sorted(tokens):
+        if tok in justifications:
+            j = justifications[tok]
+            # Extract the edge part (before the last →tok)
+            edge_key = j.rsplit('→', 1)[0] if '→' in j else j
+            edge_to_tokens[edge_key].append(tok)
+    
+    # Build parts: group if >3 tokens share same edge, else individual
+    for edge, toks in sorted(edge_to_tokens.items()):
+        if len(toks) > 3:
+            parts.append(f"{edge}→{{{','.join(toks)}}}")
+        else:
+            parts.extend(f"{justifications[t]}⇒{t}" for t in toks)
+    
+    return "; ".join(parts) if parts else "continuation"
+
+
+class Continuation(Task):
+    """Grammar continuation task using proper CFG parsing."""
+    
+    def __init__(self, config: GrammarConfig = GrammarConfig()):
+        super().__init__(config=config)
+        self.balancing_key_ratio = 0.1
+        
+    def generate(self):
+        for _ in range(100):
+            g = sample_cfg(self.config)
+            
+            try:
+                sentences = list(islice(nltk_generate(g, depth=self.config.max_depth), 50))
+                if not sentences:
+                    continue
+                sentence = random.choice(sentences)
+            except (RecursionError, ValueError):
+                continue
+            
+            if len(sentence) < 2:
+                continue
+            
+            max_prefix = min(len(sentence) - 1, 5)
+            min_prefix = min(2, max_prefix)
+            if min_prefix > max_prefix:
+                continue
+            prefix_len = random.randint(min_prefix, max_prefix)
+            prefix = list(sentence[:prefix_len])
+            
+            try:
+                tokens, can_stop, justifications = get_valid_next_tokens(g, prefix)
+            except Exception:
+                continue
+            
+            if not tokens and not can_stop:
+                continue
+            
+            answer = '|'.join(sorted(tokens))
+            if can_stop:
+                answer = (answer + '|STOP') if answer else 'STOP'
+            
+            cot = _build_cot(tokens, can_stop, justifications)
+            
+            return Problem(
+                edict(g="\n".join(str(p) for p in g.productions()), 
+                      prefix=prefix, depth=len(prefix), cot=cot),
+                answer
+            )
+        raise ValueError("Failed to generate continuation after 100 attempts")
+    
+    def prompt(self, meta):
+        pfx = ' '.join(meta.prefix) if meta.prefix else '<empty>'
+        return (f"List all valid next tokens for this prefix. "
+                f"Answer sorted alphabetically separated by |, with STOP at the end if complete.\n"
+                f"(GRAMMAR)\n{meta.g}\n(PREFIX)\n{pfx}")
+
+    def score_answer(self, answer, entry):
+        if not answer: return 0.0
+        ref, ans = set(entry['answer'].split('|')), set(answer.strip().split('|'))
+        return len(ref & ans) / max(len(ref | ans), 1)

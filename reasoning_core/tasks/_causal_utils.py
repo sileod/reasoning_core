@@ -46,6 +46,25 @@ import logging
 import itertools
 
 # --- Monkey patching for pgmpy --- 🐒
+# Helper to ensure state_names are populated safely regardless of input type
+def _fill_missing_state_names(variables, state_names, default_states):
+    """
+    Ensures that every variable in 'variables' has an entry in 'state_names'.
+    If missing, assigns 'default_states'.
+    """
+    if state_names is None:
+        state_names = {}
+    
+    # We create a new dict to avoid modifying the reference passed by pgmpy
+    full_state_names = state_names.copy()
+    
+    for var in variables:
+        if var not in full_state_names:
+            full_state_names[var] = default_states
+            
+    return full_state_names
+
+
 class BinaryInfluenceModel(TabularCPD):
     def __init__(
         self,
@@ -57,6 +76,9 @@ class BinaryInfluenceModel(TabularCPD):
         isboolean_style=False,
         state_names=None,
     ):
+        """
+        A mechanistically defined CPD for Noisy-OR / Noisy-AND logic.
+        """
         self.mode = mode.upper()
         if self.mode not in {"OR", "AND"}:
             raise ValueError("mode must be either 'OR' or 'AND'")
@@ -66,23 +88,22 @@ class BinaryInfluenceModel(TabularCPD):
         self.leak = np.array([leak]) if leak is not None else None
         self.isleaky = leak is not None
         
-        # Robustness fixes
-        self.evidence = list(evidence)
-
-        if state_names is None:
-            state_names = {}
-            full_variables = [variable] + self.evidence
-            if self.isboolean_style:
-                default_states = [False, True]
-            else:
-                default_states = [0, 1]
-            for v in full_variables:
-                state_names[v] = default_states
+        # --- FIX: Renamed back to self.evidence for compatibility with to_nl ---
+        self.evidence = list(evidence) 
         
-        self.full_state_names = state_names
+        # Prepare State Names (Robustly)
+        if self.isboolean_style:
+            default_states = [False, True]
+        else:
+            default_states = [0, 1]
+            
+        all_vars = [variable] + self.evidence
+        self.full_state_names = _fill_missing_state_names(all_vars, state_names, default_states)
 
+        # Calculate Probability Table
         parent_states = [self.full_state_names[e] for e in self.evidence]
         cols = []
+        
         for combo in product(*parent_states):
             evidence_inst = dict(zip(self.evidence, combo))
             probs = self._evaluate(evidence_inst)
@@ -90,6 +111,7 @@ class BinaryInfluenceModel(TabularCPD):
 
         cpd_values = np.array(cols).T
         
+        # Canonical Initialization
         super().__init__(
             variable=variable,
             variable_card=2,
@@ -100,7 +122,6 @@ class BinaryInfluenceModel(TabularCPD):
         )
 
     def _evaluate(self, evidence_instantiate: dict) -> np.ndarray:
-        # Dynamic Active State Detection (Last state = Active)
         active_mask = []
         for e in self.evidence:
             val = evidence_instantiate[e]
@@ -124,12 +145,11 @@ class BinaryInfluenceModel(TabularCPD):
 
         return np.array([1 - p_active, p_active])
 
-    # --- CRITICAL FIX: PRESERVE CLASS TYPE ON COPY ---
     def copy(self):
         new_cpd = BinaryInfluenceModel(
             variable=self.variable,
-            evidence=self.evidence,
-            activation_magnitude=self.activation_magnitude,
+            evidence=self.evidence, # Use stored evidence
+            activation_magnitude=self.activation_magnitude.copy(),
             mode=self.mode,
             leak=self.leak[0] if self.leak is not None else None,
             isboolean_style=self.isboolean_style,
@@ -140,6 +160,9 @@ class BinaryInfluenceModel(TabularCPD):
 
 class MultilevelInfluenceModel(TabularCPD):
     def __init__(self, variable, evidence, influence_tables, levels, leak=None, mode="MAX", state_names=None):
+        """
+        A mechanistically defined CPD for Min/Max logic on multi-state variables.
+        """
         self.mode = mode.upper()
         if self.mode not in {"MAX", "MIN"}:
             raise ValueError("mode must be 'MAX' or 'MIN'")
@@ -148,34 +171,44 @@ class MultilevelInfluenceModel(TabularCPD):
         self.influence_tables = influence_tables
         self.leak = np.array(leak) if leak is not None else None
         self.isleaky = leak is not None
+        
+        # --- FIX: Renamed back to self.evidence for compatibility with to_nl ---
         self.evidence = list(evidence)
 
-        if state_names is None:
-            state_names = {}
-            for parent in self.evidence:
-                if parent not in state_names:
-                    state_names[parent] = list(influence_tables[parent].keys())
+        # Prepare State Names (Robustly)
+        temp_state_names = state_names.copy() if state_names else {}
         
-        self.full_state_names = state_names
+        if variable not in temp_state_names:
+            temp_state_names[variable] = list(range(levels))
+            
+        for parent in self.evidence:
+            if parent not in temp_state_names:
+                if parent in influence_tables:
+                    temp_state_names[parent] = list(influence_tables[parent].keys())
+                else:
+                    temp_state_names[parent] = list(range(levels))
+        
+        self.full_state_names = temp_state_names
 
-        # ... (Validation and Table Generation Logic from previous turns) ...
-        # (Assuming the logic for generating values is same as before)
-        
-        # Recalculate values for init
+        # Pre-calculate Cumulative Tables
         self.cumulative_tables = {
             p: {v: np.cumsum(probs) for v, probs in table.items()}
             for p, table in influence_tables.items()
         }
         self.cumulative_leak = np.cumsum(leak) if leak is not None else np.ones(levels)
         
+        # Calculate Probability Table
         parent_states = [self.full_state_names[p] for p in self.evidence]
         cols = []
+        
         for combo in product(*parent_states):
-            e = dict(zip(evidence, combo))
+            e = dict(zip(self.evidence, combo))
             probs = self._evaluate(e)
             cols.append(probs)
+            
         values = np.vstack(cols).T
 
+        # Canonical Initialization
         super().__init__(
             variable=variable,
             variable_card=self.levels,
@@ -185,12 +218,10 @@ class MultilevelInfluenceModel(TabularCPD):
             state_names=self.full_state_names,
         )
 
-    # ... (Keep _validate_probs and _evaluate from previous turns) ...
     def _validate_probs(self, arr, name="probabilities"):
         arr = np.asarray(arr)
         if np.any(arr < 0) or np.any(arr > 1):
              raise ValueError(f"{name} must be between 0 and 1.")
-        # Relax tolerance slightly for floating point noise
         if not np.isclose(arr.sum(), 1.0, atol=1e-5):
              raise ValueError(f"{name} must sum to 1. Got {arr.sum()}")
         return arr
@@ -214,14 +245,17 @@ class MultilevelInfluenceModel(TabularCPD):
 
         cum_prob = np.maximum.accumulate(np.clip(cum_prob, 0, 1))
         probs = np.diff(np.concatenate(([0.0], cum_prob)))
-        return probs / probs.sum()
+        
+        total = probs.sum()
+        if total > 0:
+            probs = probs / total
+        return probs
 
-    # --- CRITICAL FIX: PRESERVE CLASS TYPE ON COPY ---
     def copy(self):
         new_cpd = MultilevelInfluenceModel(
             variable=self.variable,
-            evidence=self.evidence,
-            influence_tables=self.influence_tables, # Pass original dict
+            evidence=self.evidence, # Use stored evidence
+            influence_tables=self.influence_tables, 
             levels=self.levels,
             leak=self.leak.tolist() if self.leak is not None else None,
             mode=self.mode,
@@ -378,6 +412,90 @@ def get_random_CI(
             f"Unknown CI mode: '{mode}'. Must be one of 'OR', 'AND', 'MAX', 'MIN'."
         )
 
+#### CPD rounding logic ✂️
+def _precise_round_series(arr, n_round):
+    """
+    Rounds a 1D array to n_round places while ensuring the sum is exactly 1.0.
+    """
+    if n_round is None: return arr
+    multiplier = 10**n_round
+    scaled = arr * multiplier
+    integers = np.floor(scaled)
+    fractions = scaled - integers
+    difference = int(round(multiplier - integers.sum()))
+    
+    if difference != 0:
+        indices = np.argsort(fractions)[::-1]
+        for i in range(difference):
+            integers[indices[i % len(indices)]] += 1
+            
+    return integers / multiplier
+
+def cpd_round(self, n_round: int):
+    """In-place rounding of TabularCPD values."""
+    original_shape = self.values.shape
+    if len(original_shape) > 1:
+        flat_values = self.values.reshape(original_shape[0], -1)
+        for i in range(flat_values.shape[1]):
+            flat_values[:, i] = _precise_round_series(flat_values[:, i], n_round)
+        self.values = flat_values.reshape(original_shape)
+    else:
+        self.values = _precise_round_series(self.values, n_round)
+
+TabularCPD.round = cpd_round
+
+def bim_round(self, n_round: int):
+    """In-place rounding for Binary Influence Models with shape correction."""
+    self.activation_magnitude = np.round(self.activation_magnitude, n_round)
+    if self.leak is not None:
+        self.leak = np.round(self.leak, n_round)
+    
+    parent_states = [self.full_state_names[e] for e in self.evidence]
+    cols = [self._evaluate(dict(zip(self.evidence, c))) for c in product(*parent_states)]
+    
+    # Create 2D array first
+    val_2d = np.array(cols).T
+    # Reshape to pgmpy's expected N-dimensional shape: (var_card, parent1_card, parent2_card...)
+    self.values = val_2d.reshape([self.variable_card] + self.cardinality[1:].tolist())
+
+BinaryInfluenceModel.round = bim_round
+
+
+def mim_round(self, n_round: int):
+    """In-place rounding for Multilevel Influence Models with shape correction."""
+    for parent in self.influence_tables:
+        for val in self.influence_tables[parent]:
+            self.influence_tables[parent][val] = _precise_round_series(
+                self.influence_tables[parent][val], n_round
+            )
+    
+    if self.leak is not None:
+        self.leak = _precise_round_series(self.leak, n_round)
+    
+    self.cumulative_tables = {
+        p: {v: np.cumsum(probs) for v, probs in table.items()}
+        for p, table in self.influence_tables.items()
+    }
+    if self.leak is not None:
+        self.cumulative_leak = np.cumsum(self.leak)
+
+    parent_states = [self.full_state_names[p] for p in self.evidence]
+    cols = [self._evaluate(dict(zip(self.evidence, c))) for c in product(*parent_states)]
+            
+    # Create 2D array first
+    val_2d = np.vstack(cols).T
+    # Reshape to N-dimensional shape
+    self.values = val_2d.reshape([self.variable_card] + self.cardinality[1:].tolist())
+
+MultilevelInfluenceModel.round = mim_round
+
+def bn_round(self, n_round: int):
+    """In-place rounding of all internal CPDs."""
+    for cpd in self.cpds:
+        cpd.round(n_round)
+
+DiscreteBayesianNetwork.round = bn_round
+
 
 @staticmethod
 def get_random_DBN(
@@ -386,8 +504,10 @@ def get_random_DBN(
         node_names: Optional[List[Hashable]] = None,
         n_states: Optional[Union[int, list[int], Dict[Hashable, int]]] = None,
         latents: bool = False,
+        graph_seed: Optional[int] = None,
         seed: Optional[int] = None,
         method: str = "erdos",
+        n_round: Optional[int] = None,
         **kwargs,
     ) -> "DiscreteBayesianNetwork":
         """
@@ -439,7 +559,7 @@ def get_random_DBN(
          <TabularCPD representing P(4:4 | 1:1, 3:3) at 0x7f97e16eae80>,
          <TabularCPD representing P(2:2) at 0x7f97e1682c40>]
         """
-        gen = np.random.default_rng(seed=seed)
+        gen = np.random.default_rng(seed=graph_seed)
         if node_names is None:
             node_names = list([f"X_{i}" for i in range(n_nodes)])
  
@@ -463,7 +583,7 @@ def get_random_DBN(
             edge_prob=edge_prob,
             node_names=node_names,
             latents=latents,
-            seed=seed,
+            seed=graph_seed,
             method = method,
             **kwargs,
         )
@@ -473,14 +593,15 @@ def get_random_DBN(
         cpds = []
         for node in bn_model.nodes():
             parents = list(bn_model.predecessors(node))
-            cpds.append(
-                TabularCPD.get_random(
+            cpd = TabularCPD.get_random(
                     variable=node,
                     evidence=parents,
                     cardinality=n_states_dict,
                     seed=seed,
                 )
-            )
+            if n_round != None:
+                cpd.round(n_round)
+            cpds.append(cpd)
 
         bn_model.add_cpds(*cpds)
         return bn_model
@@ -497,38 +618,6 @@ def get_random_DAG(
     ) -> "DAG":
         """
         Returns a randomly generated DAG using different generation strategies.
-
-        Parameters
-        ----------
-        n_nodes: int
-            The number of nodes in the randomly generated DAG.
-
-        edge_prob: float
-            The probability of edge between any two nodes (used by some methods).
-
-        node_names: list (default: None)
-            A list of variable names to use in the random graph.
-            If None, nodes are labeled X_0, X_1, ...
-
-        latents: bool (default: False)
-            If True, includes latent variables in the generated DAG.
-
-        seed: int (default: None)
-            Random seed for reproducibility.
-
-        method: str
-            Generation strategy. One of:
-            {"erdos", "spanning_tree", "preferential", "layered"}.
-
-        Additional kwargs
-        -----------------
-        For specific methods:
-            - method="preferential": m (int, default=2) number of parents per new node.
-            - method="layered": n_layers (int), layer_conn_prob (float)
-
-        Returns
-        -------
-        Random DAG : pgmpy.base.DAG
         """
         rng = np.random.default_rng(seed)
         if node_names is None:
@@ -599,6 +688,12 @@ def get_random_DAG(
         else:
             raise ValueError(f"Unknown DAG generation method '{method}'")
 
+        # --- FIX: Force all nodes to be standard Python strings ---
+        # This prevents numpy.str_ types from causing "Variable not in model" errors
+        mapping = {n: str(n) for n in nx_dag.nodes()}
+        nx_dag = nx.relabel_nodes(nx_dag, mapping)
+        # --------------------------------------------------------
+
         # ---- Add latent nodes optionally ----
         dag = DAG(nx_dag)
         if latents:
@@ -610,7 +705,7 @@ def get_random_DAG(
 
 
 def to_nl_DBN(
-        self, n_round: int = 4, minimalist: bool = False, random_minimalist: bool = True
+        self, n_round: int = 4, verbose: bool = True
     ) -> str:
         """
         Converts the entire Bayesian Network into a Natural Language description.
@@ -622,48 +717,104 @@ def to_nl_DBN(
         for cpd in self.get_cpds():
             node_nl_lines = cpd.to_nl(
                 n_round=n_round,
-                minimalist=minimalist,
-                random_minimalist=random_minimalist
+                verbose = verbose,
             )
             full_description.extend(node_nl_lines)
         
         return " \n".join(full_description)
 
-def to_nl_CPD(self, n_round: int = 4, minimalist: bool = False, random_minimalist: bool = True) -> List[str]:
-        """Converts TabularCPD to compact notation."""
-        self.evidence = self.variables[1:] or None
-        child_states = self.state_names[self.variable]
-        probs_table = self.get_values()
+def to_nl_CPD(self, n_round: int = 4, verbose = True) -> List[str]:
+        """Converts TabularCPD to a natural language description.
         
-        if not self.evidence:
-            probs = {repr(s): float(round(probs_table[j, 0], n_round)) for j, s in enumerate(child_states)}
-            return [f"P({self.variable}) = {probs}"]
-        
-        lines = []
-        parent_combos = list(product(*[self.state_names[p] for p in self.evidence]))
-        for i, combo in enumerate(parent_combos):
-            cond = ", ".join(f"{p}={repr(v)}" for p, v in zip(self.evidence, combo))
-            probs = {repr(s): float(round(probs_table[j, i], n_round)) for j, s in enumerate(child_states)}
-            lines.append(f"P({self.variable}|{cond}) = {probs}")
-        return lines
+        ## Parameters
 
-def to_nl_BIM(self, n_round: int = 4, **kwargs) -> List[str]: 
-        """ 
-        Converts the BinaryInfluenceModel into a more human-readable, conceptual 
-        Natural Language description.
-        """ 
-        descriptions = [] 
+        | Name | Type | Default | Description |
+        |----|----|----|----|
+        | 'n_round' | int | 4 | How many digits will be print |
+        | 'verbose' | bool | False | Verbose version or very minimalistic and probabilistic description |
+        """
+        if verbose:
+            descriptions = []
+            self.evidence = self.variables[1:]
+            if len(self.evidence) == 0:
+                self.evidence = None
+            
+            if self.evidence:
+                parent_vars = self.evidence
+                parent_states = [self.state_names[parent] for parent in parent_vars]
+                parent_combos = list(product(*parent_states))
+            else:
+                parent_vars = []  
+                parent_combos = [()]
+                
+            child_states = self.state_names[self.variable]
+            probs_table = self.get_values()
+
+            for i, combo in enumerate(parent_combos):
+                
+                cond_parts = [
+                    f"{var} = {repr(val)}" for var, val in zip(parent_vars, combo)
+                ]
+                cond_desc = " and ".join(cond_parts)
+
+                probs_col = probs_table[:, i]
+                prob_list = []
+                for j, state in enumerate(child_states):
+                    prob = round(probs_col[j], n_round)
+                    prob_list.append((state, prob))
+
+                prob_text = " and ".join(
+                    f"The probability of {self.variable} = {repr(val)} is {prob}"
+                    for val, prob in prob_list
+                )
+
+                if cond_desc:
+                    descriptions.append(f"If {cond_desc}, then {prob_text}.")
+                else:
+                    descriptions.append(f"{prob_text}.")
+                    
+            return descriptions
+
+
+        else: #not verbose case, fully conditional probabilistic version
+            self.evidence = self.variables[1:] or None
+            child_states = self.state_names[self.variable]
+            probs_table = self.get_values()
+            
+            if not self.evidence:
+                probs = {repr(s): float(round(probs_table[j, 0], n_round)) for j, s in enumerate(child_states)}
+                return [f"P({self.variable}) = {probs}"]
+            
+            lines = []
+            parent_combos = list(product(*[self.state_names[p] for p in self.evidence]))
+            for i, combo in enumerate(parent_combos):
+                cond = ", ".join(f"{p}={repr(v)}" for p, v in zip(self.evidence, combo))
+                probs = {repr(s): float(round(probs_table[j, i], n_round)) for j, s in enumerate(child_states)}
+                lines.append(f"P({self.variable}|{cond}) = {probs}")
+            return lines
+
+def to_nl_BIM(self, n_round: int = 4, verbose = False) -> List[str]:
+    """Binary Influence Models to Natural Language method.
         
+        ## Parameters
+
+        | Name | Type | Default | Description |
+        |----|----|----|----|
+        | 'n_round' | int | 4 | How many digits will be print |
+        | 'verbose' | bool | False | Verbose version or very minimalistic and probabilistic description |
+        """
+    if self.mode.upper() not in {'OR', 'AND'}:
+        return ValueError(f"""The mode of the interaction must be 'OR' or 'AND' but is instead {self.mode.upper()} """)
+    if verbose:
+        descriptions = [] 
         if self.mode.upper() == 'OR':
             model_name = "Noisy-OR"
             action_verb = "activate"
             base_action = "activation"
-        elif self.mode.upper() == 'AND':
+        else:
             model_name = "Noisy-AND"
             action_verb = "inhibit"
             base_action = "inhibition"
-        else:
-            return ValueError(f"""The mode of the interaction must be 'OR' or 'AND' but is instead {self.mode.upper()} """)
 
         active_state = repr(self.state_names[self.variable][1]) 
         
@@ -699,12 +850,29 @@ def to_nl_BIM(self, n_round: int = 4, **kwargs) -> List[str]:
             descriptions.append(leak_desc_human)
             
         return descriptions
+    else: #minimalist setting
+        active_state = self.state_names[self.variable][-1]
+        op = self.mode.upper()
+        
+        weights = {}
+        for parent, mag in zip(self.evidence, self.activation_magnitude):
+            p_active = self.state_names[parent][-1]
+            weights[f"{parent}"] = round(float(mag), n_round)
 
+        leak_val = round(float(self.leak[0]), n_round) if self.isleaky else 0.0
+        return [f"{self.variable} ~ Noisy-{op}(leak={leak_val}, weights={weights})"]
 
-def to_nl_MIM(self, n_round: int = 4, **kwargs) -> List[str]:
+def to_nl_MIM(self, n_round: int = 4, verbose = False) -> List[str]:
+    """Multivariate Influence Models to Natural Language method.
+        
+        ## Parameters
+
+        | Name | Type | Default | Description |
+        |----|----|----|----|
+        | 'n_round' | int | 4 | How many digits will be print |
+        | 'verbose' | bool | False | Verbose version or very minimalistic and probabilistic description |
         """
-        Converts the MultilevelInfluenceModel into a sparse Natural Language description.
-        """
+    if verbose:
         descriptions = []
         model_type = f"Noisy-{self.mode.upper()}"
         child_states = self.state_names[self.variable]
@@ -742,67 +910,28 @@ def to_nl_MIM(self, n_round: int = 4, **kwargs) -> List[str]:
             )
         
         return descriptions
-
-"""
-def query_surgery(self,
-                      variables,
-                      do=None,
-                      evidence=None,
-                      show_progress=False,
-                      **kwargs):
-
-        # ---------- 1. Normalize inputs ----------
-        if isinstance(variables, str):
-            variables = [variables]
-        if do is None:
-            do = {}
-        if evidence is None:
-            evidence = {}
-
-        # ---------- 2. No intervention → default inference ----------
-        if do == {}:
-            infer = VariableElimination(self.model)
-            return infer.query(variables, evidence=evidence, show_progress=False)
-
-        # ---------- 3. Graph surgery ----------
-        # Build modified model M' where parents of do vars are removed
-        model_prime = copy.deepcopy(self.model)
-
-        # Remove parent edges → do(Y=y) surgery
-        for y in do:
-            for parent in list(model_prime.predecessors(y)):
-                model_prime.remove_edge(parent, y)
-
-    # ---------- 4. CPD Surgery with Silencing ----------
-        # We temporarily disable WARNINGS to stop "Replacing existing CPD..."
-        logging.disable(logging.WARNING)
+    else: #unverbose one
+        op = self.mode.upper()
         
-        try:
-            for d, val in do.items():
-                state_names = self.model.get_cpds(d).state_names[d]
-                k = len(state_names)
-                probs = np.zeros(k)
-                probs[state_names.index(val)] = 1.0
-                values = np.array(probs).reshape(k, 1)
+        if self.isleaky:
+            leak_dist = [round(float(x), n_round) for x in self.leak]
+        else:
+            leak_dist = "None"
 
-                cpd = TabularCPD(
-                    variable=d,
-                    variable_card=k,
-                    values=values,
-                    state_names={d: state_names}
-                )
-
-                # This line normally triggers the warning
-                model_prime.add_cpds(cpd)
+        influences = {}
+        
+        for parent in self.evidence:
+            parent_states = self.state_names[parent]
+            parent_effects = {}
+            for state in parent_states[1:]:
+                dist = self.influence_tables[parent][state]
+                dist_fmt = [round(float(x), n_round) for x in dist]
+                parent_effects[repr(state)] = dist_fmt
                 
-        finally:
-            # Re-enable logging immediately after the loop
-            logging.disable(logging.NOTSET)
+            influences[parent] = parent_effects
+        
+        return [f"{self.variable} ~ Noisy-{op}(leak={leak_dist}, influences={influences})"]
 
-        # ---------- 5. Use normal inference on the surgically modified model ----------
-        infer = VariableElimination(model_prime)
-        return infer.query(variables, evidence=evidence, show_progress=False)
-"""
 
 ### BIF serialization ###
 
@@ -1009,11 +1138,7 @@ class CanonicalBIFReader(BIFReader):
 
 
 # ==========================================
-# 1. Semantic Tracker
-#    Tracks probability formulas (Heads | Tails)
-# ==========================================
-# ==========================================
-# 1. Semantic Tracker (Causal Aware)
+# 1. Semantic Tracker (Unchanged)
 # ==========================================
 class SemanticTracker:
     def __init__(self, heads=None, tails=None, evidence_dict=None, do_dict=None):
@@ -1029,19 +1154,16 @@ class SemanticTracker:
         relevant_ev = {}
         relevant_do = {}
 
-        # 1. Check Heads
         if cpd.variable in evidence_dict:
             relevant_ev[cpd.variable] = evidence_dict[cpd.variable]
         if do_dict and cpd.variable in do_dict:
             relevant_do[cpd.variable] = do_dict[cpd.variable]
 
-        # 2. Check Parents
         for parent in cpd.get_evidence():
             if parent in evidence_dict:
                 relevant_ev[parent] = evidence_dict[parent]
             elif do_dict and parent in do_dict:
                 relevant_do[parent] = do_dict[parent]
-                # 'do' variables are technically tails (parents), just special ones
                 tails.add(parent) 
             else:
                 tails.add(parent)
@@ -1052,10 +1174,8 @@ class SemanticTracker:
         new_heads = self.heads.union(other.heads)
         raw_tails = self.tails.union(other.tails)
         new_tails = raw_tails - new_heads
-        
         new_evidence = {**self.evidence, **other.evidence}
         new_do = {**self.do, **other.do}
-        
         return SemanticTracker(new_heads, new_tails, new_evidence, new_do)
 
     def marginalize(self, variable):
@@ -1068,100 +1188,62 @@ class SemanticTracker:
         return SemanticTracker(filtered_heads, self.tails, self.evidence, self.do)
 
     def __str__(self):
-        if not self.heads:
-            return "Evidence_Scalar"
+        if not self.heads: return "Evidence_Scalar"
         
-        # 1. Format Heads
         head_parts = []
         observed_heads = set()
-        
         for h in sorted(list(self.heads)):
             if h in self.evidence:
                 head_parts.append(f"{h}={self.evidence[h]}")
                 observed_heads.add(h)
-            # If head is a 'do' variable (rare but possible in factor P(D)), show do(D)
             elif h in self.do:
                 head_parts.append(f"do({h}={self.do[h]})")
                 observed_heads.add(h)
             else:
                 head_parts.append(h)
-        
         h_str = ", ".join(head_parts)
         
-        # 2. Format Tails
         conditions = set()
-        
-        # Process Tails
         for t in self.tails:
-            if t in self.evidence:
-                conditions.add(f"{t}={self.evidence[t]}")
-            elif t in self.do:
-                conditions.add(f"do({t}={self.do[t]})")
-            else:
-                conditions.add(t)
+            if t in self.evidence: conditions.add(f"{t}={self.evidence[t]}")
+            elif t in self.do: conditions.add(f"do({t}={self.do[t]})")
+            else: conditions.add(t)
         
-        # Process Remaining Context
         for var, val in self.evidence.items():
             if var not in observed_heads and var not in self.tails:
                 conditions.add(f"{var}={val}")
-
         for var, val in self.do.items():
             if var not in observed_heads and var not in self.tails:
                  conditions.add(f"do({var}={val})")
 
         cond_list = sorted(list(conditions))
-            
-        if cond_list:
-            return f"P({h_str} | {', '.join(cond_list)})"
-        else:
-            return f"P({h_str})"
+        if cond_list: return f"P({h_str} | {', '.join(cond_list)})"
+        else: return f"P({h_str})"
 
 
 # ==========================================
-# 2. Base Semantic Inference Engine
+# 2. Base Semantic Inference Engine (Stable Core + New Reporting)
 # ==========================================
+
 class SemanticTraceVE(VariableElimination):
     def __init__(self, model):
         super().__init__(model)
         self.trace_log = []
         self.factor_semantics = {}
-        self.global_do = {} # New: store global intervention context
+        self.global_do = {} 
 
-    def _format_value(self, val, scientific=False, precision=4):
-        if scientific:
-            fmt = f"{{:.{precision}e}}"
-            s = fmt.format(val)
-            base, exponent = s.split('e')
-            if '.' in base: base = base.rstrip('0').rstrip('.')
-            if exponent.startswith('+') or exponent.startswith('-'):
-                sign = exponent[0]
-                num = exponent[1:].lstrip('0')
-                exponent = sign + (num if num else '0')
-            return f"{base}e{exponent}"
-        else:
-            if float(val).is_integer(): return str(int(val))
-            s = f"{{:.{precision}f}}".format(val)
-            if '.' in s: s = s.rstrip('0').rstrip('.')
-            return s
-
-    def _render_factor_table(self, factor, semantics=None, scientific=False, precision=4):
-        name = str(semantics) if semantics else "Unknown Factor"
-        vars = factor.variables
-        values = factor.values.flatten()
-        card = factor.cardinality
-        
-        if not vars:
-            val_str = self._format_value(values[0], scientific, precision)
-            return f"Table for {name}:\n  [] = {val_str}"
-
-        states = [range(c) for c in card]
-        combinations = list(itertools.product(*states))
-        lines = [f"Table for {name}:"]
-        for i, comb in enumerate(combinations):
-            assignments = ", ".join([f"{v}={s}" for v, s in zip(vars, comb)])
-            val_str = self._format_value(values[i], scientific, precision)
-            lines.append(f"  [{assignments}] = {val_str}")
-        return "\n".join(lines)
+    # --- Core Logic (STABLE OLD VERSION) ---
+    
+    def _get_working_factors(self, evidence):
+        """Uses the stable dictionary-of-sets approach."""
+        working_factors = {
+            node: set() for node in self.model.nodes()
+        }
+        for factor in self.factors.values():
+            factor = factor.reduce([(var, evidence[var]) for var in evidence if var in factor.variables], inplace=False)
+            for var in factor.variables:
+                working_factors[var].add((factor, var))
+        return working_factors
 
     def _map_factors_to_cpds(self, working_factors, evidence):
         unique_factors = {}
@@ -1181,34 +1263,38 @@ class SemanticTraceVE(VariableElimination):
                 reduced_factor = temp_factor
 
             for factor in unique_factors.values():
-                if set(factor.variables) == set(reduced_factor.variables) and \
-                   np.allclose(factor.values, reduced_factor.values):
-                    # Pass the global 'do' context here
-                    tracker = SemanticTracker.from_cpd(cpd, evidence, self.global_do)
-                    self.factor_semantics[id(factor)] = tracker
-                    
-        for factor in unique_factors.values():
-            if id(factor) not in self.factor_semantics:
-                rel_ev = {k:v for k,v in evidence.items() if k in factor.variables}
-                rel_do = {k:v for k,v in self.global_do.items() if k in factor.variables}
-                self.factor_semantics[id(factor)] = SemanticTracker(
-                    heads=set(factor.variables), 
-                    evidence_dict=rel_ev,
-                    do_dict=rel_do
-                )
+                if set(factor.variables) != set(reduced_factor.variables): continue
+                vals_to_compare = reduced_factor.values
+                if factor.variables != reduced_factor.variables:
+                    try:
+                        axes_order = [reduced_factor.variables.index(v) for v in factor.variables]
+                        vals_to_compare = np.transpose(reduced_factor.values, axes_order)
+                    except ValueError: continue
+                
+                if factor.values.shape == vals_to_compare.shape:
+                    if np.allclose(factor.values, vals_to_compare):
+                        tracker = SemanticTracker.from_cpd(cpd, evidence, self.global_do)
+                        self.factor_semantics[id(factor)] = tracker
 
-    def base_query(self, variables, evidence=None, virtual_evidence=None, elimination_order="MinFill", joint=True, show_progress=True):
+    def base_query(self, variables, evidence=None, elimination_order="MinFill", joint=True, show_progress=True):
         evidence = evidence if evidence is not None else dict()
+        # Pruning logic from stable version
         if isinstance(self.model, DiscreteBayesianNetwork):
-            model_reduced, evidence = self._prune_bayesian_model(variables, evidence)
+            try:
+                model_reduced, evidence = self._prune_bayesian_model(variables, evidence)
+            except AttributeError:
+                 model_reduced = self.model
         else:
             model_reduced = self.model
 
         reduced_ve = self.__class__(model_reduced)
         reduced_ve.trace_log = self.trace_log
         reduced_ve.factor_semantics = self.factor_semantics
-        reduced_ve.global_do = self.global_do # Share Do Context
-        reduced_ve._initialize_structures()
+        reduced_ve.global_do = self.global_do 
+        
+        # Manually initialize factors if parent doesn't (pgmpy quirk)
+        if not hasattr(reduced_ve, 'factors'):
+            reduced_ve.factors = {node: cpd.to_factor() for node, cpd in enumerate(model_reduced.cpds)}
 
         return reduced_ve._variable_elimination(variables, "marginalize", evidence, elimination_order, joint, show_progress)
 
@@ -1219,6 +1305,7 @@ class SemanticTraceVE(VariableElimination):
         return result, self.trace_log
 
     def _variable_elimination(self, variables, operation, evidence=None, elimination_order="MinFill", joint=True, show_progress=True):
+        # Stable loop implementation
         if not variables:
             return factor_product(*self.factors.values()) if joint else set(self.factors.values())
         
@@ -1243,12 +1330,13 @@ class SemanticTraceVE(VariableElimination):
                 input_data.append((f, tracker))
 
             phi = factor_product(*factors)
-            phi_tracker = input_data[0][1]
+            phi_tracker = input_data[0][1] if input_data and input_data[0][1] else SemanticTracker(heads={var}) # Fallback
             for _, next_tracker in input_data[1:]:
-                phi_tracker = phi_tracker.multiply(next_tracker)
+                if next_tracker: phi_tracker = phi_tracker.multiply(next_tracker)
+            
             self.factor_semantics[id(phi)] = phi_tracker
             
-            product_expr = " * ".join([str(t) for _, t in input_data])
+            product_expr = " * ".join([str(t) for _, t in input_data if t])
             product_formula = str(phi_tracker)
 
             tau = getattr(phi, operation)([var], inplace=False)
@@ -1284,16 +1372,19 @@ class SemanticTraceVE(VariableElimination):
                     final_factors_map[id(factor)] = factor
         
         unique_factors = list(final_factors_map.values())
-        
         final_input_data = []
         for f in unique_factors:
             tracker = self.factor_semantics.get(id(f))
             final_input_data.append((f, tracker))
 
         if unique_factors:
-            final_tracker = self.factor_semantics[id(unique_factors[0])]
+            final_tracker = self.factor_semantics.get(id(unique_factors[0]))
+            # Handle edge case if tracker is None
+            if not final_tracker: final_tracker = SemanticTracker(heads=set(unique_factors[0].variables))
+
             for f in unique_factors[1:]:
-                final_tracker = final_tracker.multiply(self.factor_semantics[id(f)])
+                ft = self.factor_semantics.get(id(f))
+                if ft: final_tracker = final_tracker.multiply(ft)
             
             unnormalized = factor_product(*unique_factors)
             clean_tracker = final_tracker.project(unnormalized.variables)
@@ -1313,36 +1404,73 @@ class SemanticTraceVE(VariableElimination):
         else:
              return DiscreteFactor(variables=[], cardinality=[], values=[1.0])
 
+    # --- New Reporting Features (GRAFTED FROM NEW VERSION) ---
+
     def generate_natural_language_proof(self, scientific_notation=False, precision=2, concise=True):
-        """Generate proof. If concise=True, use compact token-efficient format."""
-        if concise:
+        """
+        Generates the proof.
+        :param concise: If True, returns the short unverbose CoT. If False, returns the detailed verbose trace.
+        """
+        if concise: 
             return self._generate_concise_proof(scientific_notation, precision)
         return self._generate_verbose_proof(scientific_notation, precision)
-    
+
+    def _format_value(self, val, scientific=False, precision=4):
+        if scientific:
+            fmt = f"{{:.{precision}e}}"
+            s = fmt.format(val)
+            base, exponent = s.split('e')
+            if '.' in base: base = base.rstrip('0').rstrip('.')
+            if exponent.startswith('+') or exponent.startswith('-'):
+                sign = exponent[0]
+                num = exponent[1:].lstrip('0')
+                exponent = sign + (num if num else '0')
+            return f"{base}e{exponent}"
+        else:
+            if float(val).is_integer(): return str(int(val))
+            s = f"{{:.{precision}f}}".format(val)
+            if '.' in s: s = s.rstrip('0').rstrip('.')
+            return s
+
     def _render_inline_dist(self, factor, precision=2):
-        """Render distribution as inline dict: {0: 0.65, 1: 0.35}"""
+        """Helper to render small distributions inline like {0: 0.2, 1: 0.8}."""
         vars = factor.variables
         values = factor.values.flatten()
         if len(vars) == 1:
             card = factor.cardinality[0]
             return "{" + ", ".join(f"{i}: {round(values[i], precision)}" for i in range(card)) + "}"
-        # Multi-var: use compact tuple notation
-        card = factor.cardinality
-        states = [range(c) for c in card]
-        combos = list(itertools.product(*states))
-        parts = [f"{comb}: {round(values[i], precision)}" for i, comb in enumerate(combos)]
-        return "{" + ", ".join(parts) + "}"
-    
-    def _generate_concise_proof(self, scientific, precision):
-        """Token-efficient proof format for LLM pre-training."""
-        lines = []
+        elif len(vars) == 0:
+            return f"{round(values[0], precision)}"
         
+        # For multi-var, just show first few or shape? 
+        # Keeping it simple for concise mode:
+        return f"[Distribution over {vars}]"
+
+    def _render_factor_table(self, factor, semantics=None, scientific=False, precision=4):
+        name = str(semantics) if semantics else "Unknown Factor"
+        vars = factor.variables
+        values = factor.values.flatten()
+        card = factor.cardinality
+        
+        if not vars:
+            val_str = self._format_value(values[0], scientific, precision)
+            return f"Table for {name}:\n  [] = {val_str}"
+
+        states = [range(c) for c in card]
+        combinations = list(itertools.product(*states))
+        lines = [f"Table for {name}:"]
+        for i, comb in enumerate(combinations):
+            assignments = ", ".join([f"{v}={s}" for v, s in zip(vars, comb)])
+            val_str = self._format_value(values[i], scientific, precision)
+            lines.append(f"  [{assignments}] = {val_str}")
+        return "\n".join(lines)
+
+    def _generate_concise_proof(self, scientific, precision):
+        lines = []
         for entry in self.trace_log:
             step = entry['step']
-            
             if step == 'GOAL':
                 lines.append(f"Goal: {entry['description']}")
-            
             elif step == 'SURGERY':
                 surgery_parts = []
                 for d in entry['details']:
@@ -1352,26 +1480,22 @@ class SemanticTraceVE(VariableElimination):
                         surgery_parts.append(d)
                 if surgery_parts:
                     lines.append("Surgery: " + "; ".join(surgery_parts))
-            
             elif step == 'INIT':
                 order = entry.get('elimination_order', [])
-                if order:
-                    lines.append(f"Elim order: {order}")
-            
+                if order: lines.append(f"Elim order: {order}")
             elif step == 'ELIMINATE':
                 var = entry['variable']
-                tau, tau_track = entry['sum_data']
+                tau, _ = entry['sum_data']
                 result_str = self._render_inline_dist(tau, precision)
                 lines.append(f"Sum out {var} -> {entry['sum_formula']} = {result_str}")
-            
             elif step == 'TRIVIAL_DO':
+                # Old version doesn't generate this, but keeping for compatibility
                 do_var, do_val, target = entry['do_var'], entry['do_val'], entry['target']
                 result = entry['result']
                 result_str = self._render_inline_dist(result, precision)
                 lines.append(f"do({do_var}={do_val}) trivial -> P({target}) = {result_str}")
-            
             elif step == 'NORMALIZE':
-                n_factor, n_track = entry['normalized_data']
+                n_factor, _ = entry['normalized_data']
                 u_factor, _ = entry['unnormalized_data']
                 u_sum = u_factor.values.sum()
                 result_str = self._render_inline_dist(n_factor, precision)
@@ -1379,59 +1503,33 @@ class SemanticTraceVE(VariableElimination):
                     lines.append(f"Result: {entry['final_formula']} = {result_str}")
                 else:
                     lines.append(f"Normalize (sum={round(u_sum, precision)}) -> {entry['final_formula']} = {result_str}")
-        
         return "\n".join(lines)
-    
-    def _generate_verbose_proof(self, scientific_notation, precision):
-        """Original verbose proof format with full tables."""
+
+    def _generate_verbose_proof(self, scientific, precision):
         proof = []
-        has_eliminations = any(e['step'] == 'ELIMINATE' for e in self.trace_log)
         for entry in self.trace_log:
-            step = entry['step']
-            if step == 'INIT' and not entry.get('elimination_order'):
-                continue
-            if step == 'NORMALIZE' and not has_eliminations:
-                final_input = entry.get('final_input_data', [])
-                n_factor, n_track = entry['normalized_data']
-                if len(final_input) > 1:
-                    factors_str = " * ".join(str(t) for _, t in final_input if t)
-                    proof.append(f"Combining factors: {factors_str}")
-                table_str = self._render_factor_table(n_factor, n_track, scientific_notation, precision)
-                proof.append(f"Result:\n{table_str}")
-                continue
-            text = self._render_trace_entry(entry, scientific_notation, precision)
-            if text:
-                proof.append(text)
+            text = self._render_trace_entry(entry, scientific, precision)
+            if text: proof.append(text)
         return "\n".join(proof)
 
     def _render_trace_entry(self, entry, scientific, precision):
-        """
-        Renders a single trace entry. 
-        Can be overridden by subclasses to handle specific step types.
-        """
         step = entry['step']
-        
         if step == 'GOAL':
             return f"Goal: {entry['description']}\n"
-        
         elif step == 'INIT':
             return f"Initialization: Selected Elimination Order = {entry['elimination_order']}\n"
-        
         elif step == 'ELIMINATE':
             var = entry['variable']
             lines = [f"--- Step: Eliminate Variable '{var}' ---"]
-            
             lines.append(f"1. Retrieve relevant factors containing '{var}':")
             for (factor, tracker) in entry['input_data']:
                 table_str = self._render_factor_table(factor, tracker, scientific, precision)
                 lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
-            
             lines.append(f"\n2. Compute the Intermediate Joint (Product):")
             lines.append(f"   Formula: {entry['product_formula']} = {entry['product_expr']}")
             phi, phi_track = entry['product_data']
             table_str = self._render_factor_table(phi, phi_track, scientific, precision)
             lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
-            
             lines.append(f"\n3. Marginalize (Sum) out variable '{var}':")
             lines.append(f"   Formula: {entry['sum_formula']} = \u2211_{{{var}}} {entry['product_formula']}")
             tau, tau_track = entry['sum_data']
@@ -1439,31 +1537,87 @@ class SemanticTraceVE(VariableElimination):
             lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
             lines.append("\n")
             return "\n".join(lines)
-
         elif step == 'NORMALIZE':
             lines = [f"--- Final Step: Normalization ---"]
-            
             lines.append(f"1. Gather all remaining factors (Query Variables + Priors):")
             for (factor, tracker) in entry['final_input_data']:
                 table_str = self._render_factor_table(factor, tracker, scientific, precision)
                 lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
-
             lines.append(f"\n2. Compute Unnormalized Joint Distribution ({entry['final_formula']}):")
             u_factor, u_track = entry['unnormalized_data']
             table_str = self._render_factor_table(u_factor, u_track, scientific, precision)
             lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
-            
             lines.append(f"\n3. Normalize to obtain Probability Distribution:")
             n_factor, n_track = entry['normalized_data']
             table_str = self._render_factor_table(n_factor, n_track, scientific, precision)
             lines.append("\n".join(["   " + line for line in table_str.split('\n')]))
             return "\n".join(lines)
-        
+        elif step == 'SURGERY':
+            lines = ["--- Causal Graph Surgery ---"]
+            for detail in entry.get('details', []):
+                lines.append(f"  - {detail}")
+            lines.append("")
+            return "\n".join(lines)
         return None
 
 
 # ==========================================
-# 3. Optimized Causal Inference Engine
+# 3. Stable Helper Functions
+# ==========================================
+def get_robust_elimination_order(model, variables, evidence):
+    """
+    Stable, manual implementation of MinFill to avoid pgmpy internals.
+    """
+    all_nodes = set(model.nodes())
+    keep_nodes = set(variables) | set(evidence.keys())
+    to_eliminate = all_nodes - keep_nodes
+    if not to_eliminate: return []
+
+    moral_graph = nx.Graph()
+    moral_graph.add_nodes_from(all_nodes)
+    moral_graph.add_edges_from(model.to_undirected().edges())
+    
+    for node in model.nodes():
+        parents = list(model.predecessors(node))
+        for i in range(len(parents)):
+            for j in range(i + 1, len(parents)):
+                moral_graph.add_edge(parents[i], parents[j])
+
+    ordering = []
+    working_graph = moral_graph.copy()
+    remaining_nodes = list(to_eliminate)
+    
+    while remaining_nodes:
+        best_node = None
+        min_fill = float('inf')
+        
+        for node in remaining_nodes:
+            neighbors = list(working_graph.neighbors(node))
+            fill_edges = 0
+            n_neighbors = len(neighbors)
+            for i in range(n_neighbors):
+                for j in range(i + 1, n_neighbors):
+                    if not working_graph.has_edge(neighbors[i], neighbors[j]):
+                        fill_edges += 1
+            if fill_edges < min_fill:
+                min_fill = fill_edges
+                best_node = node
+                if min_fill == 0: break
+        
+        ordering.append(best_node)
+        remaining_nodes.remove(best_node)
+        
+        neighbors = list(working_graph.neighbors(best_node))
+        for i in range(len(neighbors)):
+            for j in range(i + 1, len(neighbors)):
+                working_graph.add_edge(neighbors[i], neighbors[j])
+        working_graph.remove_node(best_node)
+        
+    return ordering
+
+
+# ==========================================
+# 4. Causal Inference Engine (Stable Wrapper)
 # ==========================================
 class CausalVE(SemanticTraceVE):
     def query(self, variables, do=None, evidence=None, elimination_order="MinFill", show_progress=False):
@@ -1474,9 +1628,9 @@ class CausalVE(SemanticTraceVE):
         self.factor_semantics = {}
         self.global_do = do 
         
-        # 1. Format the Goal
-        do_str = ", ".join([f"do({k}={v})" for k, v in do.items()])
-        ev_str = ", ".join([f"{k}={v}" for k, v in evidence.items()])
+        # Log Goal
+        do_str = ", ".join([f"do({k}={repr(v)})" for k, v in do.items()])
+        ev_str = ", ".join([f"{k}={repr(v)}" for k, v in evidence.items()])
         query_parts = [p for p in [do_str, ev_str] if p]
         context = f" | {', '.join(query_parts)}" if query_parts else ""
         query_str = f"P({', '.join(variables)}{context})"
@@ -1486,28 +1640,21 @@ class CausalVE(SemanticTraceVE):
             "description": f"Compute {'Causal Effect' if do else 'Observational Probability'}: {query_str}"
         })
 
-        # --- OPTIMIZATION: If no DO variables, skip surgery entirely ---
+        # --- OPTIMIZATION: If no DO variables, skip surgery ---
         if not do:
-            return self.base_query(variables, evidence, elimination_order=elimination_order, joint=True, show_progress=False)
+            if isinstance(elimination_order, str):
+                elimination_order = get_robust_elimination_order(self.model, variables, evidence)
 
-        # --- OPTIMIZATION: Trivial causal case (do-var has no parents, target is direct child) ---
-        if len(do) == 1 and len(variables) == 1:
-            do_var, do_val = list(do.items())[0]
-            target = variables[0]
-            if not list(self.model.predecessors(do_var)) and do_var in self.model.predecessors(target):
-                # Just lookup from CPT: P(target | do(do_var=val)) = P(target | do_var=val)
-                cpd = self.model.get_cpds(target)
-                combined_ev = {**evidence, do_var: do_val}
-                result = cpd.to_factor().reduce([(k, v) for k, v in combined_ev.items()], inplace=False)
-                result = result.normalize(inplace=False)
-                self.trace_log.append({
-                    "step": "TRIVIAL_DO",
-                    "do_var": do_var, "do_val": do_val, "target": target,
-                    "result": result
-                })
-                return result
+            result, trace = self.query_with_trace(
+                variables=variables, 
+                evidence=evidence, 
+                elimination_order=elimination_order, 
+                joint=True
+            )
+            self.trace_log.extend(trace)
+            return result
 
-        # --- Surgery (Only if do exists) ---
+        # --- Surgery (Original Stable Implementation) ---
         model_prime = copy.deepcopy(self.model)
         surgery_details = []
 
@@ -1527,14 +1674,22 @@ class CausalVE(SemanticTraceVE):
                 if cpd_old:
                     model_prime.remove_cpds(cpd_old)
                 
-                state_names = cpd_old.state_names[d]
-                k = len(state_names)
+                state_names = getattr(cpd_old, 'state_names', {})
+                if d in state_names:
+                    d_states = state_names[d]
+                else:
+                    d_states = sorted(list(set([val, 0, 1]))) 
+
+                k = len(d_states)
                 probs = np.zeros(k)
-                idx = state_names.index(val) if val in state_names else int(val)
+                try:
+                    idx = d_states.index(val)
+                except ValueError:
+                    idx = 0 
                 probs[idx] = 1.0 
                 values = np.array(probs).reshape(k, 1)
 
-                new_cpd = TabularCPD(variable=d, variable_card=k, values=values, state_names={d: state_names})
+                new_cpd = TabularCPD(variable=d, variable_card=k, values=values, state_names={d: d_states})
                 model_prime.add_cpds(new_cpd)
                 surgery_details.append(f"Set P({d}) := Point Mass at {d}={val}.")
         finally:
@@ -1542,21 +1697,12 @@ class CausalVE(SemanticTraceVE):
 
         self.trace_log.append({"step": "SURGERY", "details": surgery_details})
 
-        # --- Fix Elimination Order for Surgery Graph ---
-        final_order = elimination_order
-        if isinstance(elimination_order, list):
-            missing_vars = [
-                node for node in model_prime.nodes() 
-                if node not in variables 
-                and node not in evidence 
-                and node not in elimination_order
-            ]
-            if missing_vars:
-                final_order = elimination_order + missing_vars
-
-        # --- Run Inference on Mutilated Graph ---
         inference_prime = CausalVE(model_prime)
         inference_prime.global_do = self.global_do 
+        
+        final_order = elimination_order
+        if isinstance(elimination_order, str):
+             final_order = get_robust_elimination_order(model_prime, variables, evidence)
         
         result, prime_trace = inference_prime.query_with_trace(
             variables=variables,
@@ -1567,20 +1713,3 @@ class CausalVE(SemanticTraceVE):
 
         self.trace_log.extend(prime_trace)
         return result
-
-    def _render_trace_entry(self, entry, scientific, precision):
-        """Override to handle SURGERY and TRIVIAL_DO."""
-        if entry['step'] == 'TRIVIAL_DO':
-            do_var, do_val, target = entry['do_var'], entry['do_val'], entry['target']
-            result = entry['result']
-            table_str = self._render_factor_table(result, None, scientific, precision)
-            return f"Since {do_var} has no parents, do({do_var}={do_val}) = P({target}|{do_var}={do_val})\nResult:\n{table_str}"
-        
-        if entry['step'] == 'SURGERY':
-            lines = ["--- Causal Graph Surgery ---"]
-            for detail in entry['details']:
-                lines.append(f"  - {detail}")
-            lines.append("")
-            return "\n".join(lines)
-        
-        return super()._render_trace_entry(entry, scientific, precision)

@@ -1,11 +1,11 @@
 from reasoning_core.template import Problem, Task, edict, Config
 from reasoning_core.utils import score_scalar
-from unigram import init_grammar
+from gramforge import init_grammar
 from dataclasses import dataclass
 import random
-import unigram
+import gramforge
 import re
-from decimal import Decimal, getcontext
+from decimal import Decimal, getcontext, ROUND_HALF_UP
 import ast, operator
 from fractions import Fraction
 import sympy
@@ -20,8 +20,11 @@ def _grammar(symbolic=False):
     g('expr(expr,expr)',  '{0} + {1}',          weight=2)
     g('expr(expr,expr)',  '{0} - {1}',          weight=1)
     g('expr(expr,expr)',  '{0} * {1}')
+    g('expr(expr,expr)',  'max({0}, {1})',      weight=0.3)
+    g('expr(expr,expr)',  'min({0}, {1})',      weight=0.3)
+    g('expr(expr)',       'abs({0})',           weight=0.3)
+    g('expr(expr)',       'round({0})',         weight=0.2)
     
-    # Division is often excluded from basic symbolic simplification tasks to avoid fractions
     if not symbolic: 
         g('expr(expr,expr)', '{0} / {1}')
         
@@ -44,11 +47,18 @@ class ArithmeticsConfig(Config):
     out_decimals: int = 3
     out_digits: int = 6
     n_trials: int = 50_000
+    trailing_zero_prob: float = 0.2
     def update(self, c):
         self.min_depth += c
         self.max_depth += c
         self.out_digits += c
         self.out_decimals += c
+
+def _add_trailing_zeros(s, prob=0.2):
+    """Add trailing zeros to decimals with exponentially decreasing probability."""
+    if '.' not in s: return s
+    while random.random() < prob: s += '0'
+    return s
 
 def fill_num(expr, cfg=ArithmeticsConfig()):
     pat = re.compile(r'\bNUM\b')
@@ -57,11 +67,9 @@ def fill_num(expr, cfg=ArithmeticsConfig()):
         v = v.normalize()
         sign, digits, exponent = v.as_tuple()
         num_decimal_places = -exponent if exponent < 0 else 0
-        if num_decimal_places > cfg.out_decimals:
-            return False
+        if num_decimal_places > cfg.out_decimals: return False
         s_rep = f'{v:.{cfg.out_decimals}f}'
-        total_digits = len(s_rep.replace('-', '').replace('.', ''))
-        return total_digits <= cfg.out_digits
+        return len(s_rep.replace('-', '').replace('.', '')) <= cfg.out_digits
 
     for _ in range(cfg.n_trials):
         vals_str = []
@@ -75,34 +83,32 @@ def fill_num(expr, cfg=ArithmeticsConfig()):
                 num = random.randint(-15, 15)
                 if has_division and num == 0: num = random.choice([-1, 1])
                 vals_str.append(str(num))
-        if n > 1 and len(set(vals_str)) < 2:
-            continue
+        if n > 1 and len(set(vals_str)) < 2: continue
+        
         it = iter(f"Decimal('{x}')" for x in vals_str)
         e_decimal = pat.sub(lambda _: next(it), expr)
         try:
-            v = eval(e_decimal, {"Decimal": Decimal})
-        except Exception:
-            continue
+            v = eval(e_decimal, {"Decimal": Decimal, "max": max, "min": min, "abs": abs, 
+                                  "round": lambda x: x.to_integral_value(rounding=ROUND_HALF_UP)})
+        except Exception: continue
+        
         if is_ok(v):
-            it_str = iter(vals_str)
-            final_expr_str = pat.sub(lambda _: next(it_str), expr)
-            return final_expr_str, v
+            # Add trailing zeros for generalization
+            vals_display = [_add_trailing_zeros(s, cfg.trailing_zero_prob) for s in vals_str]
+            it_str = iter(vals_display)
+            return pat.sub(lambda _: next(it_str), expr), v
     raise RuntimeError('No assignment found; increase n_trials or widen pool.')
 
 class Arithmetics(Task):
     def __init__(self, config=ArithmeticsConfig()):
         super().__init__(config=config)
 
-
     def generate(self):
-        x = unigram.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.generation_algorithm)
-        py_expr_template = x@'py'
-        final_expr, value = fill_num(py_expr_template, cfg=self.config)
+        x = gramforge.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.generation_algorithm)
+        final_expr, value = fill_num(x@'py', cfg=self.config)
         quantizer = Decimal('1e-' + str(self.config.out_decimals))
-        rounded_value = value.quantize(quantizer)
-        ans_str = f"{rounded_value:f}".rstrip('0').rstrip('.')
-        meta = edict(expr=final_expr, height=x.height)
-        meta.cot = self.get_cot(final_expr)
+        ans_str = f"{value.quantize(quantizer):f}".rstrip('0').rstrip('.')
+        meta = edict(expr=final_expr, height=x.height, cot=self.get_cot(final_expr))
         return Problem(metadata=meta, answer=ans_str)
     
     def prompt(self, metadata):
@@ -112,29 +118,34 @@ class Arithmetics(Task):
         return score_scalar(answer, entry)
 
     def get_cot(self, expr):
-            ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, ast.Div: operator.truediv, ast.Pow: operator.pow}
-            syms = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.Pow: '**'}
-            steps = []
-            
-            def fmt(n):
-                d = n.denominator
-                while d % 2 == 0: d //= 2
-                while d % 5 == 0: d //= 5
-                
-                return f"{float(n):g}" if d == 1 else str(n)
+        ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, 
+               ast.Div: operator.truediv, ast.Pow: operator.pow}
+        syms = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.Pow: '**'}
+        funcs = {'max': max, 'min': min, 'abs': abs, 'round': lambda x: Fraction(round(float(x)))}
+        steps = []
+        
+        def fmt(n):
+            d = n.denominator
+            while d % 2 == 0: d //= 2
+            while d % 5 == 0: d //= 5
+            return f"{float(n):g}" if d == 1 else str(n)
 
-            def visit(node):
-                if isinstance(node, ast.Constant): return Fraction(str(node.value))
-                if isinstance(node, ast.UnaryOp): return -visit(node.operand)
-                
-                l, r = visit(node.left), visit(node.right)
-                res = ops[type(node.op)](l, r)
-                
-                steps.append(f"{fmt(l)} {syms[type(node.op)]} {fmt(r)} = {fmt(res)}")
+        def visit(node):
+            if isinstance(node, ast.Constant): return Fraction(str(node.value))
+            if isinstance(node, ast.UnaryOp): return -visit(node.operand)
+            if isinstance(node, ast.Call):
+                fname = node.func.id
+                args = [visit(a) for a in node.args]
+                res = Fraction(funcs[fname](*args))
+                steps.append(f"{fname}({', '.join(fmt(a) for a in args)}) = {fmt(res)}")
                 return res
+            l, r = visit(node.left), visit(node.right)
+            res = ops[type(node.op)](l, r)
+            steps.append(f"{fmt(l)} {syms[type(node.op)]} {fmt(r)} = {fmt(res)}")
+            return res
 
-            visit(ast.parse(expr, mode='eval').body)
-            return "\n".join(steps)
+        visit(ast.parse(expr, mode='eval').body)
+        return "\n".join(steps)
 
 
 @dataclass
@@ -157,7 +168,7 @@ class SymbolicArithmetics(Task):
     def generate(self):
         # 1. Generate & Fill
         g_sym = _grammar(symbolic=True)
-        x = unigram.generate(g_sym, depth=self.config.max_depth, min_depth=self.config.min_depth)
+        x = gramforge.generate(g_sym, depth=self.config.max_depth, min_depth=self.config.min_depth)
         
         filler = lambda m: random.choice(self.config.variables) if m.group()=='VAR' else str(random.randint(1,9))
         final_expr = re.sub(r'\b(VAR|NUM)\b', filler, x @ 'py')

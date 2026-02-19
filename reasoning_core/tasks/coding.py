@@ -1,7 +1,7 @@
 from reasoning_core.template import Task, Problem, Config, edict
 from reasoning_core.utils import score_scalar
-from unigram import generate
-from unigram.grammars import tinypy_grammar
+from gramforge import generate
+from gramforge.grammars import tinypy_grammar
 from nltk.metrics.distance import edit_distance
 import re
 

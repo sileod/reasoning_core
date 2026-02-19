@@ -74,3 +74,34 @@ def load_environment(
         rubric=rubric,
         seed=seed,
     )
+
+
+
+def rc_ds_to_env(ds, system_prompt="Directly output the answer."):
+    dataset = ds.rename_columns({"prompt": "question"})
+    def parse_entry(example):
+        entry=edict(metadata=example['metadata'], answer=example['answer'])
+        return {'info': entry}
+    
+    dataset = dataset.map(parse_entry)
+    
+    def score_answer_vf(prompt, completion, info) -> float:
+        answer=completion[0]['content']
+        return score_answer(answer, edict(info))
+    
+    # 4. Run
+    rubric = vf.Rubric(funcs=[score_answer_vf])
+    
+    
+    env = vf.SingleTurnEnv(dataset=dataset, rubric=rubric,system_prompt=system_prompt)
+    return env
+
+def load_environment(
+    num_train_examples: int = 500,
+    num_eval_examples: int = 50,
+    rebuild: bool = False,
+    dataset_name: str = "reasoning-core/rc1",
+    seed: int = 0):
+    ds = load_dataset(dataset_name)
+
+    return rc_ds_to_env(ds)
