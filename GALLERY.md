@@ -1,6 +1,6 @@
 # 📖 Task Gallery
 
-## [planning](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//planning.py)
+## [planning](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/planning.py)
 
 **Prompt:**
 ```
@@ -32,7 +32,7 @@ Format: Multiple lines, one action per line: action(obj1, obj2)
 
 ---
 
-## [table_qa](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//table_qa.py)
+## [table_qa](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/table_qa.py)
 
 **Prompt:**
 ```
@@ -60,7 +60,7 @@ Return result as CSV format (rows separated by newlines, values by commas).
 
 ---
 
-## [table_conversion](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//table_qa.py)
+## [table_conversion](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/table_qa.py)
 
 **Prompt:**
 ```
@@ -105,7 +105,7 @@ Output only the converted table.
 
 ---
 
-## [equation_system](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//equation_system.py)
+## [equation_system](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/equation_system.py)
 
 **Prompt:**
 ```
@@ -124,10 +124,10 @@ Multiple solutions
 
 ---
 
-## [code_execution](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//coding.py)
+## [code_execution](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/coding.py)
 
 **Prompt:**
-```
+````
 Predict the printed output of the following Python code:
 
 ```python
@@ -137,7 +137,7 @@ print(h + h)
 ```
 
 Return only the exact printed output string.
-```
+````
 
 **Answer:**
 ```
@@ -146,7 +146,7 @@ Return only the exact printed output string.
 
 ---
 
-## [diff_prediction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//coding.py)
+## [diff_prediction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/coding.py)
 
 **Prompt:**
 ```
@@ -189,7 +189,7 @@ Answer with the diff chunks only (no file headers). If no changes, return nothin
 
 ---
 
-## [diff_patching](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//coding.py)
+## [diff_patching](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/coding.py)
 
 **Prompt:**
 ```
@@ -219,7 +219,7 @@ Best bed impact peace when drug
 
 ---
 
-## [regex_following](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//regex_following.py)
+## [regex_following](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/regex_following.py)
 
 **Prompt:**
 ```
@@ -234,7 +234,7 @@ Return a valid match for (\dnational)*
 
 ---
 
-## [regex_induction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//regex_following.py)
+## [regex_induction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/regex_following.py)
 
 **Prompt:**
 ```
@@ -252,17 +252,17 @@ NEGATIVE: 'O', '\', '.2', 'lao', '..', '8', 'aÍ', 'suggestR'
 
 ---
 
-## [graph_pathfinding](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//graph_operations.py)
+## [graph_pathfinding](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/graph_operations.py)
 
 **Prompt:**
-```
+``
 Consider the graph:
 
 0: 0-3 0-4; 1: 1-3; 2: 2-3; 3: 3-0 3-1 3-2; 4: 4-0
 
 Find the shortest path from Node 3 to Node 2.
 Answer with a Python list of integers. Example: `[0, 5, 3, 9]`.
-```
+``
 
 **Answer:**
 ```
@@ -271,17 +271,17 @@ Answer with a Python list of integers. Example: `[0, 5, 3, 9]`.
 
 ---
 
-## [graph_node_centrality](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//graph_operations.py)
+## [graph_node_centrality](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/graph_operations.py)
 
 **Prompt:**
-```
+``
 Consider the following social network graph:
 
 graph { 0--1; 0--2; 0--4; 1--3 }
 
 Based on the number of connections, identify all nodes that are the most central (i.e., have the highest degree centrality). There may be more than one.
 Your answer must be a Python list of node integers, sorted in increasing order. Example: `[3, 8]`.
-```
+``
 
 **Answer:**
 ```
@@ -290,17 +290,17 @@ Your answer must be a Python list of node integers, sorted in increasing order. 
 
 ---
 
-## [graph_cycle_detection](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//graph_operations.py)
+## [graph_cycle_detection](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/graph_operations.py)
 
 **Prompt:**
-```
+``
 Consider the graph below, which contains exactly one cycle.
 
 Edges: 0-1, 0-4, 1-2, 2-3, 3-4
 
 Identify all the nodes that form the cycle.
 Your answer must be a Python list of node integers, sorted in increasing order. Example: `[2, 5, 7, 8]`.
-```
+``
 
 **Answer:**
 ```
@@ -309,10 +309,10 @@ Your answer must be a Python list of node integers, sorted in increasing order. 
 
 ---
 
-## [graph_isomorphism](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//graph_operations.py)
+## [graph_isomorphism](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/graph_operations.py)
 
 **Prompt:**
-```
+``
 Consider two graphs described below.
 
 Graph A:
@@ -323,7 +323,7 @@ Graph B:
 
 Do Graph A and Graph B have the exact same structure, just with different node labels? (In other words, are they isomorphic?)
 Answer with only `True` or `False`.
-```
+``
 
 **Answer:**
 ```
@@ -332,7 +332,7 @@ True
 
 ---
 
-## [arithmetics](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//arithmetics.py)
+## [arithmetics](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/arithmetics.py)
 
 **Prompt:**
 ```
@@ -347,7 +347,7 @@ Answer with only a number.
 
 ---
 
-## [symbolic_arithmetics](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//arithmetics.py)
+## [symbolic_arithmetics](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/arithmetics.py)
 
 **Prompt:**
 ```
@@ -364,7 +364,7 @@ x**2
 
 ---
 
-## [sequential_induction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//sequential_induction.py)
+## [sequential_induction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/sequential_induction.py)
 
 **Prompt:**
 ```
@@ -391,10 +391,10 @@ n**2 + U[n - 1]
 
 ---
 
-## [conjecture_entailment](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//formal_maths.py)
+## [conjecture_entailment](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/formal_maths.py)
 
 **Prompt:**
-```
+``
 Decide if the given premises entail the conjecture (i.e., the conjecture is provable) using Superposition/Resolution/Paramodulation.
 
 Domain: Ring Theory
@@ -405,7 +405,7 @@ Premises:
 Conjecture: `(X1=additive_inverse(X2)|add(X2,X3)!=add(X3,additive_inverse(X1)))`
 
 Output only `True` (provable) or `False` (not provable).
-```
+``
 
 **Answer:**
 ```
@@ -414,7 +414,7 @@ False
 
 ---
 
-## [proof_reconstruction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//formal_maths.py)
+## [proof_reconstruction](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/formal_maths.py)
 
 **Prompt:**
 ```
@@ -451,7 +451,7 @@ Example: 5 <- 2, 4
 
 ---
 
-## [bayesian_association](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//causal_reasoning.py)
+## [bayesian_association](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/causal_reasoning.py)
 
 **Prompt:**
 ```
@@ -474,7 +474,7 @@ Example: {0: 0.1, 1: 0.9}
 
 ---
 
-## [bayesian_intervention](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//causal_reasoning.py)
+## [bayesian_intervention](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/causal_reasoning.py)
 
 **Prompt:**
 ```
@@ -497,7 +497,7 @@ Example: {0: 0.1, 1: 0.9}
 
 ---
 
-## [logic_nli](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//logic.py)
+## [logic_nli](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/logic.py)
 
 **Prompt:**
 ```
@@ -524,7 +524,7 @@ entailment
 
 ---
 
-## [evidence_retrieval](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//logic.py)
+## [evidence_retrieval](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/logic.py)
 
 **Prompt:**
 ```
@@ -549,7 +549,7 @@ Only answer the list of supporting statements, e.g. [0, 6, 7].
 
 ---
 
-## [parsability](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//grammar.py)
+## [parsability](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/grammar.py)
 
 **Prompt:**
 ```
@@ -573,7 +573,7 @@ ambiguous
 
 ---
 
-## [parsing](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//grammar.py)
+## [parsing](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/grammar.py)
 
 **Prompt:**
 ```
@@ -599,7 +599,7 @@ check<C:2> check<C:3> check<C:4> look<C:5>
 
 ---
 
-## [continuation](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//grammar.py)
+## [continuation](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/grammar.py)
 
 **Prompt:**
 ```
@@ -620,7 +620,7 @@ lay|recognize
 
 ---
 
-## [set_intersection](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//set_operations.py)
+## [set_intersection](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/set_operations.py)
 
 **Prompt:**
 ```
@@ -636,7 +636,7 @@ Only return the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2, 
 
 ---
 
-## [set_missing_element](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//set_operations.py)
+## [set_missing_element](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/set_operations.py)
 
 **Prompt:**
 ```
@@ -651,7 +651,7 @@ Only return the missing elements from Set_A as a Python set.
 
 ---
 
-## [count_elements](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//set_operations.py)
+## [count_elements](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/set_operations.py)
 
 **Prompt:**
 ```
@@ -666,7 +666,7 @@ How many times does 3 appear? Only return the number.
 
 ---
 
-## [set_equality](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks//set_operations.py)
+## [set_equality](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/set_operations.py)
 
 **Prompt:**
 ```
