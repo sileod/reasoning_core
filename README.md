@@ -4,7 +4,7 @@
 reasoning-core is a text-based RLVR for LLM reasoning training.
 It is centered on expressive symbolic tasks, including full fledged FOL, formal mathematics with TPTP, formal planning with novel domains, and syntax tasks.
 
-🤗 https://hf.co/datasets/reasoning-core/rc1
+🤗 [https://hf.co/datasets/reasoning-core/rc1](https://huggingface.co/collections/reasoning-core/datasets)
 
 # Prime Environment Hub
 ```python
@@ -33,14 +33,13 @@ x = T.generate_example()
 assert score_answer(x.answer, x)==1
 ```
 
-# Generation
+# Parallel generation script
 Run `bash run_generate.sh` for multi-threaded generation to json files (readable by Huggingface Datasets).
 
 
-# Reasoning gym
+### Reasoning gym integration
 
 We use a custom interface, leaner than reasoning-gym (RG). But our tasks, which are all orthogonal to RG, can be imported in it.
-
 ```python
 import reasoning_gym
 
