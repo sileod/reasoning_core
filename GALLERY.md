@@ -1,5 +1,9 @@
 # 📖 Task Gallery
 
+[`planning`](#planning) · [`table_qa`](#table_qa) · [`table_conversion`](#table_conversion) · [`equation_system`](#equation_system) · [`code_execution`](#code_execution) · [`diff_prediction`](#diff_prediction) · [`diff_patching`](#diff_patching) · [`regex_following`](#regex_following) · [`regex_induction`](#regex_induction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_node_centrality`](#graph_node_centrality) · [`graph_cycle_detection`](#graph_cycle_detection) · [`graph_isomorphism`](#graph_isomorphism) · [`arithmetics`](#arithmetics) · [`symbolic_arithmetics`](#symbolic_arithmetics) · [`sequential_induction`](#sequential_induction) · [`conjecture_entailment`](#conjecture_entailment) · [`proof_reconstruction`](#proof_reconstruction) · [`bayesian_association`](#bayesian_association) · [`bayesian_intervention`](#bayesian_intervention) · [`logic_nli`](#logic_nli) · [`evidence_retrieval`](#evidence_retrieval) · [`parsability`](#parsability) · [`parsing`](#parsing) · [`continuation`](#continuation) · [`set_intersection`](#set_intersection) · [`set_missing_element`](#set_missing_element) · [`count_elements`](#count_elements) · [`set_equality`](#set_equality)
+
+---
+
 ## [planning](https://github.com/sileod/reasoning_core/blob/main/reasoning_core/tasks/planning.py)
 
 **Prompt:**
