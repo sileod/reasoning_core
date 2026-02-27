@@ -43,11 +43,10 @@ df=env.make_dataset(results).to_pandas()
 
 We use a custom interface, leaner than reasoning-gym (RG). But our tasks, which are mostly orthogonal to RG, can be imported in it.
 ```python
-import reasoning_gym
+import reasoning_gym, reasoning_core
 from reasoning_gym.composite import DatasetSpec
 
-from reasoning_core import register_to_reasoning_gym
-register_to_reasoning_gym() # registers RC tasks into RG
+reasoning_core.register_to_reasoning_gym() # registers RC tasks into RG
 
 specs = [
     DatasetSpec(name='leg_counting', weight=1, config={}),  #from reasoning_gym 🏋
