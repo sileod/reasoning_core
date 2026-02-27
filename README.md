@@ -41,7 +41,7 @@ df=env.make_dataset(results).to_pandas()
 
 ### Reasoning gym integration
 
-We use a custom interface, leaner than reasoning-gym (RG). But our tasks, which are mostly orthogonal to RG, can be imported in it.
+We use a custom interface but compatible interface. Our tasks, which are mostly orthogonal to RG, can be imported in it.
 ```python
 import reasoning_gym, reasoning_core
 from reasoning_gym.composite import DatasetSpec
