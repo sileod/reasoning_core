@@ -4,7 +4,7 @@
 reasoning-core is a text-based RLVR for LLM reasoning training.
 It is centered on expressive symbolic tasks, including full fledged FOL, formal mathematics with TPTP, formal planning with novel domains, and syntax tasks.
 
-🤗 [https://hf.co/datasets/reasoning-core/rc1](https://huggingface.co/collections/reasoning-core/datasets)
+🤗 [https://hf.co/collections/reasoning-core/datasets](https://huggingface.co/collections/reasoning-core/datasets)
 
 # Standalone
 ```python
