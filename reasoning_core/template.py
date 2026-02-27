@@ -18,6 +18,8 @@ from inflection import underscore
 import tiktoken
 import psutil 
 
+#template.py
+
 _REGISTRY = dict()
 
 
@@ -225,8 +227,7 @@ class Task(ProceduralDataset):
 
 
     def generate_example(self, level=None, max_tokens=8192, **kwargs):
-        level = level or getattr(self.config, 'level', 0)
-        self.timeout = int(self.base_timeout * (1+level))
+        self.timeout = int(self.base_timeout * (1+level)) if level else int(self.base_timeout)
         @timeout_retry(self.timeout)
         def inner():
             t0=time.time()
@@ -405,6 +406,14 @@ class Config:
 
     def to_dict(self):
         return asdict(self)
+
+    def __repr__(self) -> str:
+        field_strings = []
+        for f in fields(self):
+            value = getattr(self, f.name)
+            field_strings.append(f"{f.name}={value!r}")
+        
+        return f"{self.__class__.__name__}({', '.join(field_strings)})"
 
 class Reward(wrapt.ObjectProxy):
     def __init__(self, wrapped, tag=None, **kwargs):

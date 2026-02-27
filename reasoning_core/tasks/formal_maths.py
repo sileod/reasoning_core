@@ -1,3 +1,4 @@
+# formal_math.py
 import networkx as nx
 import re
 import os
@@ -689,74 +690,42 @@ class ProofReconstruction(Task):
             f"Domain: {domain_name}\n"
             f"Theorem: {metadata['conjecture']}\n\n"
             f"Rules:\n"
-            f"- Some clauses are axioms (no parents)\n"
+            f"- Some clauses are axioms (no parents); do NOT list them\n"
             f"- All other clauses derive from exactly 2 parents\n"
             f"- Clauses can be reused as parents\n\n"
             f"Shuffled clauses:\n{clauses_text}\n\n"
-            f"Output derivations only, one per line: CHILD <- PARENT_1, PARENT_2\n"
+            f"Output derivations for derived clauses only, one per line: CHILD <- PARENT_1, PARENT_2\n"
             f"Example: 5 <- 2, 4\n"
-            f"All clauses must appear. No explanations."
         )
     
     def score_answer(self, answer, entry):
-        """
-        Scores proof reconstruction: validates structure (DAG, 2 parents per derived node),
-        then returns F1 against ground truth.
-        """
+        """F1 of valid derivation edges against ground truth (lenient parsing)."""
         gold = entry.metadata.get('correct_proof_structure_indices') or []
         n = len(entry.metadata.get('numbered_clauses', []))
-        if not n:
+        if not n or not gold:
             return 0.0
 
-        # Parse derivations: "CHILD <- PARENT1, PARENT2"
         pat = re.compile(r'^\s*(\d+)\s*<-\s*(\d+)\s*,\s*(\d+)\s*$')
-        derivations = []
-        seen_children = set()
+        derivations, seen = [], set()
 
         for line in str(answer).strip().splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            m = pat.fullmatch(line)
+            m = pat.fullmatch(line.strip())
             if not m:
-                return 0.0  # Invalid format
-            
+                continue  # skip malformed / axiom lines
             child, p1, p2 = map(int, m.groups())
-            
-            # Validate: bounds, distinct parents, no self-loop, unique child
             if not (1 <= child <= n and 1 <= p1 <= n and 1 <= p2 <= n):
-                return 0.0
-            if p1 == p2 or child in (p1, p2) or child in seen_children:
-                return 0.0
-            
-            seen_children.add(child)
+                continue
+            if p1 == p2 or child in (p1, p2) or child in seen:
+                continue
+            seen.add(child)
             derivations.append((child, *sorted((p1, p2))))
 
         if not derivations:
             return 0.0
 
-        # Build graph and verify DAG + correct in-degrees
-        g = nx.DiGraph()
-        g.add_nodes_from(range(1, n + 1))
-        for child, p1, p2 in derivations:
-            g.add_edge(p1, child)
-            g.add_edge(p2, child)
-
-        if not nx.is_directed_acyclic_graph(g):
-            return 0.0
-        if any(g.in_degree(c) != 2 for c in seen_children):
-            return 0.0
-
-        # Compare to ground truth using F1
         pred_set = {f"{c} <- {p1}, {p2}" for c, p1, p2 in derivations}
         gold_set = set(gold)
-
-        if pred_set == gold_set:
-            return 1.0
-        if not gold_set:
-            return 0.0  # No ground truth to compare
-
         tp = len(pred_set & gold_set)
-        precision = tp / len(pred_set) if pred_set else 0.0
-        recall = tp / len(gold_set)
-        return 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+        prec = tp / len(pred_set) if pred_set else 0.0
+        rec  = tp / len(gold_set)
+        return 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0

@@ -48,6 +48,8 @@ class ArithmeticsConfig(Config):
     out_digits: int = 6
     n_trials: int = 50_000
     trailing_zero_prob: float = 0.2
+    trivial_prob = 0.1
+
     def update(self, c):
         self.min_depth += c
         self.max_depth += c
@@ -174,15 +176,19 @@ class SymbolicArithmetics(Task):
         final_expr = re.sub(r'\b(VAR|NUM)\b', filler, x @ 'py')
         
         # 2. Solve & Validate
+        trivial_allowed = random.random() < self.config.trivial_prob
+
         try:
             raw = parse_expr(final_expr, evaluate=False)
             simplified = sympy.simplify(raw)
             # Retry if trivial (no change or just a number)
-            if raw == simplified or (simplified.is_number and not raw.is_number): return self.generate()
+            is_trivial = (raw == simplified) or (simplified.is_number and not raw.is_number)
+            if is_trivial and not trivial_allowed: return self.generate()
         except: return self.generate()
 
         meta = edict(expr=final_expr, cot=self.make_cot(raw))
-        return Problem(metadata=meta, answer=str(simplified).replace('**', '^'))
+        return Problem(metadata=meta, answer=str(simplified).lower())
+
 
     def make_cot(self, node):
         steps = []
@@ -193,12 +199,12 @@ class SymbolicArithmetics(Task):
             # Check for simplification opportunities
             simp = sympy.expand(new_n)
             if simp == new_n: simp = sympy.simplify(new_n)
-            
-            if simp != new_n: steps.append(f"{new_n} = {simp}")
+            s_old, s_new = str(new_n), str(simp)
+            if s_old != s_new: steps.append(f"{new_n} = {simp}")
             return simp
         
         visit(node)
-        return "\n".join(steps)
+        return "\n".join(steps).lower()
 
     def prompt(self, meta):
             # Clean prompt: No CoT here

@@ -66,10 +66,11 @@ class ReasoningGraph:
             self.bn = DiscreteBayesianNetwork()
         self.reset_inference()
 
-    def generate_new_graph(self, n=4, edge_prob= 0.5, max_domain_size = 3,**kwargs):
+    def generate_new_graph(self, n=4, max_domain_size = 3,**kwargs):
         method = kwargs.pop('method', 'erdos')
         seed = kwargs.pop('seed', None)
         conditionning_seed = kwargs.pop('conditionning_seed', None)
+        edge_prob = kwargs.pop('edge_prob', 0.5)
         self.bn = DiscreteBayesianNetwork.get_random(
         n_nodes = n,
         edge_prob = edge_prob,
@@ -321,8 +322,8 @@ class Rung12Config(Config):
     graph_seed = None
     conditionning_seed = None
     seed = None
-    is_verbose = False
-    concise_cot = True
+    is_verbose: bool = False
+    concise_cot: bool  = True
 
     def set_level(self, i: int):
         # 1. Call the parent to handle the standard progression logic
@@ -592,7 +593,7 @@ def js_divergence(d1, d2):
     js = 0.5 * kl_divergence(p, m) + 0.5 * kl_divergence(q, m)
     return js
 
-def js_reward(dg, dt, power=256):
+def js_reward(dg, dt, power=128):
     """reward of guessing dg where the true distribution is dt"""
     js = js_divergence(dg, dt)
     return (1 - js / log(2)) ** power
