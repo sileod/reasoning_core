@@ -53,7 +53,13 @@ specs = [
     DatasetSpec(name='arithmetics', weight=1, config={}),  #from reasoning_core ◉
 ]
 D=reasoning_gym.create_dataset('composite', size=10, seed=42, datasets=specs)
+```
 
+And the other way around:
+```python
+frm reasoning_core import get_task
+t=get_task('reasoning_gym')
+t.generate_example(level=1, rg_task='lcm')
 ```
 
 ## Citation
