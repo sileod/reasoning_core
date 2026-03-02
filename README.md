@@ -1,4 +1,4 @@
-# Reasoning core ◉
+# Reasoning Core ◉
 
 
 reasoning-core is a text-based RLVR for LLM reasoning training.
