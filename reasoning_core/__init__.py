@@ -98,7 +98,7 @@ def rg_scorer(a, e):
     from .tasks import _reasoning_gym
     return _reasoning_gym.RG().score_answer(a, e)
 
-scorers['RG'] = lambda a, e: rg_scorer(a, e)
+scorers['Reasoning_Gym'] = lambda a, e: rg_scorer(a, e)
 
 def match_task_name(name):
     norm = lambda x: x.replace('_','').lower()
@@ -107,6 +107,9 @@ def match_task_name(name):
     return matches[0]
 
 def get_task(k, *args, **kwargs):
+    if k.lower()=='reasoning_gym':
+        from .tasks import _reasoning_gym
+        return _reasoning_gym.Reasoning_Gym(*args, **kwargs) 
     k=match_task_name(k)
     return DATASETS[k](*args, **kwargs)
 

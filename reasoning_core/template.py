@@ -14,6 +14,7 @@ import random
 import copy
 import math
 import signal
+from contextlib import contextmanager
 from inflection import underscore
 import tiktoken
 import psutil 
@@ -226,6 +227,19 @@ class Task(ProceduralDataset):
 
 
 
+    @contextmanager
+    def _override_config(self, **overrides):
+        config_dict = self.config.to_dict()
+        applicable = {k: v for k, v in overrides.items() if k in config_dict}
+        saved = {k: config_dict[k] for k in applicable}
+        for k, v in applicable.items():
+            setattr(self.config, k, v)
+        try:
+            yield {k: v for k, v in overrides.items() if k not in config_dict}
+        finally:
+            for k, v in saved.items():
+                setattr(self.config, k, v)
+
     def generate_example(self, level=None, max_tokens=8192, **kwargs):
         self.timeout = int(self.base_timeout * (1+level)) if level else int(self.base_timeout)
         @timeout_retry(self.timeout)
@@ -233,33 +247,34 @@ class Task(ProceduralDataset):
             t0=time.time()
             if level:
                 self.config.set_level(level)
-            for _ in range(1_000):
-                problem = self.generate(**kwargs)
-                if problem is None:
-                    continue
-                problem.prompt = self.prompt(problem.metadata)
+            with self._override_config(**kwargs) as generate_kwargs:
+                for _ in range(1_000):
+                    problem = self.generate(**generate_kwargs)
+                    if problem is None:
+                        continue
+                    problem.prompt = self.prompt(problem.metadata)
 
-                prompt_tokens = len(self.tokenizer.encode(problem.prompt))
-                cot_tokens = len(self.tokenizer.encode(problem.metadata.get('cot','') + problem.answer))
-                if max_tokens and prompt_tokens > max_tokens:
-                    continue
-                if max_tokens and cot_tokens > max_tokens:
-                    continue
-                break  
-            
-            problem.task = self.task_name
+                    prompt_tokens = len(self.tokenizer.encode(problem.prompt))
+                    cot_tokens = len(self.tokenizer.encode(problem.metadata.get('cot','') + problem.answer))
+                    if max_tokens and prompt_tokens > max_tokens:
+                        continue
+                    if max_tokens and cot_tokens > max_tokens:
+                        continue
+                    break  
+                
+                problem.task = self.task_name
 
-            problem.metadata = edict(problem.metadata)
-            problem.metadata['_time']  = time.time() - t0
-            problem.metadata['_task']  = problem.task 
-            problem.metadata['_level'] = self.config.level
-            problem.metadata['_config'] = self.config.to_dict()
-            problem.metadata['_prompt_tokens'] = prompt_tokens
-            problem.metadata['_cot_tokens'] = cot_tokens
+                problem.metadata = edict(problem.metadata)
+                problem.metadata['_time']  = time.time() - t0
+                problem.metadata['_task']  = problem.task 
+                problem.metadata['_level'] = self.config.level
+                problem.metadata['_config'] = self.config.to_dict()
+                problem.metadata['_prompt_tokens'] = prompt_tokens
+                problem.metadata['_cot_tokens'] = cot_tokens
 
-            problem.balancing_key = self.balancing_key(problem)
-            problem.deduplication_key = self.deduplication_key(problem)
-            return problem
+                problem.balancing_key = self.balancing_key(problem)
+                problem.deduplication_key = self.deduplication_key(problem)
+                return problem
         return inner()
 
     def generate_balanced_batch(self, batch_size=32, deduplication = False, **kwargs):
