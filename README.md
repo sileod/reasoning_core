@@ -59,7 +59,7 @@ And the other way around:
 ```python
 frm reasoning_core import get_task
 t=get_task('reasoning_gym')
-t.generate_example(level=1, rg_task='lcm')
+t.generate_example(level=1, rg_task='lcm') #or unspecified for random task
 ```
 
 ## Citation
