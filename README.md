@@ -66,7 +66,8 @@ t=get_task('reasoning_gym')
 t.generate_example(level=1, rg_task='lcm') #or unspecified for random task
 ```
 
-## Citation
+## Citation and paper
+https://arxiv.org/abs/2603.02208
 ```
 @article{reasoningcore2026,
   title={Reasoning Core: A Scalable Procedural Data Generation Suite for Symbolic Pre-training and Post-Training},
