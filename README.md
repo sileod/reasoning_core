@@ -68,7 +68,7 @@ t.generate_example(level=1, rg_task='lcm') #or unspecified for random task
 
 ## Citation
 ```
-@article{lacombe2026reasoningcore,
+@article{reasoningcore2026,
   title={Reasoning Core: A Scalable Procedural Data Generation Suite for Symbolic Pre-training and Post-Training},
   author={Lacombe, Valentin and Quesnel, Valentin and Sileo, Damien},
   journal={arXiv preprint arXiv:2603.02208},
