@@ -96,14 +96,15 @@ scorers = {
 
 def rg_scorer(a, e):
     from .tasks import _reasoning_gym
-    return _reasoning_gym.RG().score_answer(a, e)
+    return _reasoning_gym.Reasoning_Gym().score_answer(a, e)
 
 scorers['Reasoning_Gym'] = lambda a, e: rg_scorer(a, e)
 
 def match_task_name(name):
+    datasets = list(DATASETS.keys())+['reasoning_gym']
     norm = lambda x: x.replace('_','').lower()
-    matches = [t for t in DATASETS.keys() if norm(name)==norm(t)]
-    assert len(matches)==1, f"Could not uniquely identify task {name} in {list(DATASETS.keys())}"
+    matches = [t for t in datasets if norm(name)==norm(t)]
+    assert len(matches)==1, f"Could not uniquely identify task {name} in {datasets}"
     return matches[0]
 
 def get_task(k, *args, **kwargs):
@@ -114,7 +115,7 @@ def get_task(k, *args, **kwargs):
     return DATASETS[k](*args, **kwargs)
 
 def list_tasks():
-    return list(DATASETS.keys())
+    return [k for k in DATASETS.keys() if k!='reasoning_gym']
 
 
 def get_score_answer_fn(task_name, *args, **kwargs):
