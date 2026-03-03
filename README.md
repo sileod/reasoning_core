@@ -68,13 +68,11 @@ t.generate_example(level=1, rg_task='lcm') #or unspecified for random task
 
 ## Citation
 ```
-@misc{reasoningcore2025,
-      title={Reasoning Core: A Scalable RL Environment for LLM Symbolic Reasoning}, 
-      author={Valentin Lacombe and Valentin Quesnel and Damien Sileo},
-      year={2025},
-      eprint={2509.18083},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2509.18083}, 
+@article{lacombe2026reasoningcore,
+  title={Reasoning Core: A Scalable Procedural Data Generation Suite for Symbolic Pre-training and Post-Training},
+  author={Lacombe, Valentin and Quesnel, Valentin and Sileo, Damien},
+  journal={arXiv preprint arXiv:2603.02208},
+  year={2026},
+  url={https://arxiv.org/abs/2603.02208}
 }
 ```
