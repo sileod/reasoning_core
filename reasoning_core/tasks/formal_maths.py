@@ -207,9 +207,11 @@ def prove_conjecture(axioms: list[str], conjecture: str,
             return False 
         if "% Time limit reached!" in result_proove.stdout and "% Time limit reached!" in result_disproove.stdout  :
             return f"ERROR : TIME LIMIT in both tentative to proove AND to disproove"
-        err = f"ERROR : {result_proove.stderr}{result_disproove.stderr}"
-        print(f"[prove_conjecture] vampire error: {err}", file=sys.stderr)
-        return err
+        print(f"[prove_conjecture] vampire failed:"
+              f"\n  prove: rc={result_proove.returncode} stdout={result_proove.stdout[:200]!r} stderr={result_proove.stderr[:200]!r}"
+              f"\n  disprove: rc={result_disproove.returncode} stdout={result_disproove.stdout[:200]!r} stderr={result_disproove.stderr[:200]!r}",
+              file=sys.stderr)
+        return f"ERROR : {result_proove.stderr}{result_disproove.stderr}"
         
 
 dirs = AppDirs("Axioms_TPTP")

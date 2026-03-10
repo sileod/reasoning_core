@@ -139,6 +139,21 @@ def _load_sif_to_ram(nfs_path):
     return ram_path
 
 # ============================================================================
+# NATIVE VAMPIRE FALLBACK
+# ============================================================================
+
+def _get_native_vampire():
+    """Get a working native vampire binary via gramforge (PATH → download → build from source)."""
+    try:
+        from gramforge.solver_utils.tptp import get_vampire_path
+        path = get_vampire_path()
+        log(f"Resolved native vampire: {path}")
+        return path
+    except Exception as e:
+        log(f"Failed to resolve native vampire: {e}")
+        return None
+
+# ============================================================================
 # MAIN PROCESS CLASS
 # ============================================================================
 
@@ -209,6 +224,18 @@ class Embeded_process:
 
             res = _run_subprocess_safe(cmd, capture_output=True, text=True, timeout=timeout)
             
+            # Container binary segfaulted (CPU instruction mismatch) → fallback to native
+            if res.returncode == -11 and solver == 'vampire':
+                log(f"Container vampire segfaulted (SIGSEGV), resolving native binary...")
+                native = _get_native_vampire()
+                if native:
+                    self.native_paths['vampire'] = native
+                    log(f"Using native vampire: {native}")
+                    return _run_subprocess_safe([native] + options + [tptp_file],
+                                              capture_output=True, text=True, timeout=timeout)
+                else:
+                    log("Failed to resolve native vampire binary")
+
             # Debugging slow executions
             dur = time.time() - t_start
             if dur > 30.0 and DEBUG:
