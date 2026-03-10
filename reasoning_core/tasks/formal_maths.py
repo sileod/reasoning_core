@@ -174,7 +174,7 @@ def prove_conjecture(axioms: list[str], conjecture: str,
     with tempfile.NamedTemporaryFile(mode='w+', delete=True, suffix='.p') as temp_f:
         for i, axiom in enumerate(axioms, 1):
             temp_f.write(f"cnf(axiom_{i}, axiom, {axiom}).\n")
-        temp_f.write(f"fof(conjecture_1, conjecture, {conjecture}).\n")
+        temp_f.write(f"cnf(conjecture_1, conjecture, {conjecture}).\n")
         temp_f.flush()
         
         if verb == True:
