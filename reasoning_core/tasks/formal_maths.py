@@ -170,11 +170,22 @@ def prove_conjecture(axioms: list[str], conjecture: str,
     Uses Vampire to prove or disprove a conjecture given a set of axioms.
     Returns True (provable), False (disprovable/countersatisfiable), or an error string.
     """
+    def _universally_quantify(formula: str) -> str:
+        """Add explicit universal quantifiers for all variables in a formula.
+        
+        In TPTP, variables are tokens starting with an uppercase letter.
+        Wraps them in ![...]: (...) so the formula is valid fof() syntax.
+        """
+        variables = sorted(set(re.findall(r'\b([A-Z][A-Za-z0-9_]*)\b', formula)))
+        if not variables:
+            return formula
+        return f"![{','.join(variables)}] : ({formula})"
+        
     
     with tempfile.NamedTemporaryFile(mode='w+', delete=True, suffix='.p') as temp_f:
         for i, axiom in enumerate(axioms, 1):
             temp_f.write(f"cnf(axiom_{i}, axiom, {axiom}).\n")
-        temp_f.write(f"cnf(conjecture_1, conjecture, {conjecture}).\n")
+        temp_f.write(f"fof(conjecture_1, conjecture, {_universally_quantify(conjecture)}).\n")
         temp_f.flush()
         
         if verb == True:
