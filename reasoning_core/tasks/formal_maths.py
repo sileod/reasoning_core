@@ -2,6 +2,7 @@
 import networkx as nx
 import re
 import os
+import sys
 import tempfile
 import random
 import json
@@ -206,8 +207,9 @@ def prove_conjecture(axioms: list[str], conjecture: str,
             return False 
         if "% Time limit reached!" in result_proove.stdout and "% Time limit reached!" in result_disproove.stdout  :
             return f"ERROR : TIME LIMIT in both tentative to proove AND to disproove"
-        else :
-            return f"ERROR : {result_proove.stderr}{result_disproove.stderr}"
+        err = f"ERROR : {result_proove.stderr}{result_disproove.stderr}"
+        print(f"[prove_conjecture] vampire error: {err}", file=sys.stderr)
+        return err
         
 
 dirs = AppDirs("Axioms_TPTP")
@@ -315,8 +317,7 @@ class ConjectureEntailment(Task):
     def generate(self):
         self._initialize_graph()
 
-        while True :
-            
+        for attempt in range(50):
             theorem_node_id = random.choice(list(self.interesting_thm))
             correct_hypotheses, theorem = extract_problem_from_graph(self.graph, theorem_node_id, self.config.proof_depth)
             useful_axioms = extract_useful_axioms(self.graph, theorem_node_id)
@@ -343,6 +344,7 @@ class ConjectureEntailment(Task):
                             'useful_axioms' : useful_axioms_formula,
                             'axiom_set' : self.axiom_set})
                 return Problem(metadata, str(answer))
+        return None
 
     def prompt(self, metadata):
 
