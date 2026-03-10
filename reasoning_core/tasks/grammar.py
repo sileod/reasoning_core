@@ -406,7 +406,6 @@ def get_valid_next_tokens(grammar, prefix):
     justifications = {}
     can_stop = False
     n = len(prefix)
-    
     # Use chart.select for efficiency - only look at boundary edges
     for edge in chart.select(end=n):
         if edge.is_complete():
@@ -461,7 +460,7 @@ def _build_cot(tokens, can_stop, justifications):
         else:
             parts.extend(f"{justifications[t]}⇒{t}" for t in toks)
     
-    return "; ".join(parts) if parts else "continuation"
+    return "\n".join(parts) if parts else "continuation"
 
 
 class Continuation(Task):

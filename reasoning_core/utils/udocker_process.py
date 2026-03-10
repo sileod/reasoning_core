@@ -19,7 +19,6 @@ DEBUG = True  # Set to True to see timing logs in console
 APP_NAME = "prover_tools"
 BASE_DIR = appdirs.user_cache_dir(APP_NAME)
 SIF_DIR = os.path.join(BASE_DIR, "images")
-BUILD_TMP_DIR = os.path.join(BASE_DIR, "tmp_build")
 
 UDOCKER_CMD_TIMEOUT = 120
 
@@ -78,45 +77,35 @@ def _get_udocker_dir():
             return os.path.join(base, f'udocker-env-{user}')
     raise RuntimeError("No suitable directory found for UDOCKER_DIR")
 
-@contextlib.contextmanager
-def _build_env_context():
-    """Point Apptainer to NFS only during build to save local space."""
-    if not USE_APPTAINER:
-        yield
-        return
-
-    os.makedirs(BUILD_TMP_DIR, exist_ok=True)
-    os.makedirs(SIF_DIR, exist_ok=True)
-
-    old_env = dict(os.environ)
-    vars_to_set = ['APPTAINER_TMPDIR', 'APPTAINER_CACHEDIR', 'SINGULARITY_TMPDIR', 'SINGULARITY_CACHEDIR']
-    
-    for v in vars_to_set: os.environ[v] = BUILD_TMP_DIR
-    try:
-        yield
-    finally:
-        for v in vars_to_set:
-            if v in old_env: os.environ[v] = old_env[v]
-            else: del os.environ[v]
-
 def _ensure_apptainer_image_persistence(docker_image):
-    """
-    Step 1: Ensure image exists on NFS (Slow Build).
-    Returns path to the SIF on NFS.
-    """
+    """Ensure SIF exists on NFS; build locally first to avoid '@' in NFS paths
+    breaking Singularity's URI parser (it truncates at '@')."""
     sanitized = re.sub(r'[\W]+', '_', docker_image).strip('_')
-    sif_path_nfs = os.path.join(SIF_DIR, f"{sanitized}.sif")
-    
-    if os.path.exists(sif_path_nfs):
-        return sif_path_nfs
+    nfs_sif = os.path.join(SIF_DIR, f"{sanitized}.sif")
+    if os.path.exists(nfs_sif):
+        return nfs_sif
 
-    with _build_env_context():
-        log(f"Building Apptainer image on NFS: {sif_path_nfs} ...")
-        subprocess.run(
-            [APPTAINER_BIN, "build", sif_path_nfs, f"docker://{docker_image}"], 
-            check=True, timeout=1800, stdout=sys.stdout, stderr=sys.stderr
-        )
-    return sif_path_nfs
+    os.makedirs(SIF_DIR, exist_ok=True)
+    import tempfile
+    cache_vars = ['APPTAINER_TMPDIR', 'APPTAINER_CACHEDIR', 'SINGULARITY_TMPDIR', 'SINGULARITY_CACHEDIR']
+    saved = {v: os.environ.get(v) for v in cache_vars}
+    try:
+        with tempfile.TemporaryDirectory(prefix="apptainer_build_") as local_tmp:
+            for v in cache_vars: os.environ[v] = local_tmp
+            local_sif = os.path.join(local_tmp, f"{sanitized}.sif")
+            log(f"Building Apptainer image locally → {nfs_sif} ...")
+            subprocess.run(
+                [APPTAINER_BIN, "build", local_sif, f"docker://{docker_image}"],
+                check=True, timeout=1800, stdout=sys.stdout, stderr=sys.stderr
+            )
+            tmp_nfs = nfs_sif + f".tmp.{os.getpid()}"
+            shutil.copy2(local_sif, tmp_nfs)
+            os.rename(tmp_nfs, nfs_sif)  # atomic on same filesystem
+    finally:
+        for v in cache_vars:
+            if saved[v] is not None: os.environ[v] = saved[v]
+            elif v in os.environ: del os.environ[v]
+    return nfs_sif
 
 def _load_sif_to_ram(nfs_path):
     """
