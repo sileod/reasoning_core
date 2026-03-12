@@ -212,7 +212,7 @@ class ConstraintSatisfaction(Task):
             metadata = edict({
                 "domains": domains, "constraints": constraints, "solution": solution,
                 "solve_mode": solve_mode, "structure_mode": mode,
-                "instance": "Finite-domain CSP\n\nVariables/domains:\n" + \
+                "instance": "Variables/domains:\n" + \
                             "\n".join(f"- 0 <= x{i} <= {ub}" for i, ub in enumerate(domains)) + \
                             "\n\nConstraints:\n" + "\n".join(f"{j+1}. {self._constraint_text(c)}" for j, c in enumerate(constraints))
             })
