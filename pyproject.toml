@@ -14,15 +14,18 @@ readme = "README.md"
 description = "A RL env with procedurally generated symbolic reasoning data"
 
 dependencies = [
+    "gramforge",
     "faker",
     "inflection",
     "rapidfuzz",
     "unified-planning[pyperplan]",
     "tarski",
     "reasoning_gym",
-    "tiktoken",
+    "verifiers",
     "prime",
+    "tiktoken",
     "networkx",
+    "z3-solver",
     "pooch",
     "requests",
     "beautifulsoup4",
@@ -41,12 +44,10 @@ dependencies = [
     "multiprocess",
     "xpflow",
     "exrex",
-    "gramforge",
     "nltk",
     "pgmpy",
     "numpy",
     "sympy",
-    "verifiers",
     "pyparsing",
     "lazy_object_proxy",
     "udocker"
