@@ -20,9 +20,9 @@ class NavigationConfig(Config):
     max_tries: int = 80
 
     def update(self, c=1):
-        self.n_objects += 0.5 * c
+        self.n_objects += 1 * c
         self.grid += 1 * c
-        self.n_steps += 0.5 * c
+        self.n_steps += 1 * c
         self.n_rel += 1 * c
 
 
@@ -286,19 +286,19 @@ class Navigation(Task):
         rng = random.Random(self.config.seed)
         cfg = self.config
 
-        n = max(2, int(cfg.n_objects))
-        G = int(cfg.grid)
+        n = max(2, cfg.n_objects)
+        G = cfg.grid
         while (G + 1) ** 2 < n:
             G += 1
         names = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")[:n]
 
-        for attempt in range(int(cfg.max_tries)):
-            states, steps = sample_world(rng, names, G, int(cfg.n_steps))
+        for attempt in range(cfg.max_tries):
+            states, steps = sample_world(rng, names, G, cfg.n_steps)
             state0, final = states[0], states[-1]
 
             coord_pool, rel_pool = make_fact_pools(rng, names, state0)
-            ne = min(int(cfg.n_exact) + attempt // 25, len(coord_pool))
-            nr = min(int(cfg.n_rel) + attempt, len(rel_pool))
+            ne = min(rng.randint(0, cfg.n_exact) + attempt // 25, len(coord_pool))
+            nr = min(cfg.n_rel + attempt, len(rel_pool))
             facts = rng.sample(coord_pool, ne) + rng.sample(rel_pool, nr)
             rng.shuffle(facts)
 
@@ -322,7 +322,7 @@ class Navigation(Task):
             return Problem(metadata=metadata, answer=query["answer"])
 
         # fallback: reveal all initial coordinates
-        states, steps = sample_world(rng, names, G, int(cfg.n_steps))
+        states, steps = sample_world(rng, names, G, cfg.n_steps)
         state0, final = states[0], states[-1]
         facts = [{"k": "coord", "a": a, "p": state0[a]} for a in names]
         a = rng.choice(names)
