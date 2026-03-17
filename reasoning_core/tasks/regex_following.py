@@ -194,23 +194,27 @@ class RegexInduction(Task):
         try:
             predicted_regex = strip_anchors_safe(predicted_regex)
             r = regex.compile(predicted_regex)
-        except Exception as e: #HOW TO CATCH THAT MORE SPECIFICALLY
+        except (regex.error, TimeoutError): # <--- CATCHING SPECIFICALLY
             return 0.0
 
-        # Calculate success rates for positives and negatives separately.
         pos_rate = sum(bool(r.fullmatch(s)) for s in meta['positives']) / len(meta['positives'])
         neg_rate = sum(not r.fullmatch(s) for s in meta['negatives']) / len(meta['negatives'])
-        # Score is the product of rates, ensuring 0 if no positives match.
+        
         accuracy = pos_rate * neg_rate
         
-        # Apply length penalty only on a perfect accuracy score (accuracy == 1.0).
-        return min(1.0, len(meta['regex']) / (len(predicted_regex) or 1e-9)) if accuracy == 1.0 else accuracy
+        if accuracy == 1.0:
+            # Base score of 0.5 for perfect accuracy, plus up to 0.5 for being short
+            length_ratio = len(meta['regex']) / max(1, len(predicted_regex))
+            length_bonus = min(1.0, length_ratio) * 0.5
+            return 0.5 + length_bonus
+        else:
+            return accuracy * 0.49
 
     def prompt(self, meta):
         pos_examples = ', '.join(f"'{s}'" for s in meta['positives'])
         neg_examples = ', '.join(f"'{s}'" for s in meta['negatives'])
         return (
-            f"Return a regex that matches all POSITIVE strings and none of the NEGATIVE strings.\n"
+            f"Return the shortest regex that fully matches all POSITIVE strings and none of the NEGATIVE strings.\n"
             f"POSITIVE: {pos_examples}\n"
             f"NEGATIVE: {neg_examples}"
         )

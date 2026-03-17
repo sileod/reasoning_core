@@ -27,27 +27,28 @@ class BaseGraphTask:
         super().__init__(config)
 
     def _generate_graph(self):
-        """Randomly selects a topology from the list and generates a graph."""
-        num_nodes = self.config.num_nodes
-        
-        for _ in range(10): # Try a few times to get a valid graph
-            gen_func, params_ranges = random.choice(_GRAPH_GENERATORS)
-            params = {'n': num_nodes}
-            try:
-                for p_name, p_range in params_ranges.items():
-                    if isinstance(p_range[0], float):
-                        params[p_name] = random.uniform(*p_range)
-                    else:
-                        params[p_name] = random.randint(*p_range)
-                
-                G = gen_func(**params)
-                # Ensure it's connected and has nodes for most tasks
-                if G.number_of_nodes() > 0 and nx.is_connected(G):
-                    return G
-            except (nx.NetworkXError, ValueError) as e:
-                continue # Some generators can fail with certain params, just retry
-        
-        return nx.fast_gnp_random_graph(num_nodes, 0.5) # Fallback
+            """Randomly selects a topology from the list and generates a graph."""
+            num_nodes = self.config.num_nodes
+            
+            for _ in range(10): # Try a few times to get a valid graph
+                gen_func, params_ranges = random.choice(_GRAPH_GENERATORS)
+                params = {'n': num_nodes}
+                try:
+                    for p_name, p_range in params_ranges.items():
+                        if isinstance(p_range[0], float):
+                            params[p_name] = random.uniform(*p_range)
+                        else:
+                            params[p_name] = random.randint(*p_range)
+                    
+                    G = gen_func(**params)
+                    # Ensure it's connected and has nodes for most tasks
+                    if G.number_of_nodes() > 0 and nx.is_connected(G):
+                        # This prevents nx.grid_2d_graph from returning tuple nodes.
+                        return nx.convert_node_labels_to_integers(G)
+                except (nx.NetworkXError, ValueError) as e:
+                    continue # Some generators can fail with certain params, just retry
+            
+            return nx.convert_node_labels_to_integers(nx.fast_gnp_random_graph(num_nodes, 0.5))
 
     def _render_graph(self, G):
         """Randomly selects a method to describe the graph in text."""

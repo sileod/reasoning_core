@@ -44,7 +44,8 @@ def sample_hyps(hyps, hyps_weights, k=2000):
 
 
 def generate_N_premises(n, G, mode="sequential"):
-    gen = lambda n: generate(G(n), mode=mode)
+    empty_room = random.choice([True, False])
+    gen = lambda n: generate(G(n, empty_room=empty_room), mode=mode)
     if n<=16:
         while True:
             x=gen(n)
@@ -91,8 +92,8 @@ def valid(x):
 class LogicConfig(Config):
     n_formulas: int = 6
     generation_algorithm: str = "sequential"
-    n_names: int = 2
-    n_adjectives: int = 2
+    n_names: int = 3
+    n_adjectives: int = 3
 
     def update(self, c):
         self.n_formulas *= (1 + c)
@@ -132,11 +133,14 @@ class LogicNLI(Task):
         super().__init__(config=config)
         self.names = NAMES[:self.config.n_names]
         self.adjectives = ADJECTIVES[:self.config.n_adjectives]
-        self.G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives)
-        self.hyps, self.hyps_weights=make_hyps(self.G)
+        G_hyp = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives, include_propositional=True, empty_room=False)
+        self.hyps, self.hyps_weights=make_hyps(G_hyp)
         self.balancing_key_ratio=1/3
 
     def generate(self):
+        include_propositional = random.choice([True, False])
+        empty_room = random.choice([True, False])
+        self.G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives, empty_room=empty_room, include_propositional=include_propositional)
         meta = edict()
         for _ in range(100):    
             # generate premise

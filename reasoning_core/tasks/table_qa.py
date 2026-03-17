@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import duckdb
 from faker import Faker
@@ -41,9 +42,9 @@ def get_renderers(dataframe):
         (dataframe.to_markdown, 'to_markdown'),
         (dataframe.to_csv, 'to_csv'),
         (dataframe.to_html, 'to_html'),
-        (lambda index=False: dataframe.style.hide(axis='index' if not index else None).to_latex(), 'to_latex'),
+        (lambda index=False: dataframe.style.hide(axis='index' if not index else None).to_latex(float_format="{:.2f}".format), 'to_latex'),
         (lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4), 'to_json'),
-        (lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False), 'to_yaml')
+        (lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False, sort_keys=False), 'to_yaml')
     ]
 
 class TableQA(Task):
@@ -92,7 +93,7 @@ class TableQA(Task):
     def generate(self):
         dataframe = generate_random_table(self.config)
         q = self._query(dataframe)
-        conn = duckdb.connect()  # fresh in-memory connection
+        conn = duckdb.connect()
         result = conn.execute(q).df()
         render_func, fmt_name = random.choice(get_renderers(dataframe))
         is_scalar = result.shape == (1, 1)
@@ -106,11 +107,11 @@ class TableQA(Task):
             },
             answer=result.to_csv(index=False, header=False).strip()
         )
-    
+
     def prompt(self, m):
-        fmt = "single value" if m['is_scalar'] else "CSV format (rows separated by newlines, values by commas)"
+        fmt = "single value" if m['is_scalar'] else "CSV format (rows separated by newlines, values by commas). Do not include column headers."
         return f"Execute this SQL query on the table:\n\n{m['table']}\n\nSQL: {m['query']}\n\nReturn result as {fmt}."
-    
+
     def score_answer(self, ans, entry):
         def isnumeric(x):
             try: float(x); return True
@@ -118,6 +119,19 @@ class TableQA(Task):
                 
         if entry.metadata['is_scalar'] and isnumeric(entry.answer):
             return score_scalar(ans, entry)
+        
+        # Strip potential header line: if first line matches column names from query, remove it
+        def strip_header(s, reference):
+            lines = s.strip().splitlines()
+            ref_lines = reference.strip().splitlines()
+            if len(lines) == len(ref_lines) + 1:
+                # First line might be a header — check if remaining lines match
+                candidate = "\n".join(lines[1:])
+                if candidate.strip():
+                    return candidate
+            return s
+        
+        ans = strip_header(ans, entry.answer)
         
         if ans.strip() == entry.answer.strip(): return 1.0
         
@@ -132,7 +146,10 @@ class TableQA(Task):
                     try:
                         if abs(float(av) - float(ev)) > 0.01: return 0.0
                     except:
-                        if av.strip() != ev.strip(): return 0.0
+                        # Normalize date formats before comparing
+                        av_clean = av.strip().replace("T00:00:00.000", "").replace("T00:00:00", "")
+                        ev_clean = ev.strip().replace("T00:00:00.000", "").replace("T00:00:00", "")
+                        if av_clean != ev_clean: return 0.0
             return 1.0
         except:
             return 0.0
@@ -166,6 +183,22 @@ class TableConversion(Task):
     def score_answer(self, answer, entry):
         reference = entry['answer']
         if not answer: return 0.0
-        
-        # normalized_similarity returns 0.0 - 1.0 (float)
-        return Levenshtein.normalized_similarity(str(answer).strip(), str(reference).strip())
+
+        # Semantic pre-check for structured formats
+        fmt = entry['metadata'].get('target_format', '')
+        try:
+            if fmt == 'to_json':
+                if json.loads(str(answer).strip()) == json.loads(reference):
+                    return 1.0
+            elif fmt == 'to_yaml':
+                if yaml.safe_load(str(answer).strip()) == yaml.safe_load(reference):
+                    return 1.0
+            elif fmt == 'to_csv':
+                parse = lambda s: list(csv.reader(io.StringIO(s.strip())))
+                if parse(str(answer)) == parse(reference):
+                    return 1.0
+        except Exception:
+            pass
+
+        return Levenshtein.normalized_similarity(
+            str(answer).strip(), str(reference).strip())

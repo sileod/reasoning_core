@@ -5,7 +5,7 @@ from nltk.parse.generate import generate as nltk_generate
 from nltk import CFG, ChartParser
 from nltk.parse.earleychart import EarleyChartParser
 import sys
-from reasoning_core.template import Task, Problem, Config, register_dataset
+from reasoning_core.template import Task, Problem, Config
 import random
 from pathlib import Path
 from nltk.data import path as nltk_path
@@ -16,7 +16,7 @@ import re
 from nltk.tree import Tree
 from collections import defaultdict
 from gramforge.grammars import simple_english_grammar, arith_grammar, dyck_grammar
-from gramforge import gramforge_to_nltk, unigram_to_nltk
+from gramforge import gramforge_to_nltk
 from rapidfuzz.distance import Levenshtein
 from itertools import islice
 from nltk.grammar import CFG, Nonterminal
@@ -521,5 +521,6 @@ class Continuation(Task):
 
     def score_answer(self, answer, entry):
         if not answer: return 0.0
-        ref, ans = set(entry['answer'].split('|')), set(answer.strip().split('|'))
-        return len(ref & ans) / max(len(ref | ans), 1)
+        ref = set(entry['answer'].split('|'))
+        ans = set(answer.strip().split('|'))
+        return len(ref & ans) / max(len(ref), 1)

@@ -659,22 +659,28 @@ class ProofReconstruction(Task):
         proof_nodes.add(theorem_node_id)
         proof_graph = self.graph.subgraph(proof_nodes)
 
-        all_clauses_in_proof = [data['data'].clause_formula for _, data in proof_graph.nodes(data=True)]
-        random.shuffle(all_clauses_in_proof)
-        theorem_formula = self.graph.nodes[theorem_node_id]['data'].clause_formula
+        # 1. Shuffle node IDs and create a strict Node-to-Index dictionary
+        node_order = list(proof_graph.nodes())
+        random.shuffle(node_order)
+        node_to_idx = {n: i + 1 for i, n in enumerate(node_order)}
+        
+        all_clauses_in_proof = [proof_graph.nodes[n]['data'].clause_formula for n in node_order]
+        
+        # 2. Reject ambiguous graphs where duplicate formulas exist (unfair to the LLM)
+        if len(set(all_clauses_in_proof)) != len(all_clauses_in_proof):
+            return None
 
+        theorem_formula = self.graph.nodes[theorem_node_id]['data'].clause_formula
         proof_structure_indices = []
 
+        # 3. Build the output strings securely using the dictionary mapping
         for node_id in proof_graph.nodes():
             parents = list(proof_graph.predecessors(node_id))
             if parents:  
-                child_formula = proof_graph.nodes[node_id]['data'].clause_formula
-                parent_formulas = [proof_graph.nodes(data=True)[p]['data'].clause_formula for p in parents]
+                child_idx = node_to_idx[node_id]
+                parent_indices = sorted([node_to_idx[p] for p in parents])
                 
-                child_idx = all_clauses_in_proof.index(child_formula) + 1
-                parent_indices = sorted([all_clauses_in_proof.index(p) + 1 for p in parent_formulas])
-    
-                proof_structure_indices.append(f"{child_idx} <- {', '.join(map(str, parent_indices))}")
+                proof_structure_indices.append(f"{child_idx} <- {parent_indices[0]}, {parent_indices[1]}")
 
         proof_structure_ids = [f"{node} <- {', '.join(sorted(list(proof_graph.predecessors(node))))}" for node in proof_graph.nodes() if proof_graph.in_degree(node) > 0]
         
