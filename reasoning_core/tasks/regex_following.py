@@ -156,16 +156,19 @@ class RegexFollowing(Task):
 
     def prompt(self, meta):
         return (
-            "'daf' is a valid match for regex '[a-z]{3}' but not 'ab1'\n"
-            f"Return a valid match for {meta.regex}"
+            "'daf' is a valid fullmatch for regex '[a-z]{3}' but not 'ab1'\n"
+            f"Return a valid fullmatch for {meta.regex}"
         )
 
     def balancing_key(self, problem):
         return problem.metadata.regex
 
 def strip_anchors_safe(text: str) -> str:
-    """Strips optional ^ and non-escaped $ from a regex string."""
-    # This is the robust one-liner
+    """Strips optional ^, non-escaped $, and markdown formatting from a regex string."""
+    if "```" in text:
+        m = regex.search(r"```(?:regex|re|text)?\n(.*?)\n```", text, regex.DOTALL)
+        if m: text = m.group(1)
+    text = text.strip().strip('`').strip()
     m = regex.match(r"^\^?(.*?)(?<!\\)\$?$", text)
     return m.group(1) if m else text
 
@@ -177,6 +180,7 @@ class RegexInduction(Task):
     def generate(self):
         meta = edict()
         meta.regex =sample_regex(self.config)
+        assert meta.regex == meta.regex.strip().strip('`').strip(), f"Gold regex incompatible with strip: {repr(meta.regex)}"
         meta.positives = [sample_instance(meta.regex) for _ in range(self.config.n_ex)]
         
         negatives = []

@@ -1,6 +1,8 @@
 # Task Implementation Guide
 
 ## Goal
+Creating data providing useful cognitive primitives for pre-training and serving as useful general agents.
+
 Implement tasks that are:
 - concise in code,
 - solver-backed (use strong external libraries instead of re-implementing),
@@ -87,6 +89,8 @@ class MyTask(Task):
         return f"Solve: {metadata['instance']}\nAnswer only."
 
     def score_answer(self, answer, entry):
+        # answer is the answer to score (e.g. LLM prediction)
+        # entry is a problem; entry.answer is the ground truth
         return score_scalar(answer, entry)  # or custom semantic checker
 ```
 
@@ -97,9 +101,8 @@ class MyTask(Task):
 - `task.validate()` passes.
 - `config.set_level(1)` changes difficulty, not `seed/c`.
 - Prompt is unambiguous about output format.
-- Metadata is sufficient for offline debugging (instance params, optional cot).
+- Metadata is sufficient for offline debugging (instance params, optional `cot` entry).
 
 ## Registration and Discovery
 - Any `Task` subclass in `reasoning_core/tasks/*.py` is auto-discovered by AST and lazy-loaded through `reasoning_core.__init__.py`.
-- `task_name` defaults to snake_case class name; override with class attribute `task_name = "..."` if needed.
-- Development-only classes can use `DevTask` to avoid auto-registration.
+- `task_name` defaults to snake_case class name.

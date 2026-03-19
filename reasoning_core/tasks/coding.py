@@ -91,6 +91,7 @@ from dataclasses import dataclass
 from easydict import EasyDict as edict
 from faker import Faker
 from rapidfuzz.distance import Levenshtein
+import whatthepatch
 
 # Assumed external dependencies (Reasoning Core)
 from reasoning_core.template import Task, Problem, Config, edict
@@ -209,7 +210,9 @@ class DiffPrediction(VersionedTask, Task):
         meta = edict(
             history="\n".join(history_text),
             src_id=src['id'],
-            tgt_id=tgt['id']
+            tgt_id=tgt['id'],
+            src_text="\n".join(src['lines']),
+            tgt_text="\n".join(tgt['lines'])
         )
         return Problem(meta, diff_str)
 
@@ -220,7 +223,23 @@ class DiffPrediction(VersionedTask, Task):
                 f"Answer with the diff chunks only (no file headers). If no changes, return nothing.")
 
     def score_answer(self, answer, entry):
-        return Levenshtein.normalized_similarity(answer.strip(), entry['answer'].strip())
+        meta = entry.get('metadata', {})
+        src_text = meta.get('src_text')
+        tgt_text = meta.get('tgt_text')
+        
+        if not src_text or not tgt_text:
+            return Levenshtein.normalized_similarity(answer.strip(), entry['answer'].strip())
+
+        try:
+            patches = list(whatthepatch.parse_patch(answer))
+            if not patches:
+                patched_text = src_text
+            else:
+                patched_lines = whatthepatch.apply_diff(patches[0], src_text)
+                patched_text = "\n".join(patched_lines)
+            return Levenshtein.normalized_similarity(patched_text.strip(), tgt_text.strip())
+        except Exception:
+            return Levenshtein.normalized_similarity(answer.strip(), entry['answer'].strip())
 
 class DiffPatching(VersionedTask, Task):
     def generate(self):

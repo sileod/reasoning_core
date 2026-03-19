@@ -100,19 +100,21 @@ class Problem(Mapping):
         self.task = self.metadata.get('task', None)
         if cot is not None and self.metadata.cot is None:
             self.metadata.cot = cot
-    
+        self.cot= self.metadata.get('cot','')
+        
     def to_dict(self):
         return {
             'prompt': self.prompt,
             'answer': self.answer,
             'metadata': self.metadata,
             'task': self.task,
+            'cot': self.metadata.get('cot','')
         }
         
     @classmethod
     def from_dict(cls, d):
         data = deserialize(d["data"])
-        return cls(data=data, answer=d.get("answer"), meta=d.get("meta"), task=d.get("task"))
+        return cls(data=data, answer=d.get("answer"), meta=d.get("meta"), task=d.get("task"), cot=d.get('cot'))
         
     def __repr__(self):
         s=""

@@ -20,6 +20,7 @@ from gramforge import gramforge_to_nltk
 from rapidfuzz.distance import Levenshtein
 from itertools import islice
 from nltk.grammar import CFG, Nonterminal
+from itertools import islice, combinations
 
 
 fake = Faker()
@@ -265,8 +266,7 @@ def make_cot(g, tokens):
             path = [t[idx[:k]].label() for k in range(len(idx))]
             lines.append(f"'{t[idx]}': {' > '.join(path)} (Depth: {len(path)})")
 
-
-    return "\n".join(lines), [str(p) for p in ps]
+    return "\n".join(lines), ps
 
 def generate_parse(config=GrammarConfig):
     meta = edict()
@@ -325,11 +325,10 @@ class Parsing(Task):
             if meta.label != 'unambiguous': continue
             meta.cot = meta.cot.split('\n',1)[1]  # Remove first line
 
-            tree_str = meta.parses[0] # Get the Lisp-style string
-            #meta.cot = make_tree_cot(meta.parses[0])
+            t = meta.parses[0] # Get the Tree object directly
+
             if random.random() < self.config.tagging_prob:
                 meta.mode = 'tagging'
-                t = Tree.fromstring(tree_str)
                 leaves = []
                 for idx in t.treepositions('leaves'):
                     token = t[idx]
@@ -339,7 +338,8 @@ class Parsing(Task):
                 return Problem(meta, " ".join(leaves))
             else:
                 meta.mode = 'parsing'
-                return Problem(meta, " ".join(tree_str.split()))
+                tree_str = " ".join(str(t).split())
+                return Problem(meta, tree_str)
 
     def prompt(self, meta):
         g, tokens = meta.g, meta.tokens
@@ -520,7 +520,360 @@ class Continuation(Task):
                 f"(GRAMMAR)\n{meta.g}\n(PREFIX)\n{pfx}")
 
     def score_answer(self, answer, entry):
-        if not answer: return 0.0
-        ref = set(entry['answer'].split('|'))
-        ans = set(answer.strip().split('|'))
-        return len(ref & ans) / max(len(ref), 1)
+        prepr = lambda x: {e.strip() for e in x.split('|')}
+        try:
+            ref, ans = prepr(entry['answer']), prepr(answer)
+            inter = len(ref & ans)
+            # Jaccard
+            return inter / max(len(ref | ans), 1)
+        except Exception:  # also: bare except catches KeyboardInterrupt
+            return 0
+
+
+# --- Error Detection Task ---
+
+def _span_hits(seq, span):
+    k = len(span)
+    return [i for i in range(len(seq) - k + 1) if seq[i:i+k] == span]
+
+def min_context(tokens, idx):
+    for start in range(idx, -1, -1):
+        if len(_span_hits(tokens, tokens[start:idx+1])) == 1:
+            return ' '.join([*tokens[start:idx], f'>>{tokens[idx]}<<'])
+    return ' '.join([*tokens[:idx], f'>>{tokens[idx]}<<'])
+
+def grammar_terminals(g):
+    return sorted({s for p in g.productions() for s in p.rhs() if isinstance(s, str)})
+
+def first_error_marked(g, tokens):
+    lines = []
+    for i, tok in enumerate(tokens):
+        valid, _, _ = get_valid_next_tokens(g, tokens[:i])
+        if tok not in valid:
+            lines.append(f"{tok} ∉ {{{','.join(sorted(valid)[:8])}}}")
+            ans = min_context(tokens, i)
+            lines.append(f"Answer: {ans}")
+            return ans, i, '\n'.join(lines)
+        lines.append(f"{tok} ✓")
+    _, can_stop, _ = get_valid_next_tokens(g, tokens)
+    tag = 'OK' if can_stop else 'INCOMPLETE'
+    return tag, -1, '\n'.join(lines)
+
+def corrupt_once(g, tokens):
+    terms = grammar_terminals(g)
+    if len(terms) < 2:
+        raise ValueError("Need ≥2 terminals")
+    for _ in range(80):
+        op = random.choices(['substitute', 'insert', 'delete'], weights=[6, 2, 2])[0]
+        if op == 'delete' and len(tokens) < 3:
+            continue
+        if op == 'delete':
+            pos = random.randrange(len(tokens))
+            out = tokens[:pos] + tokens[pos+1:]
+        elif op == 'insert':
+            pos = random.randrange(len(tokens) + 1)
+            valid, _, _ = get_valid_next_tokens(g, tokens[:pos])
+            bad = [t for t in terms if t not in valid]
+            if not bad:
+                continue
+            out = tokens[:pos] + [random.choice(bad)] + tokens[pos:]
+        else:  # substitute
+            pos = random.randrange(len(tokens))
+            valid, _, _ = get_valid_next_tokens(g, tokens[:pos])
+            # prefer terminals valid elsewhere but invalid here
+            bad = [t for t in terms if t not in valid and t != tokens[pos]]
+            if not bad:
+                continue
+            out = list(tokens)
+            out[pos] = random.choice(bad)
+
+        answer, idx, cot = first_error_marked(g, out)
+        if answer not in ('OK', 'INCOMPLETE'):
+            return out, answer, idx, cot
+    raise ValueError("Failed to corrupt")
+
+def get_marked_index(toks):
+    for i, t in enumerate(toks):
+        if t.startswith('>>') and t.endswith('<<'):
+            return i
+    return -1
+
+def _norm_marked(s):
+    s = re.sub(r'>>\s+', '>>', str(s).strip())
+    s = re.sub(r'\s+<<', '<<', s)
+    return re.sub(r'\s+', ' ', s)
+
+class LocateError(Task):
+    def __init__(self, config: GrammarConfig = GrammarConfig()):
+        config.perturbation_rate = 0.0
+        super().__init__(config=config)
+
+    def generate(self):
+        for _ in range(100):
+            g = sample_cfg(self.config)
+            if len(grammar_terminals(g)) < 2:
+                continue
+            try:
+                toks = (generate(
+                    nltk_to_gramforge(g),
+                    depth=self.config.max_prod_depth,
+                    min_depth=self.config.min_prod_depth
+                ) @ "lang").split()
+            except ValueError:
+                continue
+            if len(toks) < 3:
+                continue
+
+            roll = random.random()
+            if roll < 0.15:
+                ans, idx, cot = first_error_marked(g, toks)
+                if ans != 'OK':
+                    continue
+                out = toks
+            elif roll < 0.30:
+                out = toks[:random.randint(1, len(toks) - 1)]
+                ans, idx, cot = first_error_marked(g, out)
+                if ans != 'INCOMPLETE':
+                    continue
+            else:
+                try:
+                    out, ans, idx, cot = corrupt_once(g, toks)
+                except ValueError:
+                    continue
+
+            return Problem(
+                edict(g="\n".join(str(p) for p in g.productions()),
+                      tokens=out, error_index=idx, cot=cot),
+                ans
+            )
+        raise ValueError("Failed to generate locate-error task")
+
+    def prompt(self, meta):
+        return (
+            f"(GRAMMAR)\n{meta.g}\n\n"
+            f"(STRING)\n{' '.join(meta.tokens)}\n\n"
+            f"Return the shortest contiguous span from STRING that ends at the first invalid token "
+            f"and occurs only once in STRING.\n"
+            f"Mark the invalid token as >>token<<.\n"
+            f"If the token alone is enough, answer just >>token<<.\n"
+            f"If STRING is fully grammatical, answer OK.\n"
+            f"If all shown tokens are valid but more are needed, answer INCOMPLETE.\n"
+            f"One line only."
+        )
+
+    def score_answer(self, answer, entry):
+            if not answer: return 0.0
+            a, r = _norm_marked(answer), _norm_marked(entry['answer'])
+            if a == r: return 1.0
+            if {'OK', 'INCOMPLETE'} & {a, r}: return 0.0
+
+            a_toks = a.split()
+            marked = [t.startswith('>>') and t.endswith('<<') for t in a_toks]
+            if marked.count(True) != 1 or not marked[-1]:
+                return 0.0
+
+            span = [t.replace('>>', '').replace('<<', '') for t in a_toks]
+            hits = _span_hits(entry.metadata['tokens'], span)
+            
+            if entry.metadata['error_index'] not in {h + len(span) - 1 for h in hits}:
+                return 0.0
+
+            # Strict penalty: the span is correct but occurs multiple times in the text
+            if len(hits) > 1:
+                return 0.5 
+
+            # Unambiguous location: minimum 0.9, scales to 1.0 based on how concise the prefix is
+            efficiency = len(r.split()) / len(a_toks)
+            return max(0.9, efficiency)
+
+
+# --- Constrained Generation ---
+
+def exact_completions(grammar, prefix, k, max_states=2048):
+    """
+    Return all distinct suffixes of exact length k such that prefix+suffix
+    is a complete sentence under grammar. Sorted lexicographically.
+    """
+    prefix = tuple(prefix)
+    frontier = {()}
+
+    for _ in range(k):
+        nxt = set()
+        for suf in frontier:
+            toks, _, _ = get_valid_next_tokens(grammar, list(prefix + suf))
+            for tok in toks:
+                nxt.add(suf + (tok,))
+        if not nxt or len(nxt) > max_states:
+            return []
+        frontier = nxt
+
+    return [
+        suf for suf in sorted(frontier)
+        if get_valid_next_tokens(grammar, list(prefix + suf))[1]
+    ]
+
+
+def minimal_separating_hints(candidates, target, max_hint_ratio=0.5):
+    """
+    Exact minimum-cardinality positional hints {i: tok} that isolate `target`
+    among `candidates`, subject to a hint budget.
+
+    Returns:
+      ({i: tok, ...}, [target]) if successful
+      (None, candidates)        if no solution fits the budget
+    """
+    cands = [tuple(c) for c in candidates]
+    target = tuple(target)
+    k = len(target)
+    max_hints = min(k, int(k * max_hint_ratio + 1e-9))  # floor
+
+    for r in range(1, max_hints + 1):
+        for idxs in combinations(range(k), r):
+            alive = [c for c in cands if all(c[i] == target[i] for i in idxs)]
+            if len(alive) == 1:
+                return {i: target[i] for i in idxs}, alive
+
+    return None, cands
+
+
+def pick_target_with_hints(candidates, max_hint_ratio=0.5):
+    """
+    Choose a target that can be uniquely identified within the hint budget.
+    Prefer targets requiring the fewest hints; break ties randomly.
+    """
+    feasible = []
+    for target in map(tuple, candidates):
+        hints, alive = minimal_separating_hints(candidates, target, max_hint_ratio)
+        if hints is not None and len(alive) == 1:
+            feasible.append((len(hints), target, hints))
+
+    if not feasible:
+        return None
+
+    best_n = min(n for n, _, _ in feasible)
+    _, target, hints = random.choice([x for x in feasible if x[0] == best_n])
+    return list(target), hints
+
+
+def _format_hints(hints):
+    return "none" if not hints else " ".join(f"{i}:{tok}" for i, tok in sorted(hints.items()))
+
+
+def _hint_cot(prefix, candidates, hints):
+    alive = list(candidates)
+    lines = [f"{len(alive)} candidates"]
+    for i, tok in sorted(hints.items()):
+        alive = [c for c in alive if c[i] == tok]
+        lines.append(f"hint {i}:{tok} -> {len(alive)} candidate(s)")
+    for j, c in enumerate(alive[:8], 1):
+        lines.append(f"{j}. {' '.join(prefix + list(c))}")
+    return "\n".join(lines)
+
+
+class ConstrainedContinuation(Task):
+
+    def __init__(
+        self,
+        config: GrammarConfig = GrammarConfig(),
+        min_k=3,
+        max_k=4,
+        max_options=20,
+        max_hint_ratio=0.5,
+    ):
+        super().__init__(config=config)
+        self.min_k = max(3, min_k)   # enforce at least 3 continuation tokens
+        self.max_k = max_k
+        self.max_options = max_options
+        self.max_hint_ratio = max_hint_ratio
+        self.balancing_key_ratio = 0.1
+
+    def generate(self):
+        for _ in range(200):
+            g = sample_cfg(self.config)
+            try:
+                sentences = [
+                    list(s)
+                    for s in islice(nltk_generate(g, depth=self.config.max_depth), 80)
+                    if len(s) >= self.min_k + 1
+                ]
+            except (RecursionError, ValueError):
+                continue
+            if not sentences:
+                continue
+
+            sent = random.choice(sentences)
+            max_prefix_len = min(5, len(sent) - self.min_k)
+            if max_prefix_len < 1:
+                continue
+
+            for plen in random.sample(range(1, max_prefix_len + 1), max_prefix_len):
+                prefix = sent[:plen]
+                ks = list(range(self.min_k, min(self.max_k, len(sent) - plen) + 1))
+                random.shuffle(ks)
+
+                for k in ks:
+                    cands = exact_completions(g, prefix, k)
+                    if not (2 <= len(cands) <= self.max_options):
+                        continue
+
+                    picked = pick_target_with_hints(cands, self.max_hint_ratio)
+                    if not picked:
+                        continue
+
+                    target, hints = picked
+                    n_hints = len(hints)
+                    if n_hints / k > self.max_hint_ratio:
+                        continue
+
+                    return Problem(
+                        edict(
+                            g="\n".join(str(p) for p in g.productions()),
+                            k=k,
+                            prefix=prefix,
+                            hints={str(i): tok for i, tok in hints.items()},
+                            hint_str=_format_hints(hints),
+                            n_hints=n_hints,
+                            hint_ratio=n_hints / k,
+                            n_options=len(cands),
+                            cot=_hint_cot(prefix, cands, hints),
+                        ),
+                        " ".join(target),
+                    )
+
+        raise ValueError("Failed to generate constrained continuation")
+
+    def prompt(self, meta):
+        pfx = " ".join(meta.prefix) if meta.prefix else "<empty>"
+        return (
+            f"(GRAMMAR)\n{meta.g}\n\n"
+            f"(PREFIX)\n{pfx}\n\n"
+            f"Continue PREFIX with exactly {meta.k} tokens to form a complete sentence.\n"
+            f"Positional hints (0-indexed within your continuation):\n"
+            f"{meta.hint_str}\n\n"
+            f"Return only the {meta.k} continuation tokens, space-separated."
+        )
+
+    def score_answer(self, answer, entry):
+        if not answer:
+            return 0.0
+
+        ans, ref = answer.strip().split(), entry["answer"].split()
+        if ans == ref:
+            return 1.0
+        if len(ans) != len(ref):
+            return 0.0
+
+        hints = entry.metadata["hints"]
+        for i, tok in hints.items():
+            i = int(i)  # JSON safety
+            if i >= len(ans) or ans[i] != tok:
+                return 0.0
+
+        try:
+            g = CFG.fromstring(entry.metadata["g"])
+            _, can_stop, _ = get_valid_next_tokens(g, list(entry.metadata["prefix"]) + ans)
+        except Exception:
+            can_stop = False
+
+        matches = sum(a == b for a, b in zip(ans, ref)) / len(ref)
+        return (0.4 + 0.4 * matches) if can_stop else 0.2 * matches

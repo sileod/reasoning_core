@@ -49,6 +49,7 @@ dependencies = [
     "numpy",
     "sympy",
     "pyparsing",
+    "whatthepatch",
     "lazy_object_proxy",
     "udocker"
 ]

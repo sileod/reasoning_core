@@ -63,15 +63,24 @@ def generate_N_premises(n, G, mode="sequential"):
 
 preds_pattern = list(exrex.generate('pred[a-z]'))
 npreds_pattern = list(exrex.generate('~pred[a-z]'))
+prop_pattern = list(exrex.generate('proposition[a-z]'))
+nprop_pattern = list(exrex.generate('~proposition[a-z]'))
 
 
 def verbalize_predicates(x, seed=None, strip_underscores=True):
     rng = random.Random(seed)
     source = sorted(list(fol_nli_verbalization.predicates))
     preds = rng.sample(source, len(preds_pattern))
-    
-    mapping = {**dict(zip(npreds_pattern, [fol_nli_verbalization.negate_predicate(p) for p in preds])), 
-               **dict(zip(preds_pattern, preds))}
+    npreds = [fol_nli_verbalization.negate_predicate(p) for p in preds]
+
+    prop_pairs = list(zip(fol_nli_verbalization.short_propositions, fol_nli_verbalization.neg_short_propositions))
+    rng.shuffle(prop_pairs)
+    props, nprops = zip(*prop_pairs)
+
+    mapping = {**dict(zip(npreds_pattern, npreds)), 
+               **dict(zip(preds_pattern, preds)),
+               **dict(zip(nprop_pattern, nprops)),
+               **dict(zip(prop_pattern, props))}
     
     for k in sorted(mapping, key=len, reverse=True):
         v = mapping[k].replace(' ', '_') if not strip_underscores else mapping[k]
