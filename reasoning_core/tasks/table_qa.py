@@ -17,9 +17,11 @@ from rapidfuzz.distance import Levenshtein
 class TableQAConfig(Config):
     num_rows: int = 5
     num_columns: int = 2
+    num_tables: int = 1
     def update(self, c):
         self.num_rows = int(self.num_rows * (1+c))
         self.num_columns += c
+        self.num_tables = min(self.num_tables+c, 2)
 
 _faker = Faker()
 

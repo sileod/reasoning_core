@@ -15,6 +15,15 @@ from functools import wraps
 import codecs
 
 #import re2 as re
+r"""
+ROADMAP:
+Explicit Quantifiers ({n}, {n,m})
+Explicit Character Sets ([abc])
+Negated Character Classes ([^a-z], [^abc])
+Escaped Literals (\+, \*, \?, etc.)
+Non-Capturing Groups ((?:...))
+"""
+
 
 def shutup(f):
     @wraps(f)
@@ -48,7 +57,24 @@ def regex_grammar():
     R('regex(regex)?', '{0}?')
     R('regex(regex)*', '{0}*')
     R('regex(regex)+', '{0}+')
+    
+    # Exact and bounded quantifiers
+    for i in range(1, 4):
+        R('count_exact', '{{%d}}' % i)
+        for j in range(i+1, 6):
+            R('count_range', '{{%d,%d}}' % (i, j))
+    R('regex(regex,count_exact)', '{0}{1}')
+    R('regex(regex,count_range)', '{0}{1}')
+
+    # Sets and Negated character classes
     R('regex(rangechar,rangechar)', '[{0}-{1}]')
+    R('regex(rangechar,rangechar)', '[^{0}-{1}]')
+    R('regex(char,char,char)', '[{0}{1}{2}]')
+    R('regex(char,char,char)', '[^{0}{1}{2}]')
+    
+    # Non-capturing groups
+    R('regex(regex)', '(?:{0})')
+
     R('regex(predef)', '{0}',weight=3)
 
     chars = string.ascii_letters + string.digits
@@ -59,9 +85,10 @@ def regex_grammar():
     for s in [r'\d', r'\w', r'\s', '.', r'\.']:
         R('predef', s, weight=1)
 
-    #for s in [r'\D', r'\W', r'\S', r'\\', r'\(', r'\)', r'\[', r'\]', r'\t', r'\n']:
     for s in [r'\D', r'\W', r'\S']: # Keep only non-matching classes if desired, but they can also be complex
-
+        R('predef', s, weight=0.25)
+        
+    for s in [r'\+', r'\*', r'\?', r'\\', r'\(', r'\)', r'\[', r'\]']:
         R('predef', s, weight=0.25)
 
     return R
@@ -77,7 +104,7 @@ def safe_regex(r, max_tries=10, timeout_seconds=0.5):
     for _ in range(max_tries):
         try:
             s = exrex.getone(r, 5)
-            if s and p.fullmatch(s, timeout=timeout_seconds):
+            if s and s.isprintable() and p.fullmatch(s, timeout=timeout_seconds):
                 return True 
         except TimeoutError:
             return False
@@ -123,8 +150,8 @@ def sample_instance(r_str, max_tries=100):
 
     for _ in range(max_tries):
         s = exrex.getone(r_str, 5)
-        # Verify the generated string is a non-empty full match
-        if s and p.fullmatch(s, timeout=5):
+        # Verify the generated string is a non-empty full match and has no unprintable characters
+        if s and s.isprintable() and p.fullmatch(s, timeout=5):
             return s
     raise ValueError(f"Could not generate a verified string for regex: {r_str}")
 
@@ -143,22 +170,23 @@ class RegexFollowing(Task):
     def score_answer(self, answer, entry):
         try:
             answer_str, pattern = str(answer), entry['metadata']['regex']
+            expected_len = len(entry['metadata']['string'])
+            target_len_penalty = abs(len(answer_str) - expected_len)
+            
             max_edits = len(answer_str) + len(pattern)
             
             distance = next((e for e in range(min(max_edits, 10) + 1)
                             if regex.fullmatch(f'(?:{pattern}){{e<={e}}}', answer_str, timeout=0.5)),
                             max_edits) # Corrected parenthesis here
                             
-            return 1.0 / (1.0 + distance)
+            return 1.0 / (1.0 + distance + target_len_penalty)
         
         except (TimeoutError, regex.error):
             return None
 
     def prompt(self, meta):
-        return (
-            "'daf' is a valid fullmatch for regex '[a-z]{3}' but not 'ab1'\n"
-            f"Return a valid fullmatch for {meta.regex}"
-        )
+        n = len(meta.string)
+        return f"Return exactly a {n}-character string that fully matches the regular expression: {meta.regex}"
 
     def balancing_key(self, problem):
         return problem.metadata.regex

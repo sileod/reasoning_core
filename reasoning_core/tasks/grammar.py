@@ -225,25 +225,82 @@ def trim_grammar(grammar, target_size=10, retries=10, shrink_tries=1000, seed=No
 
 
 
-def sample_cfg(config=GrammarConfig):
-    if random.random()>config.random_grammar_prob:
+def prune_cfg(grammar):
+    prods = list(grammar.productions())
+
+    by_lhs = defaultdict(list)
+    for p in prods:
+        by_lhs[p.lhs()].append(p)
+
+    # reachable from start
+    reachable = {grammar.start()}
+    stack = [grammar.start()]
+    while stack:
+        lhs = stack.pop()
+        for p in by_lhs.get(lhs, []):
+            for s in p.rhs():
+                if isinstance(s, Nonterminal) and s not in reachable:
+                    reachable.add(s)
+                    stack.append(s)
+
+    prods = [p for p in prods if p.lhs() in reachable]
+
+    # productive NTs
+    productive = set()
+    changed = True
+    while changed:
+        changed = False
+        for p in prods:
+            if all((isinstance(s, str) or s in productive) for s in p.rhs()):
+                if p.lhs() not in productive:
+                    productive.add(p.lhs())
+                    changed = True
+
+    if grammar.start() not in productive:
+        return None
+
+    prods = [
+        p for p in prods
+        if p.lhs() in productive
+        and all((isinstance(s, str) or s in productive) for s in p.rhs())
+    ]
+
+    return CFG(grammar.start(), prods)
+
+def sample_cfg(config=GrammarConfig, productive_only=False):
+    if random.random() > config.random_grammar_prob:
         g = random.choice(existing_grammars)
-        # Only trim if grammar is larger than target
         if len(g.productions()) > config.target_num_rules:
-            return trim_grammar(g, config.target_num_rules)
+            g = trim_grammar(g, config.target_num_rules)
+        if productive_only:
+            g = prune_cfg(g)
+            if g is None:
+                raise ValueError("Existing grammar became unproductive")
         return g
-        
+
     for _ in range(1000):
         MG = meta_grammar(config).start()
-        for _ in range(100): 
-            x=generate(MG,depth=config.max_depth,min_depth=config.min_depth)
-            g = CFG.fromstring(x@"cfg")
+        for _ in range(100):
+            x = generate(MG, depth=config.max_depth, min_depth=config.min_depth)
             try:
-                prods=list(islice(nltk_generate(g ,depth=config.max_prod_depth), 10))
+                g = CFG.fromstring(x@"cfg")
+            except ValueError:
+                continue
+
+            if productive_only:
+                g = prune_cfg(g)
+                if g is None:
+                    continue
+
+            try:
+                prods = list(islice(nltk_generate(g, depth=config.max_prod_depth), 10))
             except (RecursionError, ValueError):
                 continue
-            if len(prods)>3:
+
+            if len(prods) > 3:
                 return g
+
+    raise ValueError("Failed to sample CFG")
 
 def perturb(tokens, config=GrammarConfig):
     return random.choice([
@@ -366,100 +423,67 @@ class Parsing(Task):
         return Levenshtein.normalized_similarity(norm(answer), norm(reference))
 
 
+def _edge_str(edge):
+    rhs = [str(s) for s in edge.rhs()]
+    dot = edge.dot()
+    rhs = rhs[:dot] + ['•'] + rhs[dot:]
+    return f"{edge.lhs()}→{' '.join(rhs)}"
+
 def get_valid_next_tokens(grammar, prefix):
     """
-    Given a CFG and a prefix (list of tokens), return:
-    - set of valid next terminals
-    - whether STOP is valid (prefix is a complete sentence)
-    - dict mapping each token to its justification from the chart edge
-    
-    Uses EarleyChartParser to consider ALL possible parse interpretations.
+    Exact next-token oracle for prefix-safe grammars:
+    - valid next terminals
+    - whether STOP is valid
+    - lightweight edge-based justifications
     """
-    from functools import lru_cache
-    
     parser = EarleyChartParser(grammar)
-    
-    @lru_cache(maxsize=None)
-    def first_with_path(symbol, depth=0):
-        """Return dict mapping terminals to derivation paths from symbol (max 2 levels)"""
-        if depth > 2:
-            return {}
-        if isinstance(symbol, str):
-            return {symbol: symbol}
-        result = {}
-        for prod in grammar.productions(lhs=symbol):
-            if not prod.rhs():
-                continue
-            first_sym = prod.rhs()[0]
-            if isinstance(first_sym, str):
-                result[first_sym] = f"{symbol}→{first_sym}"
-            else:
-                for tok, path in first_with_path(first_sym, depth+1).items():
-                    if tok not in result:
-                        # Show one level of derivation instead of →..→
-                        result[tok] = f"{symbol}→{first_sym}→{tok}"
-        return result
-    
-    chart = parser.chart_parse(prefix)
-    
+    nullable, first = _compute_nullable_and_first(grammar)
+
+    try:
+        chart = parser.chart_parse(list(prefix))
+    except ValueError:
+        return set(), False, {}
+
+    n = len(prefix)
     valid_tokens = set()
     justifications = {}
     can_stop = False
-    n = len(prefix)
-    # Use chart.select for efficiency - only look at boundary edges
+
     for edge in chart.select(end=n):
+        edge_txt = _edge_str(edge)
+
         if edge.is_complete():
             if edge.start() == 0 and edge.lhs() == grammar.start():
                 can_stop = True
-                justifications['STOP'] = f"{edge.lhs()}•"
-        else:
-            nextsym = edge.nextsym()
-            if nextsym:
-                # Format edge as "A→α•β" style
-                lhs = edge.lhs()
-                rhs = edge.rhs()
-                dot_pos = edge.dot()
-                before = ' '.join(str(s) for s in rhs[:dot_pos])
-                after = ' '.join(str(s) for s in rhs[dot_pos:])
-                edge_str = f"{lhs}→{before}•{after}" if before else f"{lhs}→•{after}"
-                
-                if isinstance(nextsym, str):
-                    valid_tokens.add(nextsym)
-                    if nextsym not in justifications:
-                        justifications[nextsym] = edge_str
-                else:
-                    for tok, path in first_with_path(nextsym).items():
-                        valid_tokens.add(tok)
-                        if tok not in justifications:
-                            justifications[tok] = f"{edge_str}, {path}"
-    
+                justifications.setdefault("STOP", edge_txt)
+            continue
+
+        remainder = edge.rhs()[edge.dot():]
+        toks, _ = _first_of_sequence(remainder, first, nullable)
+
+        for tok in toks:
+            valid_tokens.add(tok)
+            justifications.setdefault(tok, edge_txt)
+
     return valid_tokens, can_stop, justifications
 
 
 def _build_cot(tokens, can_stop, justifications):
-    """Build CoT string, grouping tokens that share the same edge."""
     parts = []
-    
-    # Handle STOP first
+
     if can_stop and 'STOP' in justifications:
         parts.append(f"{justifications['STOP']}⇒STOP")
-    
-    # Group tokens by their edge (everything before the final →tok)
-    edge_to_tokens = defaultdict(list)
+
+    grouped = defaultdict(list)
     for tok in sorted(tokens):
-        if tok in justifications:
-            j = justifications[tok]
-            # Extract the edge part (before the last →tok)
-            edge_key = j.rsplit('→', 1)[0] if '→' in j else j
-            edge_to_tokens[edge_key].append(tok)
-    
-    # Build parts: group if >3 tokens share same edge, else individual
-    for edge, toks in sorted(edge_to_tokens.items()):
+        grouped[justifications.get(tok, "continuation")].append(tok)
+
+    for reason, toks in sorted(grouped.items()):
         if len(toks) > 3:
-            parts.append(f"{edge}→{{{','.join(toks)}}}")
+            parts.append(f"{reason}⇒{{{','.join(toks)}}}")
         else:
-            parts.extend(f"{justifications[t]}⇒{t}" for t in toks)
-    
+            parts.extend(f"{reason}⇒{tok}" for tok in toks)
+
     return "\n".join(parts) if parts else "continuation"
 
 
@@ -472,7 +496,7 @@ class Continuation(Task):
         
     def generate(self):
         for _ in range(100):
-            g = sample_cfg(self.config)
+            g = sample_cfg(self.config, productive_only=True)
             
             try:
                 sentences = list(islice(nltk_generate(g, depth=self.config.max_depth), 50))
@@ -545,19 +569,25 @@ def min_context(tokens, idx):
 def grammar_terminals(g):
     return sorted({s for p in g.productions() for s in p.rhs() if isinstance(s, str)})
 
+def prefix_has_completion(g, prefix):
+    valid, can_stop, _ = get_valid_next_tokens(g, prefix)
+    return can_stop or bool(valid)
+
 def first_error_marked(g, tokens):
     lines = []
     for i, tok in enumerate(tokens):
-        valid, _, _ = get_valid_next_tokens(g, tokens[:i])
-        if tok not in valid:
-            lines.append(f"{tok} ∉ {{{','.join(sorted(valid)[:8])}}}")
+        prev_valid, _, _ = get_valid_next_tokens(g, tokens[:i])
+
+        if not prefix_has_completion(g, tokens[:i+1]):
+            lines.append(f"{tok} ∉ {{{','.join(sorted(prev_valid)[:8])}}}")
             ans = min_context(tokens, i)
             lines.append(f"Answer: {ans}")
             return ans, i, '\n'.join(lines)
+
         lines.append(f"{tok} ✓")
+
     _, can_stop, _ = get_valid_next_tokens(g, tokens)
-    tag = 'OK' if can_stop else 'INCOMPLETE'
-    return tag, -1, '\n'.join(lines)
+    return ('OK' if can_stop else 'INCOMPLETE'), -1, '\n'.join(lines)
 
 def corrupt_once(g, tokens):
     terms = grammar_terminals(g)
@@ -610,7 +640,7 @@ class LocateError(Task):
 
     def generate(self):
         for _ in range(100):
-            g = sample_cfg(self.config)
+            g = sample_cfg(self.config, productive_only=True)
             if len(grammar_terminals(g)) < 2:
                 continue
             try:
@@ -684,23 +714,107 @@ class LocateError(Task):
 
             # Unambiguous location: minimum 0.9, scales to 1.0 based on how concise the prefix is
             efficiency = len(r.split()) / len(a_toks)
-            return max(0.9, efficiency)
+            return min(1.0, max(0.9, efficiency))
 
 
 # --- Constrained Generation ---
 
-def exact_completions(grammar, prefix, k, max_states=2048):
-    """
-    Return all distinct suffixes of exact length k such that prefix+suffix
-    is a complete sentence under grammar. Sorted lexicographically.
-    """
-    prefix = tuple(prefix)
-    frontier = {()}
+# --- Constrained Generation ---
 
+
+def _compute_nullable_and_first(grammar):
+    """Exact nullable + FIRST sets via fixed-point iteration (no depth cutoff)."""
+    nts = {p.lhs() for p in grammar.productions()}
+
+    nullable = set()
+    changed = True
+    while changed:
+        changed = False
+        for p in grammar.productions():
+            rhs = p.rhs()
+            if not rhs or all(
+                isinstance(s, Nonterminal) and s in nullable for s in rhs
+            ):
+                if p.lhs() not in nullable:
+                    nullable.add(p.lhs())
+                    changed = True
+
+    first = {nt: set() for nt in nts}
+    changed = True
+    while changed:
+        changed = False
+        for p in grammar.productions():
+            add, _ = _first_of_sequence(p.rhs(), first, nullable)
+            before = len(first[p.lhs()])
+            first[p.lhs()].update(add)
+            if len(first[p.lhs()]) != before:
+                changed = True
+
+    return nullable, first
+
+
+def _first_of_sequence(seq, first, nullable):
+    """FIRST terminals reachable from a symbol sequence + whether it's all-nullable."""
+    out = set()
+    all_nullable = True
+    for sym in seq:
+        if isinstance(sym, str):
+            out.add(sym)
+            all_nullable = False
+            break
+        out.update(first.get(sym, set()))
+        if sym not in nullable:
+            all_nullable = False
+            break
+    return out, all_nullable
+
+
+def _exact_next_tokens_and_stop(grammar, prefix, parser=None, nullable=None, first=None):
+    """
+    Sound next-token discovery via Earley boundary edges + exact FIRST/nullable.
+    Returns (valid_tokens: set[str], can_stop: bool).
+    """
+    parser = parser or EarleyChartParser(grammar)
+    if nullable is None or first is None:
+        nullable, first = _compute_nullable_and_first(grammar)
+
+    try:
+        chart = parser.chart_parse(list(prefix))
+    except ValueError:
+        return set(), False
+
+    n = len(prefix)
+    valid_tokens = set()
+    can_stop = False
+
+    for edge in chart.select(end=n):
+        if edge.is_complete():
+            if edge.start() == 0 and edge.lhs() == grammar.start():
+                can_stop = True
+            continue
+        remainder = edge.rhs()[edge.dot():]
+        toks, _ = _first_of_sequence(remainder, first, nullable)
+        valid_tokens.update(toks)
+
+    return valid_tokens, can_stop
+
+
+def exact_completions(grammar, prefix, k, max_states=4096):
+    """
+    All distinct k-length suffixes making prefix+suffix a complete sentence.
+    Returns [] (safe skip) if state space overflows — never produces wrong results.
+    """
+    prefix = list(prefix)
+    parser = EarleyChartParser(grammar)
+    nullable, first = _compute_nullable_and_first(grammar)
+
+    frontier = {()}
     for _ in range(k):
         nxt = set()
         for suf in frontier:
-            toks, _, _ = get_valid_next_tokens(grammar, list(prefix + suf))
+            toks, _ = _exact_next_tokens_and_stop(
+                grammar, prefix + list(suf), parser, nullable, first
+            )
             for tok in toks:
                 nxt.add(suf + (tok,))
         if not nxt or len(nxt) > max_states:
@@ -708,92 +822,123 @@ def exact_completions(grammar, prefix, k, max_states=2048):
         frontier = nxt
 
     return [
-        suf for suf in sorted(frontier)
-        if get_valid_next_tokens(grammar, list(prefix + suf))[1]
+        list(suf)
+        for suf in sorted(frontier)
+        if _exact_next_tokens_and_stop(
+            grammar, prefix + list(suf), parser, nullable, first
+        )[1]
     ]
 
 
-def minimal_separating_hints(candidates, target, max_hint_ratio=0.5):
+def find_blanked_target(candidates, min_blanks=2, max_blanks=3):
     """
-    Exact minimum-cardinality positional hints {i: tok} that isolate `target`
-    among `candidates`, subject to a hint budget.
+    Pick a target and a fill-in-the-blanks template.
 
-    Returns:
-      ({i: tok, ...}, [target]) if successful
-      (None, candidates)        if no solution fits the budget
+    Start with ALL positions revealed (hinted), then greedily remove hints
+    (creating blanks) while the target remains the unique candidate that
+    matches every remaining hint. Randomised removal order for variety.
+
+    Returns (target_as_list, hints {pos: token}) or None.
     """
     cands = [tuple(c) for c in candidates]
-    target = tuple(target)
-    k = len(target)
-    max_hints = min(k, int(k * max_hint_ratio + 1e-9))  # floor
-
-    for r in range(1, max_hints + 1):
-        for idxs in combinations(range(k), r):
-            alive = [c for c in cands if all(c[i] == target[i] for i in idxs)]
-            if len(alive) == 1:
-                return {i: target[i] for i in idxs}, alive
-
-    return None, cands
-
-
-def pick_target_with_hints(candidates, max_hint_ratio=0.5):
-    """
-    Choose a target that can be uniquely identified within the hint budget.
-    Prefer targets requiring the fewest hints; break ties randomly.
-    """
-    feasible = []
-    for target in map(tuple, candidates):
-        hints, alive = minimal_separating_hints(candidates, target, max_hint_ratio)
-        if hints is not None and len(alive) == 1:
-            feasible.append((len(hints), target, hints))
-
-    if not feasible:
+    k = len(cands[0])
+    max_blanks = min(max_blanks, k - 1)          # keep ≥1 hint
+    if min_blanks > max_blanks:
         return None
 
-    best_n = min(n for n, _, _ in feasible)
-    _, target, hints = random.choice([x for x in feasible if x[0] == best_n])
-    return list(target), hints
+    order = list(cands)
+    random.shuffle(order)
+
+    for target in order:
+        hinted = set(range(k))
+        positions = list(range(k))
+        random.shuffle(positions)
+
+        for pos in positions:
+            if k - len(hinted) >= max_blanks:    # enough blanks
+                break
+            trial = hinted - {pos}
+            alive = sum(
+                1 for c in cands if all(c[i] == target[i] for i in trial)
+            )
+            if alive == 1:                       # still unique → blank it
+                hinted = trial
+
+        n_blanks = k - len(hinted)
+        if min_blanks <= n_blanks <= max_blanks:
+            return list(target), {i: target[i] for i in sorted(hinted)}
+
+    return None
 
 
-def _format_hints(hints):
-    return "none" if not hints else " ".join(f"{i}:{tok}" for i, tok in sorted(hints.items()))
+def _format_template(k, hints):
+    return " ".join(hints.get(i, "___") for i in range(k))
 
 
-def _hint_cot(prefix, candidates, hints):
-    alive = list(candidates)
-    lines = [f"{len(alive)} candidates"]
-    for i, tok in sorted(hints.items()):
-        alive = [c for c in alive if c[i] == tok]
-        lines.append(f"hint {i}:{tok} -> {len(alive)} candidate(s)")
-    for j, c in enumerate(alive[:8], 1):
-        lines.append(f"{j}. {' '.join(prefix + list(c))}")
+def _blanked_cot(prefix, candidates, target, hints, k):
+    blanks = sorted(set(range(k)) - set(hints.keys()))
+    lines = [
+        f"{len(candidates)} valid {k}-token continuations",
+        f"Template: {_format_template(k, hints)}",
+        f"Blanks at positions: {blanks}",
+    ]
+
+    alive = [tuple(c) for c in candidates]
+    for i in sorted(hints.keys()):
+        prev = len(alive)
+        alive = [c for c in alive if c[i] == hints[i]]
+        if len(alive) < prev:
+            lines.append(
+                f"  pos[{i}]='{hints[i]}': {prev} → {len(alive)} candidates"
+            )
+
+    for b in blanks:
+        vals = sorted({c[b] for c in alive})
+        lines.append(f"  pos[{b}] options: {{{', '.join(vals)}}}")
+
+    if len(alive) <= 6:
+        for j, c in enumerate(alive, 1):
+            mark = " ✓" if tuple(c) == tuple(target) else ""
+            lines.append(f"  {j}. {' '.join(c)}{mark}")
+
+    lines.append(f"Answer: {' '.join(target)}")
     return "\n".join(lines)
 
 
 class ConstrainedContinuation(Task):
+    """Fill-in-the-blanks grammar continuation.
+
+    Given a grammar, a prefix, and a mostly-revealed continuation
+    template, find the unique completion that forms a grammatical
+    sentence.  Revealed tokens are fixed; ___ marks blanks to fill.
+    """
 
     def __init__(
         self,
         config: GrammarConfig = GrammarConfig(),
         min_k=3,
-        max_k=4,
+        max_k=5,
+        min_blanks=2,
+        max_blanks=3,
         max_options=20,
-        max_hint_ratio=0.5,
     ):
         super().__init__(config=config)
-        self.min_k = max(3, min_k)   # enforce at least 3 continuation tokens
+        self.min_k = max(3, min_k)
         self.max_k = max_k
+        self.min_blanks = min_blanks
+        self.max_blanks = max_blanks
         self.max_options = max_options
-        self.max_hint_ratio = max_hint_ratio
         self.balancing_key_ratio = 0.1
 
     def generate(self):
         for _ in range(200):
-            g = sample_cfg(self.config)
+            g = sample_cfg(self.config, productive_only=True)
             try:
                 sentences = [
                     list(s)
-                    for s in islice(nltk_generate(g, depth=self.config.max_depth), 80)
+                    for s in islice(
+                        nltk_generate(g, depth=self.config.max_depth), 80
+                    )
                     if len(s) >= self.min_k + 1
                 ]
             except (RecursionError, ValueError):
@@ -802,13 +947,16 @@ class ConstrainedContinuation(Task):
                 continue
 
             sent = random.choice(sentences)
-            max_prefix_len = min(5, len(sent) - self.min_k)
-            if max_prefix_len < 1:
+            max_plen = min(5, len(sent) - self.min_k)
+            if max_plen < 1:
                 continue
 
-            for plen in random.sample(range(1, max_prefix_len + 1), max_prefix_len):
+            for plen in random.sample(range(1, max_plen + 1), max_plen):
                 prefix = sent[:plen]
-                ks = list(range(self.min_k, min(self.max_k, len(sent) - plen) + 1))
+                ks = list(range(
+                    self.min_k,
+                    min(self.max_k, len(sent) - plen) + 1,
+                ))
                 random.shuffle(ks)
 
                 for k in ks:
@@ -816,13 +964,21 @@ class ConstrainedContinuation(Task):
                     if not (2 <= len(cands) <= self.max_options):
                         continue
 
-                    picked = pick_target_with_hints(cands, self.max_hint_ratio)
-                    if not picked:
+                    result = find_blanked_target(
+                        cands, self.min_blanks, self.max_blanks
+                    )
+                    if result is None:
                         continue
 
-                    target, hints = picked
-                    n_hints = len(hints)
-                    if n_hints / k > self.max_hint_ratio:
+                    target, hints = result
+                    blanks = sorted(set(range(k)) - set(hints.keys()))
+
+                    # Safety: verify uniqueness among exact candidates
+                    alive = [
+                        c for c in cands
+                        if all(c[i] == hints[i] for i in hints)
+                    ]
+                    if len(alive) != 1 or alive[0] != target:
                         continue
 
                     return Problem(
@@ -831,49 +987,70 @@ class ConstrainedContinuation(Task):
                             k=k,
                             prefix=prefix,
                             hints={str(i): tok for i, tok in hints.items()},
-                            hint_str=_format_hints(hints),
-                            n_hints=n_hints,
-                            hint_ratio=n_hints / k,
+                            template=_format_template(k, hints),
+                            blanks=blanks,
+                            n_blanks=len(blanks),
+                            n_hints=len(hints),
                             n_options=len(cands),
-                            cot=_hint_cot(prefix, cands, hints),
+                            cot=_blanked_cot(
+                                prefix, cands, target, hints, k
+                            ),
                         ),
                         " ".join(target),
                     )
 
-        raise ValueError("Failed to generate constrained continuation")
+        raise ValueError(
+            "Failed to generate constrained continuation after 200 attempts"
+        )
 
     def prompt(self, meta):
         pfx = " ".join(meta.prefix) if meta.prefix else "<empty>"
+        nb = meta.n_blanks
+        bw = "blank" if nb == 1 else "blanks"
         return (
             f"(GRAMMAR)\n{meta.g}\n\n"
             f"(PREFIX)\n{pfx}\n\n"
-            f"Continue PREFIX with exactly {meta.k} tokens to form a complete sentence.\n"
-            f"Positional hints (0-indexed within your continuation):\n"
-            f"{meta.hint_str}\n\n"
-            f"Return only the {meta.k} continuation tokens, space-separated."
+            f"(TEMPLATE)\n{meta.template}\n\n"
+            f"Fill in the {nb} {bw} (___) to form a grammatical continuation "
+            f"of PREFIX using exactly {meta.k} tokens.\n"
+            f"Fixed tokens must remain in place. "
+            f"Return all {meta.k} tokens space-separated."
         )
 
     def score_answer(self, answer, entry):
         if not answer:
             return 0.0
 
-        ans, ref = answer.strip().split(), entry["answer"].split()
+        ans = answer.strip().split()
+        ref = entry["answer"].split()
+
         if ans == ref:
             return 1.0
         if len(ans) != len(ref):
             return 0.0
 
+        # Revealed positions are hard constraints stated in the prompt
         hints = entry.metadata["hints"]
         for i, tok in hints.items():
-            i = int(i)  # JSON safety
-            if i >= len(ans) or ans[i] != tok:
+            idx = int(i)
+            if idx >= len(ans) or ans[idx] != tok:
                 return 0.0
 
+        # Partial credit based on blank accuracy
+        blanks = [int(b) for b in entry.metadata["blanks"]]
+        if not blanks:
+            return 0.0
+        blank_correct = sum(1 for b in blanks if ans[b] == ref[b]) / len(blanks)
+
+        # Grammaticality bonus
         try:
             g = CFG.fromstring(entry.metadata["g"])
-            _, can_stop, _ = get_valid_next_tokens(g, list(entry.metadata["prefix"]) + ans)
+            _, can_stop = _exact_next_tokens_and_stop(
+                g, list(entry.metadata["prefix"]) + ans
+            )
         except Exception:
             can_stop = False
 
-        matches = sum(a == b for a, b in zip(ans, ref)) / len(ref)
-        return (0.4 + 0.4 * matches) if can_stop else 0.2 * matches
+        if can_stop:
+            return 0.3 + 0.6 * blank_correct   # 0.3 – 0.9
+        return 0.15 * blank_correct             # 0.0 – 0.15

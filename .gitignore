@@ -69,3 +69,6 @@ reasoning_core/generated_data/
 *.pkl
 *.xlsx
 *.log
+
+
+ROADMAP.md

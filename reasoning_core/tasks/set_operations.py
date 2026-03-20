@@ -8,7 +8,7 @@ import itertools
 import string
 from ast import literal_eval
 
-
+from faker import Faker
 ### Tool functions 🛠️
 
 class SetList(list):
@@ -36,7 +36,7 @@ def create_intension(domain : list, length : int):
         i = np.random.randint(n-length)
         return domain[i:i+length]
 
-def make_domains(size):
+def make_domains(size, ordered=False):
     
     NUM = [int(i) for i in range(1,size+1)]
     NUM_EN = [num2words(i,lang='en') for i in NUM]
@@ -50,6 +50,21 @@ def make_domains(size):
     LETTERS = list(itertools.islice(gen, size))
 
     domains = [NUM, NUM_EN, DATES, DATES_EN, LETTERS]
+
+    if not ordered:
+        fake = Faker()
+        fake.seed_instance(0)
+        words = []
+        words_set = set()
+        for _ in range(size*3):
+            w = f"{fake.word(part_of_speech='adjective')} {fake.word(part_of_speech='noun')}"
+            if w not in words_set:
+                words_set.add(w)
+                words.append(w)
+            if size<=len(words):
+                break
+        domains.insert(1, words)
+
     return domains
 
 def perturb_list(input_l, base_domain, n_perturbation=1):
@@ -138,7 +153,7 @@ class SetMissingElementConfig(SetOpsConfig):
 class SetMissingElement(Task):
     def __init__(self, config=SetMissingElementConfig()):
         super().__init__(config=config)
-        self.domains = make_domains(self.config.domain_size)
+        self.domains = make_domains(self.config.domain_size, ordered=True)
         
     def generate(self):
         chosen_domain = random.choice(self.domains[:self.config.n_domains])
