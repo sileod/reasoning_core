@@ -4,7 +4,7 @@
 reasoning-core is a text-based RLVR for LLM reasoning training.
 It is centered on expressive symbolic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG syntax tasks.
 
-We release pre-generated data scaled to more than 10B tokens
+We release pre-generated data scaled to more than 10B tokens  
 🤗 [https://hf.co/collections/reasoning-core/datasets](https://huggingface.co/collections/reasoning-core/datasets)
 
 # Standalone
