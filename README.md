@@ -1,7 +1,7 @@
 # Reasoning Core ◉
 
 
-reasoning-core is a text-based RLVR for LLM reasoning training.
+reasoning-core is a suite of procedural data generators for LLM pre-training and post-training.
 It is centered on expressive symbolic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG syntax tasks.
 
 We release pre-generated data scaled to more than 10B tokens  
