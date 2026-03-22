@@ -16,6 +16,7 @@ import math
 import signal
 from contextlib import contextmanager
 from inflection import underscore
+from .score_answer_history import current_git_commit, resolve_score_answer_fn, score_answer_hash
 import tiktoken
 import psutil 
 
@@ -142,6 +143,9 @@ def prepr_task_name(name):
     
 
 class Task(ProceduralDataset):
+    score_answer_version = 0
+    score_answer_history = {}
+
     def __init_subclass__(cls):
         cls.task_name = getattr(cls, 'task_name', prepr_task_name(cls.__name__))
         register_dataset(cls.task_name, cls)
@@ -158,6 +162,18 @@ class Task(ProceduralDataset):
             setattr(self.config, k, v)
         self.balancing_key_ratio = 0.5
         self.tokenizer = tiktoken.get_encoding("o200k_base")
+
+    @classmethod
+    def score_answer_hash(cls, fn=None):
+        return score_answer_hash(cls, fn)
+
+    @classmethod
+    def resolve_score_answer_fn(cls, entry=None):
+        return resolve_score_answer_fn(cls, entry)
+
+    @classmethod
+    def score_answer_for_entry(cls, answer, entry, scorer_self):
+        return cls.resolve_score_answer_fn(entry)(scorer_self, answer, entry)
 
     def generate(self):
         """To override, return one problem"""
@@ -273,6 +289,11 @@ class Task(ProceduralDataset):
                 problem.metadata['_config'] = self.config.to_dict()
                 problem.metadata['_prompt_tokens'] = prompt_tokens
                 problem.metadata['_cot_tokens'] = cot_tokens
+                problem.metadata['_score_answer'] = edict({
+                    'version': self.score_answer_version,
+                    'hash': self.score_answer_hash(self.score_answer),
+                    'commit': current_git_commit(),
+                })
 
                 problem.balancing_key = self.balancing_key(problem)
                 problem.deduplication_key = self.deduplication_key(problem)
