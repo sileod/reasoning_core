@@ -1,4 +1,5 @@
-from gramforge import init_grammar, generate, generate_with_choices
+from gramforge import init_grammar, generate_with_choices
+from gramforge import generate as gramforge_generate
 from tqdm.auto import tqdm
 from functools import cache
 from nltk.parse.generate import generate as nltk_generate
@@ -41,6 +42,7 @@ class GrammarConfig(Config):
     n_terminals: int = 5
     perturbation_rate: float = 0.5
 
+    gramforge_algorithm="sequential"
     min_depth:int =5
     max_depth:int =8
 
@@ -281,7 +283,7 @@ def sample_cfg(config=GrammarConfig, productive_only=False):
     for _ in range(1000):
         MG = meta_grammar(config).start()
         for _ in range(100):
-            x = generate(MG, depth=config.max_depth, min_depth=config.min_depth)
+            x = gramforge_generate(MG, depth=config.max_depth, min_depth=config.min_depth, mode=config.gramforge_algorithm)
             try:
                 g = CFG.fromstring(x@"cfg")
             except ValueError:
@@ -306,8 +308,8 @@ def perturb(tokens, config=GrammarConfig):
     return random.choice([
         lambda t: random.sample(t, len(t)),
         lambda t: (lambda i: t[:i]+t[i+1:])(random.randrange(len(t))) if len(t)>1 else t,
-        #lambda _: (generate(nltk_to_unigram(sample_cfg(config)).get_rules('s', shuffle=True)[0], depth=5) @ 'lang').split()
-        lambda _: (generate(nltk_to_gramforge(sample_cfg(config)), depth=5) @ 'lang').split()
+        #lambda _: (gramforge_generate(nltk_to_unigram(sample_cfg(config)).get_rules('s', shuffle=True)[0], depth=5, mode=config.gramforge_algorithm) @ 'lang').split()
+        lambda _: (gramforge_generate(nltk_to_gramforge(sample_cfg(config)), depth=5, mode=config.gramforge_algorithm) @ 'lang').split()
 
     ])(tokens)
 
@@ -332,7 +334,7 @@ def generate_parse(config=GrammarConfig):
         g_u = nltk_to_gramforge(g)
         
         try:
-            tokens = (generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth) @ "lang").split()
+            tokens = (gramforge_generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth, mode=config.gramforge_algorithm) @ "lang").split()
         except ValueError: continue
 
         if random.random() < config.perturbation_rate:
@@ -644,10 +646,11 @@ class LocateError(Task):
             if len(grammar_terminals(g)) < 2:
                 continue
             try:
-                toks = (generate(
+                toks = (gramforge_generate(
                     nltk_to_gramforge(g),
                     depth=self.config.max_prod_depth,
-                    min_depth=self.config.min_prod_depth
+                    min_depth=self.config.min_prod_depth,
+                    mode=self.config.gramforge_algorithm
                 ) @ "lang").split()
             except ValueError:
                 continue

@@ -115,9 +115,10 @@ def safe_regex(r, max_tries=10, timeout_seconds=0.5):
 def sample_regex(config, max_tries=100):
     max_depth = config.max_depth
     min_depth = config.min_depth
+
     G = regex_grammar()
     for _ in range(max_tries):
-        x = generate(G.start(), depth=max_depth, min_depth=min_depth)
+        x = generate(G.start(), depth=max_depth, min_depth=min_depth, mode=config.gramforge_algorithm)
         if len(x.leaves)<=1:
             continue
         r = x @ 're'
@@ -132,7 +133,7 @@ class RegexConfig(Config):
     n_ex: int = 8
     max_depth: int = 5
     min_depth: int = 3
-
+    gramforge_algorithm = "sequential"
     def update(self, c):
         self.n_ex += c
         self.max_depth += c

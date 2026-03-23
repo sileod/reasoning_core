@@ -41,7 +41,7 @@ g=_grammar()
 class ArithmeticsConfig(Config):
     min_depth: int = 3
     max_depth: int = 5
-    generation_algorithm = "sequential"
+    gramforge_algorithm = "sequential"
     float_prob: float = 0.25
     in_decimals: int = 1
     out_decimals: int = 3
@@ -106,7 +106,7 @@ class Arithmetics(Task):
         super().__init__(config=config)
 
     def generate(self):
-        x = gramforge.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.generation_algorithm)
+        x = gramforge.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.gramforge_algorithm)
         final_expr, value = fill_num(x@'py', cfg=self.config)
         quantizer = Decimal('1e-' + str(self.config.out_decimals))
         ans_str = f"{value.quantize(quantizer):f}".rstrip('0').rstrip('.')
