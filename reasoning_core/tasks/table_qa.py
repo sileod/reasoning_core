@@ -38,16 +38,40 @@ def generate_random_table(config):
     cols = random.sample(pool, min(config.num_columns, len(pool)))
     return pd.DataFrame({n: [g() for _ in range(config.num_rows)] for n, g in cols})
 
+def format_float(x):
+    s = f"{x:.12f}".rstrip('0').rstrip('.')
+    return s if '.' in s else f"{s}.0"
+
+
 def get_renderers(dataframe):
-    return [
-        (dataframe.to_string, 'to_string'),
-        (dataframe.to_markdown, 'to_markdown'),
-        (dataframe.to_csv, 'to_csv'),
-        (dataframe.to_html, 'to_html'),
-        (lambda index=False: dataframe.style.hide(axis='index' if not index else None).to_latex(float_format="{:.2f}".format), 'to_latex'),
-        (lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4), 'to_json'),
-        (lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False, sort_keys=False), 'to_yaml')
-    ]
+    return {
+        'to_string': lambda index=False: dataframe.to_string(index=index, float_format=format_float),
+        'to_markdown': lambda index=False: dataframe.to_markdown(index=index, floatfmt='.12g', disable_numparse=True),
+        'to_csv': lambda index=False: dataframe.to_csv(index=index, float_format=format_float),
+        'to_html': lambda index=False: dataframe.to_html(index=index, float_format=format_float),
+        'to_latex': lambda index=False: dataframe.to_latex(index=index, float_format=format_float),
+        'to_json': lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4),
+        'to_yaml': lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False, sort_keys=False),
+    }
+
+
+def split_table(dataframe, n):
+    n = max(1, min(n, len(dataframe) or 1))
+    q, r = divmod(len(dataframe), n)
+    out = []
+    start = 0
+    for i in range(n):
+        stop = start + q + (i < r)
+        out.append(dataframe.iloc[start:stop])
+        start = stop
+    return out
+
+
+def canonicalize_floats(dataframe):
+    dataframe = dataframe.copy()
+    for c in dataframe.select_dtypes(include='float').columns:
+        dataframe[c] = dataframe[c].map(format_float)
+    return dataframe
 
 class TableQA(Task):
     def __init__(self, config=TableQAConfig()):
@@ -97,12 +121,19 @@ class TableQA(Task):
         q = self._query(dataframe)
         conn = duckdb.connect()
         result = conn.execute(q).df()
-        render_func, fmt_name = random.choice(get_renderers(dataframe))
+        renderers = get_renderers(dataframe)
+        fmt_name = random.choice(list(renderers))
+        render_func = renderers[fmt_name]
         is_scalar = result.shape == (1, 1)
         
+        tables = [render_func(index=False)]
+        if self.config.level > 0 and self.config.num_tables > 1:
+            tables = [get_renderers(part)[fmt_name](index=False) for part in split_table(dataframe, self.config.num_tables)]
+
         return Problem(
             metadata={
-                "table": render_func(index=False), 
+                "table": tables[0],
+                "tables": tables,
                 "query": q,
                 "is_scalar": is_scalar,
                 "table_format": fmt_name
@@ -112,7 +143,13 @@ class TableQA(Task):
 
     def prompt(self, m):
         fmt = "single value" if m['is_scalar'] else "CSV format (rows separated by newlines, values by commas). Do not include column headers."
-        return f"Execute this SQL query on the table:\n\n{m['table']}\n\nSQL: {m['query']}\n\nReturn result as {fmt}."
+        tables = m.get('tables') or [m['table']]
+        if len(tables) == 1:
+            preamble = "Execute this SQL query on the table named dataframe:"
+        else:
+            preamble = "The following tables are row-wise shards of one logical table named dataframe. Concatenate them in order to reconstruct dataframe, then execute the SQL query:"
+        presentation = "\n\n".join(f"Table {i}:\n{table}" for i, table in enumerate(tables, 1))
+        return f"{preamble}\n\n{presentation}\n\nSQL: {m['query']}\n\nReturn result as {fmt}."
 
     def score_answer(self, ans, entry):
         def isnumeric(x):
@@ -161,10 +198,10 @@ class TableConversion(Task):
         super().__init__(config=config)
 
     def generate(self):
-        dataframe = generate_random_table(self.config)
+        dataframe = canonicalize_floats(generate_random_table(self.config))
         renderers = get_renderers(dataframe)
-        
-        (src_func, src_name), (tgt_func, tgt_name) = random.sample(renderers, 2)
+        src_name, tgt_name = random.sample(list(renderers), 2)
+        src_func, tgt_func = renderers[src_name], renderers[tgt_name]
         
         return Problem(
             metadata={
