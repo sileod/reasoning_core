@@ -37,6 +37,9 @@ Set optional environment variables before launch:
 - `RC_NUM_TEST` (default `50`)
 - `RC_SEED` (default `0`)
 - `RC_PASS_THRESHOLD` (default `0.9`)
+- `RC_HF_DATASET` (default `reasoning-core/symbolic-reasoning-env`)
+- `RC_HF_CONFIG` (optional dataset config name)
+- `RC_DISABLE_HF_FALLBACK=1` to disable Hugging Face loading and use procedural fallback
 
 The task order is deterministic for fixed values of these variables.
 
@@ -46,3 +49,5 @@ The task order is deterministic for fixed values of these variables.
 - The tool returns a human-readable result with a rounded reward (`reward=0.000` format).
 - "Accepted" is intentionally lenient and defaults to `reward >= 0.9` (configurable via `RC_PASS_THRESHOLD`).
 - The tool accepts either plain-text answers or XML-wrapped answers (`<answer>...</answer>`), matching common evaluator output formats.
+- By default, tasks are loaded from Hugging Face dataset `reasoning-core/symbolic-reasoning-env` using its native `train`/`test` splits.
+- If Hugging Face loading fails, the environment falls back to deterministic procedural task generation.

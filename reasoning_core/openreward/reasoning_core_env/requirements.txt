@@ -4,3 +4,4 @@ reasoning-core>=0.2.3
 uvicorn>=0.34.3
 easydict
 numpy
+datasets

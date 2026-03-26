@@ -1,7 +1,7 @@
 import os
 import random
 import re
-from pathlib import Path
+import json
 
 import numpy as np
 from easydict import EasyDict as edict
@@ -27,6 +27,9 @@ DEFAULT_SEED = int(os.getenv("RC_SEED", "0"))
 DEFAULT_TASKS = sorted(list_tasks())
 DEFAULT_PASS_THRESHOLD = float(os.getenv("RC_PASS_THRESHOLD", "0.9"))
 XML_ANSWER_PATTERN = re.compile(r"<answer>(.*?)</answer>", re.IGNORECASE | re.DOTALL)
+HF_DATASET_NAME = os.getenv("RC_HF_DATASET", "reasoning-core/symbolic-reasoning-env")
+HF_DATASET_CONFIG = os.getenv("RC_HF_CONFIG")
+DISABLE_HF_FALLBACK = os.getenv("RC_DISABLE_HF_FALLBACK", "0") == "1"
 
 
 class ReasoningCoreTaskSpec(BaseModel):
@@ -76,8 +79,84 @@ def _build_split(split_name: str, split_size: int, seed: int) -> list[dict]:
     return examples
 
 
-TRAIN_TASKS = _build_split("train", DEFAULT_SPLIT_SIZES["train"], DEFAULT_SEED)
-TEST_TASKS = _build_split("test", DEFAULT_SPLIT_SIZES["test"], DEFAULT_SEED + 10_000)
+def _parse_metadata(value: object) -> dict:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            loaded = json.loads(value)
+            if isinstance(loaded, dict):
+                return loaded
+        except json.JSONDecodeError:
+            return {"raw_metadata": value}
+    return {}
+
+
+def _normalize_rows(rows: list[dict], prefix: str) -> list[dict]:
+    normalized: list[dict] = []
+    for idx, row in enumerate(rows):
+        prompt = str(row.get("prompt", "")).strip()
+        answer = str(row.get("answer", "")).strip()
+        task_name = str(row.get("task", "task")).strip() or "task"
+        metadata = _parse_metadata(row.get("metadata", {}))
+        sample_id = str(row.get("id", f"{prefix}-{idx}"))
+        normalized.append(
+            {
+                "id": sample_id,
+                "prompt": prompt,
+                "answer": answer,
+                "metadata": {"task": task_name, **metadata},
+            }
+        )
+    return normalized
+
+
+def _load_hf_tasks() -> tuple[list[dict], list[dict]] | None:
+    if DISABLE_HF_FALLBACK:
+        return None
+
+    try:
+        from datasets import load_dataset
+    except Exception as exc:
+        print(f"Could not import datasets for Hugging Face loading: {exc}")
+        return None
+
+    try:
+        kwargs = {"path": HF_DATASET_NAME}
+        if HF_DATASET_CONFIG:
+            kwargs["name"] = HF_DATASET_CONFIG
+        dataset = load_dataset(**kwargs)
+    except Exception as exc:
+        print(f"Could not load Hugging Face dataset '{HF_DATASET_NAME}': {exc}")
+        return None
+
+    if "train" not in dataset or "test" not in dataset:
+        print(f"Dataset '{HF_DATASET_NAME}' does not expose both train and test splits.")
+        return None
+
+    train_rows = [dict(row) for row in dataset["train"]]
+    test_rows = [dict(row) for row in dataset["test"]]
+    train_tasks = _normalize_rows(train_rows, "train")
+    test_tasks = _normalize_rows(test_rows, "test")
+    print(
+        "Loaded tasks from Hugging Face dataset "
+        f"'{HF_DATASET_NAME}' (train={len(train_tasks)}, test={len(test_tasks)})."
+    )
+    return train_tasks, test_tasks
+
+
+def _build_tasks() -> tuple[list[dict], list[dict]]:
+    hf_tasks = _load_hf_tasks()
+    if hf_tasks is not None:
+        return hf_tasks
+
+    print("Falling back to procedural task generation.")
+    train_tasks = _build_split("train", DEFAULT_SPLIT_SIZES["train"], DEFAULT_SEED)
+    test_tasks = _build_split("test", DEFAULT_SPLIT_SIZES["test"], DEFAULT_SEED + 10_000)
+    return train_tasks, test_tasks
+
+
+TRAIN_TASKS, TEST_TASKS = _build_tasks()
 
 
 class ReasoningCore(Environment):
@@ -125,7 +204,4 @@ class ReasoningCore(Environment):
 
 
 if __name__ == "__main__":
-    data_dir = Path(os.getenv("ORWD_DATA_DIR", "/orwd_data"))
-    if data_dir.exists():
-        print(f"Using mounted data directory: {data_dir}")
     Server([ReasoningCore]).run()
