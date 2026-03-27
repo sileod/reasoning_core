@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 name = "reasoning_core"
 dynamic = ["version"]
 readme = "README.md"
-description = "Procedural symbolic data generator for pre-training, also including RL environments"
+description = "Procedural data generators for symbolic pre-training, also including RL environments"
 
 dependencies = [
     "gramforge",
