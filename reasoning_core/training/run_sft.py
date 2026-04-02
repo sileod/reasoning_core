@@ -16,7 +16,8 @@ tempfile.tempdir = SAFE_TMP
 import warnings
 warnings.filterwarnings("ignore")
 
-import logging, os, argparse, torch, wandb, ast, uuid, json, hashlib, shutil
+import logging, os, argparse, torch, wandb, ast, json, hashlib, shutil
+from faker import Faker
 from pathlib import Path
 from datasets import load_dataset, concatenate_datasets, Dataset, disable_caching
 from transformers import AutoTokenizer, AutoModelForCausalLM, get_constant_schedule, TrainerCallback
@@ -89,6 +90,11 @@ def _args_hash(a):
     d = {k: str(v) for k, v in sorted(vars(a).items())}
     return hashlib.sha256(json.dumps(d).encode()).hexdigest()[:16]
 
+def _run_name(seed_str):
+    """Deterministic wandb-style name from a string seed."""
+    fake = Faker(); fake.seed_instance(int(hashlib.md5(seed_str.encode()).hexdigest(), 16))
+    return f"{fake.color_name().lower()}-{fake.word()}-{int(hashlib.md5(seed_str.encode()).hexdigest()[:4], 16) % 1000}"
+
 def save_ckpt(state, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state, indent=2))
@@ -101,6 +107,7 @@ def load_ckpt(path):
     return None
 
 run_hash = _args_hash(args)
+run_name = _run_name(run_hash)
 ckpt_dir = Path("checkpoints") / run_hash
 ckpt_file = ckpt_dir / "run_state.json"
 ckpt = load_ckpt(ckpt_file)
@@ -110,10 +117,12 @@ if ckpt and ckpt.get("hash") == run_hash:
         print("✅ Run already completed with these args. Exiting.")
         exit(0)
     completed = set(ckpt.get("completed_stages", []))
-    print(f"♻️  Resuming — completed stages: {completed}")
+    group_id = ckpt["group_id"]
+    print(f"♻️  Resuming {run_name} — completed stages: {completed}")
 else:
     completed = set()
-    save_ckpt({"hash": run_hash, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": [], "done": False}, ckpt_file)
+    group_id = f"{args.main_data}+{args.aux_data}-{run_name}"
+    save_ckpt({"hash": run_hash, "group_id": group_id, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": [], "done": False}, ckpt_file)
 
 # --- 🧠 Model & Tokenizer ---
 
@@ -217,7 +226,6 @@ common_args = dict(
     save_strategy="steps", save_steps=200, save_total_limit=2,
 )
 
-group_id = f"main-{args.main_data}-aux-{args.aux_data}-{str(uuid.uuid4())[:6]}"
 opt_state = {"optimizer": None, "scheduler": None}
 
 
@@ -228,7 +236,8 @@ def run_stage(ds, stage_name, epochs=1.0, restart=False):
     args.stage_name = stage_name
 
     if not ds: return
-    wandb.init(project="rc-sft", group=group_id, name=f"{stage_name}", config=args, reinit=True)
+    run_id = f"{run_hash}-{stage_name}"
+    wandb.init(project="rc-sft", group=group_id, id=run_id, name=f"{run_name}/{stage_name}", config=args, resume="allow", reinit=True)
     if restart or opt_state["optimizer"] is None:
         optimizer = ProdigyPlusScheduleFree(model.parameters(), lr=1.0, weight_decay=args.decay,
             use_bias_correction=True, betas=(0.95, 0.99))
@@ -247,7 +256,7 @@ def run_stage(ds, stage_name, epochs=1.0, restart=False):
     optimizer.train()
     trainer.train(resume_from_checkpoint=resume)
     completed.add(stage_name)
-    save_ckpt({"hash": run_hash, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": sorted(completed), "done": False}, ckpt_file)
+    save_ckpt({"hash": run_hash, "group_id": group_id, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": sorted(completed), "done": False}, ckpt_file)
 
 # --- 🚀 Execution ---
 print(f"🚀 STAGE 1: Mixed ({args.main_data} + {args.aux_data})")
@@ -263,6 +272,6 @@ if "eval" not in completed:
     wandb.log(run_harness(model, tokenizer))
     wandb.log(run_platinum(model, tokenizer))
     wandb.finish()
-    save_ckpt({"hash": run_hash, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": sorted(completed | {"eval"}), "done": True}, ckpt_file)
+    save_ckpt({"hash": run_hash, "group_id": group_id, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": sorted(completed | {"eval"}), "done": True}, ckpt_file)
 
 print('DONE ✨')
