@@ -228,7 +228,7 @@ def run_stage(ds, stage_name, epochs=1.0, restart=False):
     args.stage_name = stage_name
 
     if not ds: return
-    wandb.init(project="sft-rc7", group=group_id, name=f"{stage_name}", config=args, reinit=True)
+    wandb.init(project="rc-sft", group=group_id, name=f"{stage_name}", config=args, reinit=True)
     if restart or opt_state["optimizer"] is None:
         optimizer = ProdigyPlusScheduleFree(model.parameters(), lr=1.0, weight_decay=args.decay,
             use_bias_correction=True, betas=(0.95, 0.99))
