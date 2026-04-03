@@ -22,7 +22,7 @@ from pathlib import Path
 from datasets import load_dataset, concatenate_datasets, Dataset, disable_caching
 from transformers import AutoTokenizer, AutoModelForCausalLM, get_constant_schedule, TrainerCallback
 from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
-from trl import SFTConfig, SFTTrainer, setup_chat_format
+from trl import SFTConfig, SFTTrainer
 from tabulate import tabulate
 from reasoning_core.downstream_eval import run_harness, run_platinum
 from utils import ScheduleFreeModeCallback
@@ -64,8 +64,10 @@ DATA_MAP = {
 
 MODEL_MAP  = {
     "monad": "PleIAs/Monad", #56M
+    "baguette" : "PleIAs/Baguettotron", #321M
     "h1": "tiiuae/Falcon-H1-Tiny-90M-Instruct",
-    "ettin68":"jhu-clsp/ettin-decoder-68m"
+    "ettin68":"jhu-clsp/ettin-decoder-68m",
+    "ettin150":"jhu-clsp/ettin-decoder-150m"
 }
 
 
@@ -146,7 +148,8 @@ if SPECIAL.strip():
     model.resize_token_embeddings(len(tokenizer))
 
 if args.from_scratch: model.apply(model._init_weights)
-if not tokenizer.chat_template: model, tokenizer = setup_chat_format(model, tokenizer)
+if getattr(tokenizer, "chat_template", None) is None:
+    tokenizer.chat_template = "{% for message in messages %}{{ message['content'] }}{% endfor %}"
 
 # --- 📚 Smart Data Loading ---
 def get_formatter(data_key):

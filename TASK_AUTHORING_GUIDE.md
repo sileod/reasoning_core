@@ -77,6 +77,7 @@ class MyTaskConfig(Config):
 
 class MyTask(Task):
     def __init__(self, config=MyTaskConfig()):
+        # Constructor dunder method
         super().__init__(config=config)
 
     def generate(self):
@@ -101,7 +102,8 @@ class MyTask(Task):
 - `task.validate()` passes.
 - `config.set_level(1)` changes difficulty, not `seed/c`.
 - Prompt is unambiguous about output format.
-- Metadata is sufficient for offline debugging (instance params, optional `cot` entry).
+- Metadata is ideally sufficient for offline debugging (instance params, optional `cot` entry).
+- Metadata is not too large (should not blow up memory).
 
 ## Registration and Discovery
 - Any `Task` subclass in `reasoning_core/tasks/*.py` is auto-discovered by AST and lazy-loaded through `reasoning_core.__init__.py`.

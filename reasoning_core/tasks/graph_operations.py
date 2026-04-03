@@ -95,46 +95,60 @@ class BaseGraphTask:
 
 
 class GraphPathfinding(BaseGraphTask, Task):
-    def make_cot(self, G, start, end):
-            # BFS State Initialization
-            queue = [(start, [start])] # Tuple: (Current Node, Path History)
-            visited = {start}
-            
-            lines = [f"Goal: Shortest path from {start} to {end} using BFS."]
-            lines.append(f"Initialize Queue: [{start}]")
-            
-            while queue:
-                curr, path = queue.pop(0)
-                lines.append(f"\nPop {curr}. Current Path: {path}")
-                
-                if curr == end:
-                    lines.append(f"Target {end} found! Search Complete.")
-                    return "\n".join(lines)
-                
-                # Explore Neighbors (Sorted for deterministic reasoning)
-                new_neighbors = []
-                for n in sorted(G.neighbors(curr)):
-                    if n not in visited:
-                        visited.add(n)
-                        new_neighbors.append(n)
-                        queue.append((n, path + [n]))
-                
-                # Reasoning Step: Explain the update
-                if new_neighbors:
-                    lines.append(f"  -> Found new neighbors: {new_neighbors}")
-                    lines.append(f"  -> Add to queue. Visited set updated.")
-                else:
-                    lines.append(f"  -> All neighbors visited or empty. Backtrack.")
-                    
-                # Explicit State Dump (Crucial for Transformer State Tracking)
-                q_state = [n for n, _ in queue]
-                lines.append(f"  -> Queue is now: {q_state}")
+    def _lexicographic_shortest_path(self, G, start, end):
+        """BFS exploring neighbors in sorted order → lexicographically smallest shortest path."""
+        queue = [(start, [start])]
+        visited = {start}
+        while queue:
+            curr, path = queue.pop(0)
+            if curr == end:
+                return path
+            for n in sorted(G.neighbors(curr)):
+                if n not in visited:
+                    visited.add(n)
+                    queue.append((n, path + [n]))
+        return None
 
-            return "Target unreachable."
+    def make_cot(self, G, start, end):
+        # BFS State Initialization
+        queue = [(start, [start])] # Tuple: (Current Node, Path History)
+        visited = {start}
+        
+        lines = [f"Goal: Shortest path from {start} to {end} using BFS."]
+        lines.append(f"Initialize Queue: [{start}]")
+        
+        while queue:
+            curr, path = queue.pop(0)
+            lines.append(f"\nPop {curr}. Current Path: {path}")
+            
+            if curr == end:
+                lines.append(f"Target {end} found! Search Complete.")
+                return "\n".join(lines)
+            
+            # Explore Neighbors (Sorted for deterministic reasoning)
+            new_neighbors = []
+            for n in sorted(G.neighbors(curr)):
+                if n not in visited:
+                    visited.add(n)
+                    new_neighbors.append(n)
+                    queue.append((n, path + [n]))
+            
+            # Reasoning Step: Explain the update
+            if new_neighbors:
+                lines.append(f"  -> Found new neighbors: {new_neighbors}")
+                lines.append(f"  -> Add to queue. Visited set updated.")
+            else:
+                lines.append(f"  -> All neighbors visited or empty. Backtrack.")
+                
+            # Explicit State Dump (Crucial for Transformer State Tracking)
+            q_state = [n for n, _ in queue]
+            lines.append(f"  -> Queue is now: {q_state}")
+
+        return "Target unreachable."
     def generate(self):
         G = self._generate_graph()
         start, end = random.sample(list(G.nodes()), 2)
-        path = nx.shortest_path(G, source=start, target=end)
+        path = self._lexicographic_shortest_path(G, start, end)
 
         metadata = {
             "graph_description": self._render_graph(G), "start_node": start, "end_node": end,
@@ -145,8 +159,8 @@ class GraphPathfinding(BaseGraphTask, Task):
 
     def prompt(self, m):
         return (f"Consider the graph:\n\n{m['graph_description']}\n\n"
-                f"Find the shortest path from Node {m['start_node']} to Node {m['end_node']}.\n"
-                "Answer with a Python list of integers. Example: `[0, 5, 3, 9]`.")
+                f"Find the lexicographically smallest shortest path from Node {m['start_node']} to Node {m['end_node']}.\n"
+                "Answer with a Python list of nodes.")
 
     def score_answer(self, answer, entry):
             try: pred_path = literal_eval(answer)
@@ -243,7 +257,7 @@ class GraphCycleDetection(BaseGraphTask, Task):
             f"Consider the graph below, which contains exactly one cycle.\n\n"
             f"{metadata['graph_description']}\n\n"
             "Identify all the nodes that form the cycle.\n"
-            "Your answer must be a Python list of node integers, sorted in increasing order. "
+            "Your answer must be a Python list of nodes, sorted in increasing order. "
             "Example: `[2, 5, 7, 8]`."
         )
 
@@ -312,3 +326,199 @@ class GraphIsomorphism(BaseGraphTask, Task):
 
     def score_answer(self, answer, entry):
         return 1.0 if str(answer).strip().lower() == entry.answer.lower() else 0.0
+
+
+
+def _parse_list(x):
+    try:
+        x = literal_eval(x)
+        return x if isinstance(x, list) else None
+    except Exception:
+        return None
+
+
+class BaseDirectedGraphTask:
+    """Tiny helper for directed-graph rendering."""
+    def _render_digraph(self, G):
+        if random.random() < 0.5:
+            edges = [f"{u}->{v}" for u, v in G.edges()]
+            random.shuffle(edges)
+            return "Edges: " + ", ".join(edges)
+        return str({u: sorted(G.successors(u)) for u in sorted(G.nodes())})
+
+    def _render_dependency_graph(self, G):
+        """Render with explicit 'depends on' language — no room for misreading.
+
+        Edge convention: prerequisite -> dependent  (u->v means v depends on u).
+        So a node's *predecessors* are its prerequisites.
+        """
+        renderers = [
+            # "X depends on: Y, Z"
+            lambda g: "\n".join(
+                f"Node {u} depends on: {', '.join(map(str, sorted(g.predecessors(u))))}."
+                if g.in_degree(u) > 0 else f"Node {u} has no dependencies."
+                for u in sorted(g.nodes())
+            ),
+            # dict labeled explicitly
+            lambda g: "Dependencies (each key lists its prerequisites): " + str(
+                {u: sorted(g.predecessors(u)) for u in sorted(g.nodes())}
+            ),
+            # arrow format with inline gloss
+            lambda g: (
+                "Edges (X->Y means Y depends on X): "
+                + ", ".join(f"{u}->{v}" for u, v in sorted(g.edges()))
+            ),
+        ]
+        return random.choice(renderers)(G)
+
+
+# DEPO-style: repeated successor chasing in a permutation digraph
+@dataclass
+class GraphSuccessorsConfig(Config):
+    num_nodes: int = 8
+    num_queries: int = 2
+    max_hops: int = 2
+
+    def update(self, c=1):
+        self.num_nodes += c
+        self.num_queries += c / 2
+        self.max_hops += c
+
+
+class GraphSuccessors(BaseDirectedGraphTask, Task):
+    """DEPO-style k-th successor queries."""
+    def __init__(self, config=GraphSuccessorsConfig()):
+        super().__init__(config=config)
+
+    def _jump(self, succ, x, k):
+        for _ in range(k):
+            x = succ[x]
+        return x
+
+    def generate(self):
+        nodes = list(range(self.config.num_nodes))
+        succ = dict(zip(nodes, random.sample(nodes, len(nodes))))  # permutation
+
+        G = nx.DiGraph()
+        G.add_edges_from(succ.items())
+
+        queries = [
+            (random.choice(nodes), random.randint(1, self.config.max_hops))
+            for _ in range(self.config.num_queries)
+        ]
+        answer = [self._jump(succ, x, k) for x, k in queries]
+
+        return Problem(
+            metadata={
+                "graph_description": self._render_digraph(G),
+                "queries": queries,
+                "nodes": nodes,
+                "edges": list(G.edges()),
+            },
+            answer=str(answer),
+        )
+
+    def prompt(self, m):
+        return (
+            f"Consider the directed graph:\n\n{m['graph_description']}\n\n"
+            f"Queries: {m['queries']}\n"
+            "Each pair (x, k) asks for the k-th successor of x.\n"
+            "Answer with a Python list of integers in query order."
+        )
+
+    def score_answer(self, answer, entry):
+        pred = _parse_list(answer)
+        true = _parse_list(entry.answer)
+        if pred is None or true is None or len(pred) != len(true):
+            return 0.0
+        return sum(p == t for p, t in zip(pred, true)) / len(true)
+
+
+# BREVO-style: dependency expansion in a DAG
+@dataclass
+class GraphDependenciesConfig(Config):
+    num_nodes: int = 8
+    max_prereqs: int = 3
+
+    def update(self, c=1):
+        self.num_nodes += c
+        self.max_prereqs += c / 2
+
+
+class GraphDependencies(BaseDirectedGraphTask, Task):
+    """BREVO-style recursive dependency resolution."""
+    def __init__(self, config=GraphDependenciesConfig()):
+        super().__init__(config=config)
+
+    def _make_dag(self):
+        order = list(range(self.config.num_nodes))
+        random.shuffle(order)
+
+        G = nx.DiGraph()
+        G.add_nodes_from(order)
+
+        # Edge convention: prerequisite -> dependent
+        # order[i] can only depend on earlier items order[:i]
+        for i, v in enumerate(order):
+            prev = order[:i]
+            k = random.randint(0, min(len(prev), self.config.max_prereqs))
+            for u in random.sample(prev, k):
+                G.add_edge(u, v)  # u is prerequisite of v
+        return G
+
+    def generate(self):
+        for _ in range(100):
+            G = self._make_dag()
+            candidates = [u for u in G.nodes() if len(nx.ancestors(G, u)) >= 2]
+            if not candidates:
+                continue
+
+            q = random.choice(candidates)
+            need = nx.ancestors(G, q)
+
+            # leaves first among recursive dependents
+            answer = list(
+                nx.lexicographical_topological_sort(
+                    G.subgraph(need)
+                )
+            )
+
+            return Problem(
+                metadata={
+                    "graph_description": self._render_dependency_graph(G),
+                    "query": q,
+                    "nodes": list(G.nodes()),
+                    "edges": list(G.edges()),
+                },
+                answer=str(answer),
+            )
+        return self.generate()
+
+    def prompt(self, m):
+        return (
+            f"Consider the dependency graph:\n\n{m['graph_description']}\n\n"
+            f"List all prerequisites of node {m['query']} (recursively), leaves first.\n"
+            "Do not include the query node itself.\n"
+            "If A depends on B and both appear in your answer, B must appear before A.\n"
+            "Answer with a Python list of integers."
+        )
+
+    def score_answer(self, answer, entry):
+        pred = _parse_list(answer)
+        if pred is None:
+            return 0.0
+
+        m = entry.metadata
+        G = nx.DiGraph()
+        G.add_nodes_from(m["nodes"])
+        G.add_edges_from(m["edges"])
+
+        need = nx.ancestors(G, m["query"])
+        if len(pred) != len(need) or set(pred) != need:
+            return 0.0
+
+        pos = {x: i for i, x in enumerate(pred)}
+        for u, v in G.subgraph(need).edges():
+            if pos[u] > pos[v]:  # edge u->v means u is prereq of v; u must come first
+                return 0.0
+        return 1.0
