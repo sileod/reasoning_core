@@ -133,7 +133,7 @@ model = AutoModelForCausalLM.from_pretrained(
     args.model_name,
     dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32, #nb:torch_dtype is deprecated
     device_map="auto",
-    attn_implementation="flash_attention_2",
+    attn_implementation="sdpa",
 )
 
 tokenizer = AutoTokenizer.from_pretrained(args.model_name)
