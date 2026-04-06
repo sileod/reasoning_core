@@ -2,7 +2,7 @@
 
 
 reasoning-core is a suite of textual procedural data generators for language model pre-training and post-training.
-It is centered on expressive symbolic and algorithmic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG sprocessitasks.
+It is centered on expressive symbolic and algorithmic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG syntax tasks.
 
 We release pre-generated data scaled to more than 10B tokens  
 🤗 [https://hf.co/collections/reasoning-core/datasets](https://huggingface.co/collections/reasoning-core/datasets)
