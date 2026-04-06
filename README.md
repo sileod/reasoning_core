@@ -1,7 +1,7 @@
 # Reasoning Core ◉
 
 
-reasoning-core is a suite of procedural data generators for LLM pre-training and post-training.
+reasoning-core is a suite of textual procedural data generators for language model pre-training and post-training.
 It is centered on expressive symbolic and algorithmic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG sprocessitasks.
 
 We release pre-generated data scaled to more than 10B tokens  
