@@ -2,7 +2,7 @@
 
 
 reasoning-core is a suite of procedural data generators for LLM pre-training and post-training.
-It is centered on expressive symbolic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG syntax tasks.
+It is centered on expressive symbolic and algorithmic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG sprocessitasks.
 
 We release pre-generated data scaled to more than 10B tokens  
 🤗 [https://hf.co/collections/reasoning-core/datasets](https://huggingface.co/collections/reasoning-core/datasets)
