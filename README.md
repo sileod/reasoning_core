@@ -18,13 +18,14 @@ x = T.generate_example()
 assert score_answer(x.answer, x)==1
 ```
 
-# Parallel generation script
-Run `bash run_generate.sh` for multi-threaded generation to json files (readable by Huggingface Datasets).
-
-
 # Task examples and task authoring guide
 [GALLERY](https://github.com/sileod/reasoning_core/blob/main/GALLERY.md) (names link to task code)  
 [TASK_AUTHORING_GUIDE](https://github.com/sileod/reasoning_core/blob/main/TASK_AUTHORING_GUIDE.md)
+
+
+# Parallel generation script
+Run `bash run_generate.sh` for multi-threaded generation to json files (readable by Huggingface Datasets).
+
 
 # Integrations
 
