@@ -219,10 +219,15 @@ evals = {"main": eval_main}
 if eval_aux: evals["aux"] = eval_aux
 
 # --- 🔄 Training ---
-m = 1
+
+# Reference: factor=2 works for 24GB GPU + 68M params
+_total_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+_model_params = sum(p.numel() for p in model.parameters()) / 1e6
+available_memory_factor = max(1, min(16, round(2 * (_model_params / 68) * (24 / _total_gb))))
+
 common_args = dict(
-    learning_rate=1.0, per_device_train_batch_size=16//m,
-    gradient_accumulation_steps=4*m, max_grad_norm=1.0,
+    learning_rate=1.0, per_device_train_batch_size=16//available_memory_factor,
+    gradient_accumulation_steps=4*available_memory_factor, max_grad_norm=1.0,
     logging_steps=10, gradient_checkpointing=False, bf16=True, report_to="wandb",
     eval_strategy="steps", eval_steps=50, packing=True,
     dataset_num_proc=8, max_length=args.max_length,

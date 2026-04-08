@@ -136,7 +136,7 @@ class ReasoningGraph:
 
 #### Bounded Generation ####
 
-    def generate_bounded_rung1_and_rung2(self, seed=None):
+    def generate_bonded_rung1_and_rung2(self, seed=None):
         """Generate matched Rung1 and Rung2 queries from the same seed."""
         rng = random.Random(seed)
         variables = list(self.bn.nodes())
@@ -170,7 +170,7 @@ class ReasoningGraph:
 
     def generate_bonded_rung1(self, seed=None):
         """Builds Rung1 using precomputed aligned data."""
-        self.generate_bounded_rung1_and_rung2(seed)
+        self.generate_bonded_rung1_and_rung2(seed)
 
         self.reset_inference()
         self.target = self._r1_target
@@ -179,7 +179,7 @@ class ReasoningGraph:
 
     def generate_bonded_rung2(self, seed=None):
         """Builds Rung2 using precomputed aligned data."""
-        self.generate_bounded_rung1_and_rung2(seed)
+        self.generate_bonded_rung1_and_rung2(seed)
 
         self.reset_inference()
         self.target = self._r2_target
