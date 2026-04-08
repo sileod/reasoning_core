@@ -32,7 +32,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["WANDB_LOG_MODEL"] = "false" 
 logging.getLogger("trl.trainer.sft_trainer").setLevel(logging.ERROR)
 logging.basicConfig(level=logging.INFO)
-
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 
