@@ -39,17 +39,17 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 parse_num = lambda s: int(float(s[:-1]) * {'K': 1e3, 'M': 1e6, 'B': 1e9}[s[-1].upper()]) if s[-1].isalpha() else int(s)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model_name', type=str, default="PleIAs/Monad")
-parser.add_argument('--token_budget', type=parse_num, default=10_000_000, help="Base token budget (Stage 1 Main)")
-parser.add_argument('--aux_ratio', type=float, default=0.0, help="Ratio of Aux tokens relative to Main budget")
-parser.add_argument('--phase_2_ratio', type=float, default=0.1, help="Ratio of Stage 2 Main tokens; 0 to skip")
-parser.add_argument('--main_data', type=str, default="fw", choices=["fw", "synth","dolci"], help="Main dataset source")
+parser.add_argument('--model_name', type=str, default="ettin68")
+parser.add_argument('--token_budget', type=parse_num, default=100_000_000, help="Base token budget (Stage 1 Main)")
+parser.add_argument('--aux_ratio', type=float, default=0.2, help="Ratio of Aux tokens relative to Main budget")
+parser.add_argument('--phase_2_ratio', type=float, default=0.0, help="Ratio of Stage 2 Main tokens; 0 to skip")
+parser.add_argument('--main_data', type=str, default="dolci", choices=["fw", "synth","dolci"], help="Main dataset source")
 parser.add_argument('--aux_data', type=str, default="rc", help="Auxiliary dataset source")
 parser.add_argument('--max_length', type=int, default=1024)
 parser.add_argument('--decay', type=float, default=0.01)
 parser.add_argument('--from_scratch', type=ast.literal_eval, default=True)
 parser.add_argument('--aux_version', type=str, default="rc10")
-parser.add_argument('--script_version', type=str, default="4")
+parser.add_argument('--script_version', type=str, default="5")
 parser.add_argument('--aux_token', type=str, default="")
 
 
@@ -219,8 +219,6 @@ if eval_aux: evals["aux"] = eval_aux
 
 # --- callback ---
 from transformers import TrainerCallback
-
-
 class ScheduleFreeModeCallback(TrainerCallback):
     def __init__(self, optimizer): self.optimizer = optimizer
     def on_train_begin(self, args, state, control, **kwargs): self.optimizer.train()
