@@ -25,7 +25,6 @@ from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
 from trl import SFTConfig, SFTTrainer
 from tabulate import tabulate
 from reasoning_core.downstream_eval import run_harness, run_platinum
-from utils import ScheduleFreeModeCallback
 
 #disable_caching()
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -217,6 +216,20 @@ eval_aux, _ = load_exact_tokens(args.aux_data, 50_000, stream_skip=100_000, max_
 
 evals = {"main": eval_main}
 if eval_aux: evals["aux"] = eval_aux
+
+# --- callback ---
+from transformers import TrainerCallback
+
+
+class ScheduleFreeModeCallback(TrainerCallback):
+    def __init__(self, optimizer): self.optimizer = optimizer
+    def on_train_begin(self, args, state, control, **kwargs): self.optimizer.train()
+    def on_step_end(self, args, state, control, **kwargs):
+        if control.should_evaluate or control.should_save: self.optimizer.eval()
+        else: self.optimizer.train()
+    def on_evaluate(self, args, state, control, **kwargs): self.optimizer.train()
+    def on_train_end(self, args, state, control, **kwargs): self.optimizer.eval()
+
 
 # --- 🔄 Training ---
 
