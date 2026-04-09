@@ -14,7 +14,7 @@ LABELS = ("entailment", "contradiction", "neutral")
 
 
 @dataclass
-class KnowledgeReasoningConfig(Config):ow
+class KnowledgeReasoningConfig(Config):
     n_entities: int = 8
     n_facts: int = 12
     n_hypotheses: int = 6
@@ -243,9 +243,9 @@ class KnowledgeReasoning(Task):
             w.close()
 
     def _do_generate(self, world, onto, cfg):
-        n_entities = int(cfg.n_entities)
-        n_facts = int(cfg.n_facts)
-        n_hypotheses = int(cfg.n_hypotheses)
+        n_entities = cfg.n_entities
+        n_facts = cfg.n_facts
+        n_hypotheses = cfg.n_hypotheses
 
         leaves = [c for c in onto.classes()
                   if c is not owlready2.Nothing and not list(c.subclasses())]
