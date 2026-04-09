@@ -88,7 +88,7 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
 
 def run_harness(model, tokenizer, limit=200):
     hflm = HFLM(pretrained=model, tokenizer=tokenizer, batch_size="auto")
-    tasks = ["blimp", "cola", "sst2", "mnli", "qnli", "rte", "swag"]
+    tasks = ["cola", "sst2", "mnli", "qnli", "rte", "swag"]
     res = lm_eval.simple_evaluate(model=hflm, tasks=tasks, limit=limit)['results']
     s = {t: next((m[k] for k in ['mcc,none', 'acc_norm,none', 'acc,none'] if k in m), 0.) for t, m in res.items()}
     blimp_score = np.mean([s.pop(k) for k in list(s) if 'blimp' in k])
