@@ -17,8 +17,10 @@ _GRAPH_GENERATORS = [
     (nx.watts_strogatz_graph, {'k': (2, 4), 'p': (0.1, 0.3)}),
     (nx.barabasi_albert_graph, {'m': (1, 3)}),
     (nx.random_regular_graph, {'d': (2, 4)}), # Every node has d neighbors
-    (nx.grid_2d_graph, {'m': (3, 5), 'n': (3, 5)}), # A grid
 ]
+
+# Keep grid generation for higher levels only to avoid tuple-node complexity at level 0.
+_GRID_GENERATOR = (nx.grid_2d_graph, {'m': (3, 5), 'n': (3, 5)})
 
 
 class BaseGraphTask:
@@ -30,8 +32,12 @@ class BaseGraphTask:
             """Randomly selects a topology from the list and generates a graph."""
             num_nodes = self.config.num_nodes
             
+            graph_generators = list(_GRAPH_GENERATORS)
+            if self.config.level >= 1:
+                graph_generators.append(_GRID_GENERATOR)
+
             for _ in range(10): # Try a few times to get a valid graph
-                gen_func, params_ranges = random.choice(_GRAPH_GENERATORS)
+                gen_func, params_ranges = random.choice(graph_generators)
                 params = {'n': num_nodes}
                 try:
                     for p_name, p_range in params_ranges.items():
@@ -375,8 +381,8 @@ class BaseDirectedGraphTask:
 # DEPO-style: repeated successor chasing in a permutation digraph
 @dataclass
 class GraphSuccessorsConfig(Config):
-    num_nodes: int = 8
-    num_queries: int = 2
+    num_nodes: int = 6
+    num_queries: int = 1
     max_hops: int = 2
 
     def update(self, c=1):
@@ -437,8 +443,9 @@ class GraphSuccessors(BaseDirectedGraphTask, Task):
 # BREVO-style: dependency expansion in a DAG
 @dataclass
 class GraphDependenciesConfig(Config):
-    num_nodes: int = 8
-    max_prereqs: int = 3
+    # Smaller defaults keep dependency prompts less compositional.
+    num_nodes: int = 6
+    max_prereqs: int = 2
 
     def update(self, c=1):
         self.num_nodes += c

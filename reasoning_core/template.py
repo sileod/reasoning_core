@@ -139,6 +139,18 @@ def register_dataset(name, dataset_cls):
 
 def prepr_task_name(name):
     return underscore(name)
+
+
+def _load_tokenizer():
+    class _WhitespaceTokenizerFallback:
+        """Minimal tokenizer fallback when tiktoken assets are unavailable."""
+        def encode(self, text):
+            return str(text).split()
+
+    try:
+        return tiktoken.get_encoding("o200k_base")
+    except Exception:
+        return _WhitespaceTokenizerFallback()
     
 
 class Task(ProceduralDataset):
@@ -157,7 +169,7 @@ class Task(ProceduralDataset):
         for k,v in kwa.items():
             setattr(self.config, k, v)
         self.balancing_key_ratio = 0.5
-        self.tokenizer = tiktoken.get_encoding("o200k_base")
+        self.tokenizer = _load_tokenizer()
 
     def generate(self):
         """To override, return one problem"""
