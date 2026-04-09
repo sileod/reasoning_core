@@ -9,7 +9,7 @@ We release pre-generated data scaled to more than 10B tokens
 
 # Standalone
 ```python
-pip install reasoning-core
+uv pip install reasoning-core
 
 from reasoning_core import list_tasks, get_task, score_answer
 
