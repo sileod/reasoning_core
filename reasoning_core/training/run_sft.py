@@ -26,7 +26,7 @@ from trl import SFTConfig, SFTTrainer
 from tabulate import tabulate
 from reasoning_core.downstream_eval import run_harness, run_platinum
 
-#disable_caching()
+disable_caching()
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["WANDB_LOG_MODEL"] = "false" 
 logging.getLogger("trl.trainer.sft_trainer").setLevel(logging.ERROR)
