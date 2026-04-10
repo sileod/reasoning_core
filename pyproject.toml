@@ -20,9 +20,7 @@ dependencies = [
     "rapidfuzz",
     "unified-planning[pyperplan]",
     "tarski",
-    "reasoning_gym",
     "verifiers",
-    "prime",
     "tiktoken",
     "networkx",
     "z3-solver",
@@ -45,15 +43,19 @@ dependencies = [
     "xpflow",
     "exrex",
     "nltk",
+    "wordfreq",
     "pgmpy",
     "numpy",
     "sympy",
     "pyparsing",
-    "owlready2",
     "whatthepatch",
     "lazy_object_proxy",
     "udocker"
 ]
+
+[project.optional-dependencies]
+prime = ["prime"]
+reasoning_gym = ["reasoning_gym"]
 
 [tool.setuptools.packages.find]
 include = ["reasoning_core*"]
