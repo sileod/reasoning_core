@@ -48,8 +48,8 @@ parser.add_argument('--aux_data', type=str, default="rc", help="Auxiliary datase
 parser.add_argument('--max_length', type=int, default=1024)
 parser.add_argument('--decay', type=float, default=0.01)
 parser.add_argument('--from_scratch', type=ast.literal_eval, default=True)
-parser.add_argument('--aux_version', type=str, default="rc10")
-parser.add_argument('--script_version', type=str, default="5")
+parser.add_argument('--aux_version', type=str, default="rc11")
+parser.add_argument('--script_version', type=str, default="6")
 parser.add_argument('--aux_token', type=str, default="")
 
 
