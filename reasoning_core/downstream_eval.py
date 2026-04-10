@@ -1,5 +1,6 @@
 import lm_eval
 from lm_eval.models.huggingface import HFLM
+from lm_eval.api.task import ConfigurableTask
 import numpy as np
 from transformers import DataCollatorForSeq2Seq
 from datasets import disable_progress_bar, get_dataset_config_names, load_dataset
@@ -89,9 +90,30 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
 
 
 def run_harness(model, tokenizer, limit=200):
+    custom_tasks = {
+        name: ConfigurableTask(config={
+            "task": name, "dataset_path": path,
+            "output_type": "multiple_choice",
+            "test_split": "train", "doc_to_text": "",
+            "doc_to_choice": '["{{sentence_good}}", "{{sentence_bad}}"]',
+            "doc_to_target": 0,
+            "metric_list": [{"metric": "acc", "aggregation": "mean", "higher_is_better": True}],
+        })
+        for name, path in [
+            ("blimp", "tasksource/blimp"),
+            ("zorro", "tasksource/zorro"),
+        ]
+    }
+
     hflm = HFLM(pretrained=model, tokenizer=tokenizer, batch_size="auto")
-    tasks = ["cola", "sst2", "mnli", "qnli", "rte", "swag"]
-    res = lm_eval.simple_evaluate(model=hflm, tasks=tasks, limit=limit)['results']
+    
+    task_manager = TaskManager()
+    standard_tasks = get_task_dict(["cola", "sst2", "mnli", "qnli", "rte", "swag"], task_manager)
+    
+    task_dict = {**standard_tasks, **custom_tasks}
+    
+    res = evaluate(lm=hflm, task_dict=task_dict, limit=limit)['results']
+    
     s = {t: next((m[k] for k in ['mcc,none', 'acc_norm,none', 'acc,none'] if k in m), 0.) for t, m in res.items()}
-    blimp_score = np.mean([s.pop(k) for k in list(s) if 'blimp' in k])
-    return s | {'blimp': blimp_score}
+    return s
+    
