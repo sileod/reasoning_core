@@ -24,6 +24,9 @@ Every task should provide:
 
 `Task.generate_example(...)` automatically adds metadata:
 - `_task`, `_level`, `_config`, `_time`, `_prompt_tokens`, `_cot_tokens`.
+- `_score_answer = {"version": ..., "hash": ..., "commit": ...}`.
+
+If you break scorer compatibility, bump `score_answer_version` (default `0`) and, only if needed, point `score_answer_history[old_version]` at a legacy file or commit.
 
 ## Config and Difficulty Scaling
 Base `Config` protected fields:

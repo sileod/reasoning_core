@@ -89,7 +89,7 @@ class SelfMock:
 
 
 scorers = {
-    k: lambda answer, entry, task_name=k: DATASETS[task_name].score_answer(SelfMock(), answer, entry)
+    k: lambda answer, entry, task_name=k: DATASETS[task_name].score_answer_for_entry(answer, entry, SelfMock())
     for k in DATASETS.keys()
 }
 
