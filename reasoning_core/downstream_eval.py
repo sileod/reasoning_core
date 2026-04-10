@@ -82,6 +82,8 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
             losses = [model(**{k: v.to(model.device) for k,v in b.items()}).loss.item() for b in dl]
         
         metrics[f"{t}/nll"] = float(np.mean(losses))
+    
+    metrics['platinum/nll'] = np.mean(list(metrics.values()))
     print(tabulate(metrics.items()))
     return metrics
 
