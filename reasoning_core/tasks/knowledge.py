@@ -5,7 +5,7 @@ from nltk.corpus import wordnet as wn
 from wordfreq import zipf_frequency
 import random, json
 
-# ── Clean word ↔ synset index (1 noun sense only) ─────────────────────────
+# ── Clean word ↔ synset index ─────────────────────────────────────────────
 
 def _build():
     pairs = {}
@@ -14,6 +14,9 @@ def _build():
         if '_' in w or not w.isalpha() or not w.islower():
             continue
         if len(wn.synsets(w, pos='n')) != 1:
+            continue
+        # skip words with dominant adjective senses (e.g. "large", "organic")
+        if len(wn.synsets(w, pos='a')) + len(wn.synsets(w, pos='s')) > 1:
             continue
         z = zipf_frequency(w, 'en')
         if z >= 3.0 and (w not in pairs or z > pairs[w][1]):
@@ -37,7 +40,7 @@ def _pick(n=1):
     ws = list(_idx()[0])
     return random.sample(ws, n) if n > 1 else random.choice(ws)
 
-# ── Graph ──────────────────────────────────────────────────────────────────
+# ── Graph helpers ─────────────────────────────────────────────────────────
 
 def _up(s, n=1):
     for _ in range(n):
@@ -56,7 +59,6 @@ def _siblings(s):
 def _too_abstract(s): return s.min_depth() < 4
 
 def _noise(exclude, n=5):
-    """Random vocab words not in exclude set."""
     ex = set(exclude)
     out = []
     for _ in range(n * 4):
@@ -69,19 +71,24 @@ def _noise(exclude, n=5):
     return out
 
 def _sib_noise(answer, s=None, n=4):
-    """Sibling-based distractors + random fallback."""
     pool = _ws(_siblings(s)) - {answer} if s else set()
     pool = list(pool)
     random.shuffle(pool)
     out = pool[:n]
     return out + _noise(set(out) | {answer}, n - len(out))
 
-# ── Generators: return (expr, answer_words, type) or None ─────────────────
-# answer_words: str for word/bool, list[str] for set
+def _has_ancestor(s, target, max_depth=6):
+    cur = s
+    for _ in range(max_depth):
+        cur = _up(cur)
+        if not cur: return False
+        if cur == target: return True
+    return False
+
+# ── Generators: return (expr, answer, type, distractors, cot) ────────────
 
 def _g_hypernym(depth=1):
-    w, s = _pick(), None
-    s = _s(w)
+    w = _pick(); s = _s(w)
     anc = _up(s, depth)
     if not anc or _too_abstract(anc): return None
     a = _w(anc)
@@ -89,21 +96,24 @@ def _g_hypernym(depth=1):
     expr = w
     for _ in range(depth):
         expr = f"hypernym({expr})"
-    return expr, a, 'word', _sib_noise(a, anc)
+    cot = f"{w} is a type of {a}" if depth == 1 else f"{a} is {depth} levels above {w}"
+    return expr, a, 'word', _sib_noise(a, anc), cot
 
 def _g_hyponyms():
     w = _pick(); s = _s(w)
     kids = sorted(_ws(set(s.hyponyms())))
     if len(kids) < 2: return None
     if len(kids) > 8: kids = sorted(random.sample(kids, 8))
-    return f"hyponyms({w})", kids, 'set', _noise(kids)
+    cot = f"Types of {w}: {', '.join(kids)}"
+    return f"hyponyms({w})", kids, 'set', _noise(kids), cot
 
 def _g_cohyponyms():
     w = _pick(); s = _s(w)
     sibs = sorted(_ws(_siblings(s)) - {w})
     if len(sibs) < 2: return None
     if len(sibs) > 8: sibs = sorted(random.sample(sibs, 8))
-    return f"cohyponyms({w})", sibs, 'set', _noise(sibs)
+    cot = f"{', '.join(sibs)} are in the same category as {w}"
+    return f"cohyponyms({w})", sibs, 'set', _noise(sibs), cot
 
 def _g_is_a():
     w = _pick(); s = _s(w)
@@ -118,7 +128,7 @@ def _g_is_a():
     if not chain: return None
     if random.random() < 0.5:
         _, cat = random.choice(chain)
-        return f"is_a({w}, {cat})", 'True', 'bool', []
+        return f"is_a({w}, {cat})", 'True', 'bool', [], f"{w} is a type of {cat}"
     else:
         for anc_s, _ in chain:
             sibs = [x for x in _ws(_siblings(anc_s)) if _s(x) and not _too_abstract(_s(x))]
@@ -131,7 +141,7 @@ def _g_is_a():
                     if not cur: break
                     ancestors.add(cur)
                 if _s(cat) not in ancestors:
-                    return f"is_a({w}, {cat})", 'False', 'bool', []
+                    return f"is_a({w}, {cat})", 'False', 'bool', [], f"{w} is not a type of {cat}"
     return None
 
 def _g_lch():
@@ -143,13 +153,15 @@ def _g_lch():
     if _too_abstract(lch): return None
     a = _w(lch)
     if not a or a in (w1, w2): return None
-    return f"lowest_common_hypernym({w1}, {w2})", a, 'word', _sib_noise(a, lch)
+    cot = f"{w1} and {w2} are both types of {a}"
+    return f"lowest_common_hypernym({w1}, {w2})", a, 'word', _sib_noise(a, lch), cot
 
 def _g_parts():
     w = _pick(); s = _s(w)
     parts = sorted(_ws(set(s.part_meronyms())))
     if not parts: return None
-    return f"parts_of({w})", parts, 'set', _noise(parts)
+    cot = f"Parts of {w}: {', '.join(parts)}"
+    return f"parts_of({w})", parts, 'set', _noise(parts), cot
 
 def _g_antonym():
     w = _pick()
@@ -159,7 +171,7 @@ def _g_antonym():
                 for ant in lem.antonyms():
                     a = ant.name()
                     if a.isalpha() and a.islower() and '_' not in a:
-                        return f"antonym({w})", a, 'word', _sib_noise(a)
+                        return f"antonym({w})", a, 'word', _sib_noise(a), f"The opposite of {w} is {a}"
     return None
 
 def _g_siblings_composed():
@@ -169,7 +181,9 @@ def _g_siblings_composed():
     kids = sorted(_ws(set(p.hyponyms())) - {w})
     if len(kids) < 2: return None
     if len(kids) > 8: kids = sorted(random.sample(kids, 8))
-    return f"hyponyms(hypernym({w})) \\ {{{w}}}", kids, 'set', _noise(kids)
+    pw = _w(p)
+    cot = f"{w} and {', '.join(kids)} are all types of {pw}" if pw else f"{', '.join(kids)} are siblings of {w}"
+    return f"hyponyms(hypernym({w})) \\ {{{w}}}", kids, 'set', _noise(kids), cot
 
 def _g_cousins():
     w = _pick(); s = _s(w)
@@ -182,16 +196,57 @@ def _g_cousins():
     cousins = sorted(cousins)
     if len(cousins) < 2: return None
     if len(cousins) > 8: cousins = sorted(random.sample(cousins, 8))
-    return f"cousins({w})", cousins, 'set', _noise(cousins)
+    gpw = _w(gp)
+    cot = f"{', '.join(cousins)} share a grandparent category ({gpw}) with {w}" if gpw else f"{', '.join(cousins)} share a grandparent category with {w}"
+    return f"cousins({w})", cousins, 'set', _noise(cousins), cot
+
+def _g_common_category(depth=1):
+    """Given several words, find their shared category."""
+    w = _pick(); s = _s(w)
+    cat = _up(s, depth)
+    if not cat or _too_abstract(cat): return None
+    cat_word = _w(cat)
+    if not cat_word: return None
+    members = sorted(_ws(set(cat.hyponyms())) - {cat_word})
+    if len(members) < 3: return None
+    n = min(len(members), random.randint(3, 6))
+    words = sorted(random.sample(members, n))
+    expr = f"common_category({', '.join(words)})"
+    cot = f"{', '.join(words)} are all types of {cat_word}"
+    return expr, cat_word, 'word', _sib_noise(cat_word, cat), cot
+
+def _g_odd_one_out():
+    """Find the word that doesn't belong."""
+    w = _pick(); s = _s(w)
+    cat = _up(s)
+    if not cat or _too_abstract(cat): return None
+    cat_word = _w(cat)
+    if not cat_word: return None
+    siblings = _ws(set(cat.hyponyms()))
+    group = sorted(siblings - {w})
+    if len(group) < 2: return None
+    group = random.sample(group, min(len(group), random.randint(2, 4))) + [w]
+    for _ in range(20):
+        iw = _pick()
+        if iw in siblings: continue
+        if _has_ancestor(_s(iw), cat): continue
+        words = group + [iw]
+        random.shuffle(words)
+        expr = f"odd_one_out({', '.join(words)})"
+        cot = f"{', '.join(sorted(group))} are types of {cat_word}; {iw} is not"
+        return expr, iw, 'word', group, cot
+    return None
 
 _GENS = [
     (1, _g_hypernym), (1, _g_hyponyms), (1, _g_parts), (1, _g_antonym),
+    (1, _g_common_category),
     (2, lambda: _g_hypernym(2)), (2, _g_cohyponyms), (2, _g_is_a),
-    (2, _g_lch), (2, _g_siblings_composed),
+    (2, _g_lch), (2, _g_siblings_composed), (2, _g_odd_one_out),
+    (2, lambda: _g_common_category(2)),
     (3, lambda: _g_hypernym(3)), (3, _g_cousins),
 ]
 
-# ── Task ───────────────────────────────────────────────────────────────────
+# ── Task ──────────────────────────────────────────────────────────────────
 
 @dataclass
 class LexicalKnowledgeConfig(Config):
@@ -203,7 +258,6 @@ class LexicalKnowledgeConfig(Config):
 class LexicalKnowledge(Task):
     def __init__(self, config=LexicalKnowledgeConfig()):
         super().__init__(config=config)
-        
         nltk.download('wordnet', quiet=True)
         nltk.download('omw-1.4', quiet=True)
 
@@ -218,9 +272,8 @@ class LexicalKnowledge(Task):
                 continue
             if not r:
                 continue
-            expr, answer, atype, distractors = r
+            expr, answer, atype, distractors, cot = r
 
-            # Build candidate pool: answer(s) + distractors, shuffled
             if atype == 'set':
                 pool = sorted(set(answer) | set(distractors))
                 random.shuffle(pool)
@@ -229,7 +282,7 @@ class LexicalKnowledge(Task):
                 pool = ['True', 'False']
                 random.shuffle(pool)
                 answer_str = str(answer)
-            else:  # word
+            else:
                 pool = sorted({answer} | set(distractors))
                 random.shuffle(pool)
                 answer_str = answer
@@ -238,7 +291,7 @@ class LexicalKnowledge(Task):
                 metadata=edict(
                     expr=expr, answer_type=atype,
                     candidates=pool,
-                    cot=f"{expr} = {answer_str}",
+                    cot=f"{cot}\n{expr} = {answer_str}",
                 ),
                 answer=answer_str,
             )

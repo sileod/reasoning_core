@@ -1,6 +1,9 @@
 from reasoning_core.template import Task, Problem, Config
 from dataclasses import dataclass
-import reasoning_gym
+try:
+    import reasoning_gym
+except ImportError:
+    reasoning_gym = None
 import random
 import json
 

@@ -94,11 +94,14 @@ scorers = {
 }
 
 
-def rg_scorer(a, e):
-    from .tasks import _reasoning_gym
-    return _reasoning_gym.Reasoning_Gym().score_answer(a, e)
-
-scorers['Reasoning_Gym'] = lambda a, e: rg_scorer(a, e)
+try:
+    import reasoning_gym as _rg_check  # noqa: F401
+    def rg_scorer(a, e):
+        from .tasks import _reasoning_gym
+        return _reasoning_gym.Reasoning_Gym().score_answer(a, e)
+    scorers['Reasoning_Gym'] = lambda a, e: rg_scorer(a, e)
+except ImportError:
+    pass
 
 def match_task_name(name):
     datasets = list(DATASETS.keys())+['reasoning_gym']
@@ -130,7 +133,10 @@ def score_answer(answer, entry):
     task_name = entry.get('metadata', {}).get('_task', None) or entry.get('task', None) or entry.get('metadata', {}).get('task', None)
 
     if task_name=="rg":
-        from reasoning_gym import get_score_answer_fn
+        try:
+            from reasoning_gym import get_score_answer_fn
+        except ImportError:
+            raise RuntimeError("reasoning_gym is not installed; install it with: pip install reasoning_gym")
         scorer = get_score_answer_fn(entry['metadata']['source_dataset'])
         return scorer(answer, entry)
 

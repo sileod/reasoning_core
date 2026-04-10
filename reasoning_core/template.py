@@ -6,7 +6,10 @@ from io import BytesIO
 from easydict import EasyDict as edict
 from collections import Counter
 from collections.abc import Mapping
-from reasoning_gym.dataset import ProceduralDataset
+try:
+    from reasoning_gym.dataset import ProceduralDataset
+except ImportError:
+    ProceduralDataset = object
 from dataclasses import dataclass, fields, field, asdict
 from typing import Any
 from types import SimpleNamespace
@@ -22,7 +25,6 @@ import psutil
 #template.py
 
 _REGISTRY = dict()
-
 
 
 def serialize(data):
