@@ -21,6 +21,14 @@ _BANNED_WORDS = frozenset({
     'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'
 })
 
+_ABSTRACT_NAMES = frozenset({
+    'entity', 'abstraction', 'physical_entity', 'thing',
+    'object', 'whole', 'person', 'attribute', 'causal_agent',
+    'matter', 'measure', 'communication', 'event', 'act', 'group',
+    'state', 'process', 'happening', 'ending', 'instrumentality', 'equipment'
+})
+_ABSTRACT_LEX = frozenset({'noun.cognition', 'noun.communication', 'noun.state', 'noun.feeling', 'noun.attribute'})
+
 def _load_wn():
     global _FULL_WORDS, _FULL_W2S, _FULL_S2W, _FULL_W2LEX, _FULL_LEX2W, _FULL_W2SIDS
     if _FULL_WORDS: return
@@ -102,17 +110,9 @@ class LexicalKnowledge(Task):
 
     def _too_abstract(self, s, strict=False):
         if s.min_depth() < 6 or len(s.hyponyms()) > 100: return True
-        banned_names = frozenset({
-            'entity', 'abstraction', 'physical_entity', 'thing', 
-            'object', 'whole', 'person', 'attribute', 'causal_agent', 
-            'matter', 'measure', 'communication', 'event', 'act', 'group',
-            'state', 'process', 'happening', 'ending', 'instrumentality', 'equipment'
-        })
-        banned_lex = frozenset({'noun.cognition', 'noun.communication', 'noun.state', 'noun.feeling', 'noun.attribute'})
-        
         if strict:
-            return s.name().split('.')[0] in banned_names or s.lexname() in banned_lex
-        return s.name().split('.')[0] in banned_names
+            return s.name().split('.')[0] in _ABSTRACT_NAMES or s.lexname() in _ABSTRACT_LEX
+        return s.name().split('.')[0] in _ABSTRACT_NAMES
 
     def _best_parent(self, s):
         hs = [h for h in s.hypernyms() if not self._too_abstract(h)]
@@ -136,7 +136,7 @@ class LexicalKnowledge(Task):
     def _get_synonym_block_sids(self, target_s):
         parents = target_s.hypernyms()
         sibs = {h for p in parents for h in p.hyponyms()} - {target_s}
-        return {target_s.name()} | {syn.name() for sib in sibs for syn in wn.synsets(self._w(sib) or '', 'n')}
+        return {target_s.name()} | {syn.name() for sib in sibs if (sw := self._w(sib)) for syn in wn.synsets(sw, 'n')}
 
     def _noise(self, exclude, s=None, n=None, gold_sids=None):
         n = n if n is not None else self.config.n_distractors
@@ -163,28 +163,33 @@ class LexicalKnowledge(Task):
                 ex.add(r)
         return out[:n]
 
-    def _sib_noise(self, answer, s=None, n=None, gold_sids=None):
+    def _sib_noise(self, answer, s=None, n=None, gold_sids=None, extra_exclude=frozenset()):
         n = n if n is not None else self.config.n_distractors
-        pool = list((self._ws(self._siblings(s)) - {answer}) if s else set())
+        pool = list((self._ws(self._siblings(s)) - {answer} - extra_exclude) if s else set())
         self.rng.shuffle(pool)
-        
+
         if gold_sids:
             pool = [p for p in pool if not bool(_FULL_W2SIDS.get(p, set()) & set(gold_sids))]
-            
+
         out = pool[:n]
-        return out + self._noise(set(out) | {answer}, s, max(0, n - len(out)), gold_sids)
+        return out + self._noise(set(out) | {answer} | extra_exclude, s, max(0, n - len(out)), gold_sids)
 
     def _g_hypernym(self, depth=1):
         w = self._pick(); s = self._s(w)
         anc = self._up(s, depth)
         if not anc or self._too_abstract(anc) or not (a := self._w(anc)): return None
-        
+
         gold_sids = self._get_synonym_block_sids(anc)
-        
+
         expr = w
         for _ in range(depth): expr = f"hypernym({expr})"
-        cot = f"{w} is a type of {a}" if depth == 1 else f"{a} is {depth} levels above {w}"
-        return expr, a, 'word', self._sib_noise(a, anc, gold_sids=list(gold_sids)), cot, [anc.name()]
+        chain, cur = [w], s
+        for _ in range(depth):
+            cur = self._best_parent(cur)
+            if not cur: break
+            chain.append(self._w(cur) or cur.name().split('.')[0])
+        cot = ' -> '.join(chain)
+        return expr, a, 'word', self._sib_noise(a, anc, gold_sids=list(gold_sids), extra_exclude={w}), cot, [anc.name()]
 
     def _g_hyponyms(self):
         w = self._pick(); s = self._s(w)
@@ -197,7 +202,7 @@ class LexicalKnowledge(Task):
         kids = sorted(self.rng.sample(full_kids, 8) if len(full_kids) > 8 else full_kids)
         sampled_sids = [self._s(k).name() for k in kids]
         
-        return f"hyponyms({w})", kids, 'set', self._noise(kids, s, gold_sids=gold_full_sids), f"Types of {w}: {', '.join(kids)}", sampled_sids
+        return f"hyponyms({w})", kids, 'set', self._noise(set(kids) | {w}, s, gold_sids=gold_full_sids), f"Types of {w}: {', '.join(kids)}", sampled_sids
 
     def _g_cohyponyms(self):
         w = self._pick(); s = self._s(w)
@@ -210,7 +215,7 @@ class LexicalKnowledge(Task):
         sibs = sorted(self.rng.sample(full_sibs, min(len(full_sibs), self.rng.randint(3, 8))))
         sampled_sids = [self._s(x).name() for x in sibs]
         
-        return f"cohyponyms({w})", sibs, 'set', self._noise(sibs, s, gold_sids=gold_full_sids), f"{', '.join(sibs)} are in the same category as {w}", sampled_sids
+        return f"cohyponyms({w})", sibs, 'set', self._noise(set(sibs) | {w}, s, gold_sids=gold_full_sids), f"{', '.join(sibs)} are in the same category as {w}", sampled_sids
 
     def _g_is_a(self):
         w = self._pick()
@@ -265,7 +270,7 @@ class LexicalKnowledge(Task):
         if self._too_abstract(lch) or not (a := self._w(lch)) or a in (w1, w2): return None
         
         gold_sids = self._get_synonym_block_sids(lch)
-        return f"lowest_common_hypernym({w1}, {w2})", a, 'word', self._sib_noise(a, lch, gold_sids=list(gold_sids)), f"{w1} and {w2} are both types of {a}", [lch.name()]
+        return f"lowest_common_hypernym({w1}, {w2})", a, 'word', self._sib_noise(a, lch, gold_sids=list(gold_sids), extra_exclude={w1, w2}), f"{w1} and {w2} are both types of {a}", [lch.name()]
 
     def _g_parts(self):
         w = self._pick(); s = self._s(w)
@@ -275,7 +280,7 @@ class LexicalKnowledge(Task):
         if not full_parts or len(full_parts) > 12: return None
         
         gold_full_sids = [self._s(x).name() for x in full_parts]
-        return f"parts_of({w})", full_parts, 'set', self._noise(full_parts, s, gold_sids=gold_full_sids), f"Parts of {w}: {', '.join(full_parts)}", gold_full_sids
+        return f"parts_of({w})", full_parts, 'set', self._noise(set(full_parts) | {w}, s, gold_sids=gold_full_sids), f"Parts of {w}: {', '.join(full_parts)}", gold_full_sids
 
     def _g_common_category(self, depth=1):
         w = self._pick(); s = self._s(w)
@@ -287,7 +292,7 @@ class LexicalKnowledge(Task):
         words = sorted(self.rng.sample(members, min(len(members), self.rng.randint(3, 6))))
         
         gold_sids = self._get_synonym_block_sids(cat)
-        return f"common_category({', '.join(words)})", cat_word, 'word', self._sib_noise(cat_word, cat, gold_sids=list(gold_sids)), f"{', '.join(words)} are types of {cat_word}", [cat.name()]
+        return f"common_category({', '.join(words)})", cat_word, 'word', self._sib_noise(cat_word, cat, gold_sids=list(gold_sids), extra_exclude=set(words)), f"{', '.join(words)} are types of {cat_word}", [cat.name()]
 
     def _g_odd_one_out(self):
         w = self._pick(); s = self._s(w)
