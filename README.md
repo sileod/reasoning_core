@@ -19,7 +19,10 @@ assert score_answer(x.answer, x)==1
 ```
 
 # Task examples and task authoring guide
-[GALLERY](https://github.com/sileod/reasoning_core/blob/main/GALLERY.md) (names link to task code)  
+[GALLERY](https://github.com/sileod/reasoning-core/blob/main/GALLERY.md) (names link to task code)  
+
+[`planning`](GALLERY.md#planning) · [`table_qa`](GALLERY.md#table_qa) · [`table_conversion`](GALLERY.md#table_conversion) · [`equation_system`](GALLERY.md#equation_system) · [`code_execution`](GALLERY.md#code_execution) · [`diff_prediction`](GALLERY.md#diff_prediction) · [`diff_patching`](GALLERY.md#diff_patching) · [`regex_following`](GALLERY.md#regex_following) · [`regex_induction`](GALLERY.md#regex_induction) · [`graph_pathfinding`](GALLERY.md#graph_pathfinding) · [`graph_node_centrality`](GALLERY.md#graph_node_centrality) · [`graph_cycle_detection`](GALLERY.md#graph_cycle_detection) · [`graph_isomorphism`](GALLERY.md#graph_isomorphism) · [`arithmetics`](GALLERY.md#arithmetics) · [`symbolic_arithmetics`](GALLERY.md#symbolic_arithmetics) · [`sequential_induction`](GALLERY.md#sequential_induction) · [`conjecture_entailment`](GALLERY.md#conjecture_entailment) · [`proof_reconstruction`](GALLERY.md#proof_reconstruction) · [`bayesian_association`](GALLERY.md#bayesian_association) · [`bayesian_intervention`](GALLERY.md#bayesian_intervention) · [`logic_nli`](GALLERY.md#logic_nli) · [`evidence_retrieval`](GALLERY.md#evidence_retrieval) · [`parsability`](GALLERY.md#parsability) · [`parsing`](GALLERY.md#parsing) · [`continuation`](GALLERY.md#continuation) · [`set_intersection`](GALLERY.md#set_intersection) · [`set_missing_element`](GALLERY.md#set_missing_element) · [`count_elements`](GALLERY.md#count_elements) · [`set_equality`](GALLERY.md#set_equality)
+
 [TASK_AUTHORING_GUIDE](https://github.com/sileod/reasoning_core/blob/main/TASK_AUTHORING_GUIDE.md)
 
 
