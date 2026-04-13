@@ -1,7 +1,7 @@
 # Task Implementation Guide
 
 ## Goal
-Creating data providing useful cognitive primitives for pre-training and serving as useful general agents, for pre-training (next token prediction) or post-training. This data should provide high structual variety, but lexical/surface variety is not a priority, because this data should be used alongside natural data already providing surface variations.
+Creating data providing useful cognitive primitives for pre-training and serving as useful general agents, for pre-training (next token prediction) or post-training. This data should provide high structural variety, but lexical/surface variety is not a priority, because this data should be used alongside natural data already providing surface variations.
 
 Implement tasks that are:
 - concise in code, easy to audit
@@ -20,7 +20,6 @@ Every task should provide:
 `Problem` must include:
 - `metadata` (dict/easydict),
 - `answer` (ground-truth string),
-- optional `metadata["cot"]`. (do not implement it unless it is requested.)
 
 `Task.generate_example(...)` automatically adds metadata:
 - `_task`, `_level`, `_config`, `_time`, `_prompt_tokens`, `_cot_tokens`.
@@ -71,28 +70,30 @@ class MyTaskConfig(Config):
     depth: int = 3
 
     def update(self, c=1):
-        # used to scale difficulty
-        # values will be postprocessed, no need to cast as int explicitly
+        # Used to scale difficulty
+        # Values will be postprocessed, no need to cast as int explicitly
         self.n_vars += c
         self.depth += c
 
 class MyTask(Task):
+    # Do not put "Task" in the task name
     def __init__(self, config=MyTaskConfig()):
         # Constructor dunder method
         super().__init__(config=config)
 
     def generate(self):
         # Build instance using external libs when possible.
-        metadata = edict({"instance": "...", "cot": "...optional..."})
+        metadata = edict({"equation": "...", "cot": "...optional..."})
         answer = "..."
         return Problem(metadata=metadata, answer=answer)
 
     def prompt(self, metadata):
         # Specify the answer format clearly, refer to it as the answer.
-        return f"Solve: {metadata['instance']}\n Answer is a scalar."
+        # The "wording logic" should be in the prompt and not buried in the code.
+        return f"Solve for x: {metadata['equation']}\n Answer is a scalar."
 
     def score_answer(self, answer, entry):
-        # answer is the answer to score (e.g. LLM prediction)
+        # Answer is the answer to score (e.g. LLM prediction)
         # entry is a problem; entry.answer is the ground truth
         return score_scalar(answer, entry)  # or custom semantic checker
 ```
