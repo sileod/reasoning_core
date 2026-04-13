@@ -74,7 +74,6 @@ class LexicalKnowledgeConfig(Config):
     n_words: int = 600
     max_retries: int = 80
     n_distractors: int = 5
-    seed: int = 42
     
     def update(self, c=1):
         self.n_words = min(int(self.n_words * (1 + c)), len(_FULL_WORDS) or float('inf'))
@@ -82,7 +81,6 @@ class LexicalKnowledgeConfig(Config):
 class LexicalKnowledge(Task):
     def __init__(self, config=LexicalKnowledgeConfig()):
         super().__init__(config=config)
-        self.rng = random.Random(config.seed)
         _load_wn()
         self.generators = [
             lambda: self._g_hypernym(1), self._g_hyponyms, self._g_parts,
@@ -94,7 +92,7 @@ class LexicalKnowledge(Task):
 
     def _pick(self, n=1):
         pool = _FULL_WORDS[:min(self.config.n_words, len(_FULL_WORDS))]
-        return self.rng.sample(pool, n) if n > 1 else self.rng.choice(pool)
+        return random.sample(pool, n) if n > 1 else random.choice(pool)
 
     def _s(self, w): return _FULL_W2S.get(w)
     def _w(self, s): return _FULL_S2W.get(s)
@@ -151,7 +149,7 @@ class LexicalKnowledge(Task):
         if s:
             lex = _FULL_W2LEX.get(self._w(s)) or s.lexname()
             same_lex = [w for w in _FULL_LEX2W[lex] if _valid(w)]
-            self.rng.shuffle(same_lex)
+            random.shuffle(same_lex)
             out = same_lex[:n]
             ex.update(out)
             
@@ -166,7 +164,7 @@ class LexicalKnowledge(Task):
     def _sib_noise(self, answer, s=None, n=None, gold_sids=None):
         n = n if n is not None else self.config.n_distractors
         pool = list((self._ws(self._siblings(s)) - {answer}) if s else set())
-        self.rng.shuffle(pool)
+        random.shuffle(pool)
         
         if gold_sids:
             pool = [p for p in pool if not bool(_FULL_W2SIDS.get(p, set()) & set(gold_sids))]
@@ -194,7 +192,7 @@ class LexicalKnowledge(Task):
         if len(full_kids) < 2: return None
         
         gold_full_sids = [self._s(k).name() for k in full_kids]
-        kids = sorted(self.rng.sample(full_kids, 8) if len(full_kids) > 8 else full_kids)
+        kids = sorted(random.sample(full_kids, 8) if len(full_kids) > 8 else full_kids)
         sampled_sids = [self._s(k).name() for k in kids]
         
         return f"hyponyms({w})", kids, 'set', self._noise(kids, s, gold_sids=gold_full_sids), f"Types of {w}: {', '.join(kids)}", sampled_sids
@@ -207,7 +205,7 @@ class LexicalKnowledge(Task):
         if len(full_sibs) < 2: return None
         
         gold_full_sids = [self._s(x).name() for x in full_sibs]
-        sibs = sorted(self.rng.sample(full_sibs, min(len(full_sibs), self.rng.randint(3, 8))))
+        sibs = sorted(random.sample(full_sibs, min(len(full_sibs), random.randint(3, 8))))
         sampled_sids = [self._s(x).name() for x in sibs]
         
         return f"cohyponyms({w})", sibs, 'set', self._noise(sibs, s, gold_sids=gold_full_sids), f"{', '.join(sibs)} are in the same category as {w}", sampled_sids
@@ -217,7 +215,7 @@ class LexicalKnowledge(Task):
         all_senses = wn.synsets(w, 'n')
         if not all_senses: return None
         
-        s = self.rng.choice(all_senses)
+        s = random.choice(all_senses)
         cur, chain = s, []
         
         for _ in range(6):
@@ -229,13 +227,13 @@ class LexicalKnowledge(Task):
                 
         if not chain: return None
         
-        if self.rng.random() < 0.5:
-            _, cat = self.rng.choice(chain)
+        if random.random() < 0.5:
+            _, cat = random.choice(chain)
             return f"is_a({w}, {cat})", 'True', 'bool', [], f"{w} is a type of {cat}", []
         
         for anc_s, _ in chain:
             sibs = [x for x in self._ws(self._siblings(anc_s)) if self._s(x) and not self._too_abstract(self._s(x))]
-            self.rng.shuffle(sibs)
+            random.shuffle(sibs)
             for cat in sibs:
                 cat_s = self._s(cat)
                 
@@ -284,7 +282,7 @@ class LexicalKnowledge(Task):
         
         members = list(self._ws(set(cat.hyponyms())) - {cat_word})
         if len(members) < 3: return None
-        words = sorted(self.rng.sample(members, min(len(members), self.rng.randint(3, 6))))
+        words = sorted(random.sample(members, min(len(members), random.randint(3, 6))))
         
         gold_sids = self._get_synonym_block_sids(cat)
         return f"common_category({', '.join(words)})", cat_word, 'word', self._sib_noise(cat_word, cat, gold_sids=list(gold_sids)), f"{', '.join(words)} are types of {cat_word}", [cat.name()]
@@ -297,7 +295,7 @@ class LexicalKnowledge(Task):
         siblings = self._ws(set(cat.hyponyms()))
         group = list(siblings - {w})
         if len(group) < 2: return None
-        group = self.rng.sample(group, min(len(group), self.rng.randint(2, 4))) + [w]
+        group = random.sample(group, min(len(group), random.randint(2, 4))) + [w]
         
         cat_descendants = {d.name() for d in cat.closure(lambda x: x.hyponyms())} | {cat.name()}
         
@@ -315,7 +313,7 @@ class LexicalKnowledge(Task):
         valid_iws = [iw for iw in hard_pool if iw not in siblings and not bool(_FULL_W2SIDS[iw] & cat_descendants)]
         
         if valid_iws:
-            iw = self.rng.choice(valid_iws)
+            iw = random.choice(valid_iws)
         else:
             found = False
             for _ in range(20):
@@ -326,7 +324,7 @@ class LexicalKnowledge(Task):
             if not found: return None
             
         words = group + [iw]
-        self.rng.shuffle(words)
+        random.shuffle(words)
         return f"odd_one_out({', '.join(words)})", iw, 'word', group, f"{', '.join(sorted(group))} are types of {cat_word}; {iw} is not", [self._s(iw).name()]
 
     def generate(self):
@@ -334,7 +332,7 @@ class LexicalKnowledge(Task):
         last_exc = None
         for _ in range(cfg.max_retries):
             try:
-                r = self.rng.choice(self.generators)()
+                r = random.choice(self.generators)()
             except Exception as e:
                 last_exc = e
                 continue
@@ -352,7 +350,7 @@ class LexicalKnowledge(Task):
                 pool = sorted({answer} | set(distractors))
                 answer_str = answer
             
-            self.rng.shuffle(pool)
+            random.shuffle(pool)
             return Problem(
                 metadata=edict(expr=expr, answer_type=atype, candidates=pool, cot=f"{cot}\n{expr} = {answer_str}", gold_synsets=gold_sids),
                 answer=answer_str,
@@ -366,8 +364,8 @@ class LexicalKnowledge(Task):
         if m.answer_type == 'bool': 
             return f"{ctx}\n\n{m.expr}\nTrue or False?"
         if m.answer_type == 'set':  
-            return f"{ctx}\nSelect all {m.expr}\nFrom: [{cands}]\nAnswer as a JSON list."
-        return f"{ctx}\n\nSelect {m.expr}\nFrom: [{cands}]\nAnswer with one word."
+            return f"{ctx}\nSelect all {m.expr}\nFrom: [{cands}]\nAnswer is a JSON list."
+        return f"{ctx}\n\nSelect {m.expr}\nFrom: [{cands}]\nAnswer is one word."
 
     def score_answer(self, answer: str, entry) -> float:
         if not answer: return 0.0

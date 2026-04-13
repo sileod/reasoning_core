@@ -202,6 +202,7 @@ class Task(ProceduralDataset):
         assert self.score_answer(x.answer, x)==1, "The generated answer must be correct"
         assert x.prompt, "Generated example must have a non-empty prompt"
         ys=[self.generate_example() for _ in range(n_samples)]
+        assert len({y.prompt for y in ys})!=1 or n_samples==1, "Examples should not be identical"
         score = [self.score_answer(y.answer, x) for y in ys]
         assert set(score)!={1}, "The scoring function must return values other than 1 for other answers"
         assert {self.score_answer(y.answer,y)==1 for y in ys}=={True}, "The generated answer must be correct"
@@ -219,7 +220,9 @@ class Task(ProceduralDataset):
         r1=random.random()
         self.generate_example()
         r2=random.random()
-        assert r1!=r2
+        assert r1!=r2, "Example generation should not set a seed"
+
+
         return ys
 
     def postprocess_dataset(self, df):
@@ -281,6 +284,7 @@ class Task(ProceduralDataset):
                 problem.task = self.task_name
 
                 problem.metadata = edict(problem.metadata)
+                problem.metadata['_time']  = time.time() - t0
                 problem.metadata['_time']  = time.time() - t0
                 problem.metadata['_task']  = problem.task 
                 problem.metadata['_level'] = self.config.level
