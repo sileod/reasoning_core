@@ -1,10 +1,10 @@
 # Task Implementation Guide
 
 ## Goal
-Creating data providing useful cognitive primitives for pre-training and serving as useful general agents.
+Creating data providing useful cognitive primitives for pre-training and serving as useful general agents, for pre-training (next token prediction) or post-training. This data should provide high structual variety, but lexical/surface variety is not a priority, because this data should be used alongside natural data already providing surface variations.
 
 Implement tasks that are:
-- concise in code,
+- concise in code, easy to audit
 - solver-backed (use strong external libraries instead of re-implementing),
 - distributionally broad (high structural variety),
 - robustly scorable (`score_answer(generate().answer) == 1`).
@@ -20,7 +20,7 @@ Every task should provide:
 `Problem` must include:
 - `metadata` (dict/easydict),
 - `answer` (ground-truth string),
-- optional `metadata["cot"]`.
+- optional `metadata["cot"]`. (do not implement it unless it is requested.)
 
 `Task.generate_example(...)` automatically adds metadata:
 - `_task`, `_level`, `_config`, `_time`, `_prompt_tokens`, `_cot_tokens`.
@@ -29,7 +29,7 @@ Every task should provide:
 Base `Config` protected fields:
 - `c`: difficulty step size,
 - `level`: current level,
-- `seed`: RNG seed,
+- `seed`: RNG seed (do not use it. do not seed anything explictly unless it is requested.)
 - `size`: optional dataset size.
 
 Important behavior:
@@ -37,7 +37,7 @@ Important behavior:
 
 Design rules for `update(c)`:
 - monotonic difficulty increase,
-- no mutation of `seed`/`c`,
+- no mutation of `c`,
 - keep generation solvable and diverse,
 - avoid brittle jumps (prefer gradual increments).
 
@@ -72,6 +72,7 @@ class MyTaskConfig(Config):
 
     def update(self, c=1):
         # used to scale difficulty
+        # values will be postprocessed, no need to cast as int explicitly
         self.n_vars += c
         self.depth += c
 
@@ -87,7 +88,8 @@ class MyTask(Task):
         return Problem(metadata=metadata, answer=answer)
 
     def prompt(self, metadata):
-        return f"Solve: {metadata['instance']}\nAnswer only."
+        # Specify the answer format clearly, refer to it as the answer.
+        return f"Solve: {metadata['instance']}\n Answer is a scalar."
 
     def score_answer(self, answer, entry):
         # answer is the answer to score (e.g. LLM prediction)
@@ -100,7 +102,7 @@ class MyTask(Task):
 - `task.score_answer(x.answer, x) == 1`.
 - Wrong/random answers do not all score `1`.
 - `task.validate()` passes.
-- `config.set_level(1)` changes difficulty, not `seed/c`.
+- `config.set_level(1)` changes difficulty, not `c`.
 - Prompt is unambiguous about output format.
 - Metadata is ideally sufficient for offline debugging (instance params, optional `cot` entry).
 - Metadata is not too large (should not blow up memory).
