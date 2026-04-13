@@ -230,8 +230,7 @@ def pick_query(rng, solver, gv, names, final):
                 if entailed(solver, gv.coord(a, T, final[a])):
                     x, y = final[a]
                     return {
-                        "type": "coord",
-                        "text": f"What is the final coordinate of {a}? Answer as (x, y).",
+                        "type": "coord", "a": a,
                         "answer": f"({x}, {y})",
                     }
 
@@ -241,8 +240,7 @@ def pick_query(rng, solver, gv, names, final):
                 d = abs(final[a][0] - final[b][0]) + abs(final[a][1] - final[b][1])
                 if entailed(solver, gv.dist(a, b, T) == d):
                     return {
-                        "type": "distance",
-                        "text": f"What is the final Manhattan distance between {a} and {b}? Answer as an integer.",
+                        "type": "distance", "a": a, "b": b,
                         "answer": str(d),
                     }
 
@@ -253,28 +251,12 @@ def pick_query(rng, solver, gv, names, final):
                 expr = And(gv.rel(a, b, T, "h", h), gv.rel(a, b, T, "v", v))
                 if entailed(solver, expr):
                     return {
-                        "type": "relation",
-                        "text": (
-                            f"What is the final spatial relation of {a} to {b}? "
-                            f"The answer is (horizontal, vertical), where horizontal is "
-                            f"left/right/aligned and vertical is above/below/aligned."
-                        ),
+                        "type": "relation", "a": a, "b": b,
                         "answer": f"({h}, {v})",
                     }
 
     return None
 
-
-def format_prompt(G, facts, steps, query):
-    facts_txt = "\n".join(f"- {fact_text(f)}" for f in facts)
-    steps_txt = "\n".join(f"{i+1}. {step_text(st)}" for i, st in enumerate(steps)) if steps else "None."
-    return (
-        f"Objects occupy distinct points on the integer grid [0, {G}] x [0, {G}].\n"
-        f"North is +y and East is +x. Any object not mentioned in a step stays fixed.\n\n"
-        f"Initial facts:\n{facts_txt}\n\n"
-        f"Steps:\n{steps_txt}\n\n"
-        f"{query['text']}\n"
-    )
 
 
 class Navigation(Task):
@@ -311,8 +293,10 @@ class Navigation(Task):
                 continue
 
             metadata = edict({
-                "instance": format_prompt(G, facts, steps, query),
                 "answer_type": query["type"],
+                "query_a": query["a"],
+                "query_b": query.get("b"),
+                "grid": G,
                 "objects": names,
                 "facts": facts,
                 "steps": steps,
@@ -327,24 +311,48 @@ class Navigation(Task):
         facts = [{"k": "coord", "a": a, "p": state0[a]} for a in names]
         a = rng.choice(names)
         x, y = final[a]
-        query = {
-            "type": "coord",
-            "text": f"What is the final coordinate of {a}? Answer as (x, y).",
-            "answer": f"({x}, {y})",
-        }
         metadata = edict({
-            "instance": format_prompt(G, facts, steps, query),
             "answer_type": "coord",
+            "query_a": a,
+            "query_b": None,
+            "grid": G,
             "objects": names,
             "facts": facts,
             "steps": steps,
             "initial_state": state0,
             "final_state": final,
         })
-        return Problem(metadata=metadata, answer=query["answer"])
+        return Problem(metadata=metadata, answer=f"({x}, {y})")
 
     def prompt(self, metadata):
-        return metadata["instance"]
+        G = metadata["grid"]
+        facts = metadata["facts"]
+        steps = metadata["steps"]
+        a = metadata["query_a"]
+        b = metadata.get("query_b")
+        kind = metadata["answer_type"]
+
+        facts_txt = "\n".join(f"- {fact_text(f)}" for f in facts)
+        steps_txt = "\n".join(f"{i+1}. {step_text(st)}" for i, st in enumerate(steps)) if steps else "None."
+
+        if kind == "coord":
+            question = f"What is the final coordinate of {a}? Answer as (x, y)."
+        elif kind == "distance":
+            question = f"What is the final Manhattan distance between {a} and {b}? Answer as an integer."
+        else:
+            question = (
+                f"What is the final spatial relation of {a} to {b}? "
+                f"The answer is (horizontal, vertical), where horizontal is "
+                f"left/right/aligned and vertical is above/below/aligned."
+            )
+
+        return (
+            f"Objects occupy distinct points on the integer grid [0, {G}] x [0, {G}].\n"
+            f"North is +y and East is +x. Any object not mentioned in a step stays fixed.\n\n"
+            f"Initial facts:\n{facts_txt}\n\n"
+            f"Steps:\n{steps_txt}\n\n"
+            f"{question}\n"
+        )
 
     def score_answer(self, answer, entry):
         kind = entry.metadata["answer_type"]
