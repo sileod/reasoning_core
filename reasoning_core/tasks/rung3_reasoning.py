@@ -375,6 +375,6 @@ class FloatCounterfactual(DevTask):
             f"{sys_desc}\n\n"
             f"### The Problem\n"
             f"{scenario}\n"
-            f"Calculate the counterfactual value of **{target}**."
+            f"The answer is the counterfactual value of **{target}** (a number)."
         )
 

@@ -370,7 +370,7 @@ class ConjectureEntailment(Task):
             f"Domain: {domain_name}\n\n"
             f"Premises:\n{hypotheses_text}\n\n"
             f"Conjecture: `{metadata['conjecture']}`\n\n"
-            f"Output only `True` (provable) or `False` (not provable)."
+            f"The answer is `True` (provable) or `False` (not provable)."
         )
     
     def score_answer(self, answer, entry):
@@ -556,7 +556,7 @@ class TheoremPremiseSelection(DevTask):
             f"### Question\n"
             f"Which is the smallest set of numbered premises from the pool that is sufficient to prove the theorem, without using the fundamental axioms from the context?\n\n"
             f"### Response Format\n"
-            f"Your answer must be **only** a list of numbers, sorted in increasing order. For example: `[2, 5, 8]`."
+            f"The answer is a list of numbers, sorted in increasing order. For example: `[2, 5, 8]`."
         )
 
 
@@ -715,7 +715,7 @@ class ProofReconstruction(Task):
             f"- All other clauses derive from exactly 2 parents\n"
             f"- Clauses can be reused as parents\n\n"
             f"Shuffled clauses:\n{clauses_text}\n\n"
-            f"Output derivations for derived clauses only, one per line: CHILD <- PARENT_1, PARENT_2\n"
+            f"The answer is the list of derivations for derived clauses, one per line: CHILD <- PARENT_1, PARENT_2\n"
             f"Example: 5 <- 2, 4\n"
         )
     

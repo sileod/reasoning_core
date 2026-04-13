@@ -114,7 +114,7 @@ class Arithmetics(Task):
         return Problem(metadata=meta, answer=ans_str)
     
     def prompt(self, metadata):
-        return f"Evaluate {metadata.expr}.\nAnswer with only a number."
+        return f"Evaluate {metadata.expr}.\nThe answer is a number."
 
     def score_answer(self, answer, entry):
         return score_scalar(answer, entry)
@@ -210,7 +210,7 @@ class SymbolicArithmetics(Task):
             # Clean prompt: No CoT here
             return (f"Simplify the following algebraic expression:\n"
                     f"{meta.expr}\n\n"
-                    f"Answer with the simplified expression.")
+                    f"The answer is the simplified expression.")
     def score_answer(self, answer, entry):
         try:
             clean = lambda s: str(s).split('=')[-1].strip().replace('^', '**')
