@@ -126,7 +126,7 @@ class SetIntersection(Task):
         return (
             f"Set1: {metadata['set_1']}\n"
             f"Set2: {metadata['set_2']}\n"
-            "Only return the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2, ..., elem_n}."
+            "The answer is the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2, ..., elem_n}."
         )
 
     def score_answer(self, answer, entry):
@@ -168,7 +168,7 @@ class SetMissingElement(Task):
     def prompt(self, metadata) -> str:
         return (
             f"Set_A: {metadata['element_list']}\n"
-            "Only return the missing elements from Set_A as a Python set."
+            "The answer is the missing elements from Set_A as a Python set."
         )
 
     def score_answer(self, answer, entry):
@@ -204,7 +204,7 @@ class CountElements(Task):
         return Problem(metadata={'elements': elements, 'target': target}, answer=str(count))
 
     def prompt(self, metadata) -> str:
-        return f"List: {metadata['elements']}\nHow many times does {metadata['target']!r} appear? Only return the number."
+        return f"List: {metadata['elements']}\nHow many times does {metadata['target']!r} appear? The answer is a number."
 
     def score_answer(self, answer, entry):
         try: return 1 / (1 + abs(int(answer.strip()) - int(entry['answer'])))
@@ -234,7 +234,7 @@ class SetEquality(Task):
         return (
             f"Set1: {metadata['base_subset']}\n"
             f"Set2: {metadata['subset_bis']}\n"
-            "Only return True if Set1 and Set2 contain exactly the same elements, False otherwise."
+            "The answer is True if Set1 and Set2 contain exactly the same elements, False otherwise."
         )
     
 

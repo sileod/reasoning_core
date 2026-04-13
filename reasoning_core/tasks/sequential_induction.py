@@ -284,14 +284,14 @@ class SequentialInduction(Task):
         lines += [
             f"- Previous terms must be referenced exactly as: U[n - 1] ... U[n - {d}]",
             '- You may use "n" (current index).',
-            '- Output ONLY the right-hand side (do not write "U[n] =").',
+            '- The answer is the right-hand side only (do not write "U[n] =").',
             f"- Your recurrence degree must be <= {d}.",
             "",
             f"Sequence: {metadata['first elements']}",
             f"Degree of recurrence: {d}",
             f"Initial terms: {metadata['initial terms']}",
             "",
-            "Answer must hold for all n >= d and be as simple as possible.",
+            "The answer must hold for all n >= d and be as simple as possible.",
         ]
 
         return "\n".join(lines)

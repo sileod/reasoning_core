@@ -369,7 +369,7 @@ class Parsability(Task):
             f"(GRAMMAR)\n{g}\n\n"
             f"(STRING)\n{' '.join(tokens)}\n\n"
             f"(QUESTION)\nWhat is the parsability of this string?\n"
-            f"Answer with exactly one word, unambiguous|ambiguous|unparsable"
+            f"The answer is exactly one word: unambiguous, ambiguous, or unparsable."
         )
 
 
@@ -412,7 +412,7 @@ class Parsing(Task):
         
         ex = """Given G_ex: S -> NP VP, NP -> 'd' N, N -> 'n', VP -> 'v' and "d n v", correct is (S (NP d (N n)) (VP v))."""
         return (head + 
-            "Return the fully parenthesized parse tree of STRING in Lisp style.\n"
+            "The answer is the fully parenthesized parse tree of STRING in Lisp style.\n"
             f"{ex}")
 
 
@@ -542,7 +542,7 @@ class Continuation(Task):
     def prompt(self, meta):
         pfx = ' '.join(meta.prefix) if meta.prefix else '<empty>'
         return (f"List all valid next tokens for this prefix. "
-                f"Answer sorted alphabetically separated by |, with STOP at the end if complete.\n"
+                f"The answer is the list of valid tokens sorted alphabetically and separated by |, with STOP at the end if the prefix forms a complete string.\n"
                 f"(GRAMMAR)\n{meta.g}\n(PREFIX)\n{pfx}")
 
     def score_answer(self, answer, entry):
@@ -685,7 +685,7 @@ class LocateError(Task):
         return (
             f"(GRAMMAR)\n{meta.g}\n\n"
             f"(STRING)\n{' '.join(meta.tokens)}\n\n"
-            f"Return the shortest contiguous span from STRING that ends at the first invalid token "
+            f"The answer is the shortest contiguous span from STRING that ends at the first invalid token "
             f"and occurs only once in STRING.\n"
             f"Mark the invalid token as >>token<<.\n"
             f"If the token alone is enough, answer just >>token<<.\n"
@@ -1017,7 +1017,7 @@ class ConstrainedContinuation(Task):
             f"Fill in the {nb} {bw} (___) to form a grammatical continuation "
             f"of PREFIX using exactly {meta.k} tokens.\n"
             f"Fixed tokens must remain in place. "
-            f"Return all {meta.k} tokens space-separated."
+            f"The answer is all {meta.k} tokens space-separated."
         )
 
     def score_answer(self, answer, entry):

@@ -149,7 +149,7 @@ class TableQA(Task):
         else:
             preamble = "The following tables are row-wise shards of one logical table named dataframe. Concatenate them in order to reconstruct dataframe, then execute the SQL query:"
         presentation = "\n\n".join(f"Table {i}:\n{table}" for i, table in enumerate(tables, 1))
-        return f"{preamble}\n\n{presentation}\n\nSQL: {m['query']}\n\nReturn result as {fmt}."
+        return f"{preamble}\n\n{presentation}\n\nSQL: {m['query']}\n\nThe answer is the result as {fmt}."
 
     def score_answer(self, ans, entry):
         def isnumeric(x):

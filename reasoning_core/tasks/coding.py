@@ -72,7 +72,7 @@ class CodeExecution(Task):
         return (
             f"Predict the printed output of the following Python code:\n\n"
             f"```python\n{metadata.code}\n```\n\n"
-            f"Return only the exact printed output string."
+            f"The answer is the exact printed output string."
         )
 
     def score_answer(self, answer, entry):
@@ -220,7 +220,7 @@ class DiffPrediction(VersionedTask, Task):
         return (f"Below is the version history of a file.\n\n"
                 f"{meta.history}\n"
                 f"Generate the Unified Diff to transform version {meta.src_id} into version {meta.tgt_id}.\n"
-                f"Answer with the diff chunks only (no file headers). If no changes, return nothing.")
+                f"The answer is the diff chunks only (no file headers), or empty if no changes.")
 
     def score_answer(self, answer, entry):
         meta = entry.get('metadata', {})
@@ -262,7 +262,7 @@ class DiffPatching(VersionedTask, Task):
                 f"{meta.src_text}\n\n"
                 f"Diff ({meta.src_id} -> {meta.tgt_id}):\n"
                 f"{meta.diff}\n\n"
-                f"Answer with the resulting text only.")
+                f"The answer is the resulting text.")
 
     def score_answer(self, answer, entry):
         return Levenshtein.normalized_similarity(answer.strip(), entry['answer'].strip())
