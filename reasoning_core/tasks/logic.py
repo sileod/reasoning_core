@@ -195,7 +195,7 @@ class LogicNLI(Task):
             "If the Premise entails the Hypothesis, the label is 'entailment'.\n"
             "If the Premise contradicts the Hypothesis, the label is 'contradiction'.\n"
             "If neither, the label is 'neutral'.\n"
-            "Answer with exactly one word, neutral|contradiction|entailment"
+            "The answer is exactly one word: neutral, contradiction, or entailment."
         )
 
         P=verbalize_predicates(P, seed=meta.verbalize_seed)
@@ -241,7 +241,7 @@ class EvidenceRetrieval(Task):
             f"Premise:\n{prem}\n"
             f"Hypothesis:\n{hyp}\n\n"
             f"Which statements in the premise {verb} the hypothesis?\n"
-            f"Only answer the list of supporting statements, e.g. [0, 6, 7]."
+            f"The answer is the list of supporting statements, e.g. [0, 6, 7]."
         )
         P=verbalize_predicates(P, seed=meta.verbalize_seed)
         return P

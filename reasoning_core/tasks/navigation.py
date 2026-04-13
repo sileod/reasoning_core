@@ -256,7 +256,7 @@ def pick_query(rng, solver, gv, names, final):
                         "type": "relation",
                         "text": (
                             f"What is the final spatial relation of {a} to {b}? "
-                            f"Answer as (horizontal, vertical), where horizontal is "
+                            f"The answer is (horizontal, vertical), where horizontal is "
                             f"left/right/aligned and vertical is above/below/aligned."
                         ),
                         "answer": f"({h}, {v})",

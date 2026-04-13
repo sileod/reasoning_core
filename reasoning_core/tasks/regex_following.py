@@ -187,7 +187,7 @@ class RegexFollowing(Task):
 
     def prompt(self, meta):
         n = len(meta.string)
-        return f"Return exactly a {n}-character string that fully matches the regular expression: {meta.regex}"
+        return f"The answer is a {n}-character string that fully matches the regular expression: {meta.regex}"
 
     def balancing_key(self, problem):
         return problem.metadata.regex
@@ -247,7 +247,7 @@ class RegexInduction(Task):
         pos_examples = ', '.join(f"'{s}'" for s in meta['positives'])
         neg_examples = ', '.join(f"'{s}'" for s in meta['negatives'])
         return (
-            f"Return the shortest regex that fully matches all POSITIVE strings and none of the NEGATIVE strings.\n"
+            f"The answer is the shortest regex that fully matches all POSITIVE strings and none of the NEGATIVE strings.\n"
             f"POSITIVE: {pos_examples}\n"
             f"NEGATIVE: {neg_examples}"
         )

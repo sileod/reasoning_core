@@ -133,8 +133,7 @@ class EquationSystem(Task):
         eq_block = "\n".join([f"  {eq_str}" for eq_str in metadata['equations']])
         return (f"Solve the following system of equations for the variable '{metadata['query_variable']}'.\n\n"
                 f"System:\n{eq_block}\n\n"
-                f"Return the numerical value for {metadata['query_variable']}. If a unique numerical solution does not exist, "
-                "return either 'No solution' or 'Multiple solutions'.")
+                f"The answer is the numerical value for {metadata['query_variable']}, or 'No solution' / 'Multiple solutions' if a unique numerical solution does not exist.")
 
 
     def score_answer(self, answer, entry) -> float:

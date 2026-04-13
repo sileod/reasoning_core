@@ -361,11 +361,11 @@ class LexicalKnowledge(Task):
     def prompt(self, m):
         cands = ', '.join(m.candidates)
         ctx = "Context: WordNet (relation holds for any valid noun sense)."
-        if m.answer_type == 'bool': 
-            return f"{ctx}\n\n{m.expr}\nTrue or False?"
-        if m.answer_type == 'set':  
-            return f"{ctx}\nSelect all {m.expr}\nFrom: [{cands}]\nAnswer is a JSON list."
-        return f"{ctx}\n\nSelect {m.expr}\nFrom: [{cands}]\nAnswer is one word."
+        if m.answer_type == 'bool':
+            return f"{ctx}\n\n{m.expr}\nThe answer is True or False."
+        if m.answer_type == 'set':
+            return f"{ctx}\nSelect all {m.expr}\nFrom: [{cands}]\nThe answer is a JSON list."
+        return f"{ctx}\n\nSelect {m.expr}\nFrom: [{cands}]\nThe answer is one word."
 
     def score_answer(self, answer: str, entry) -> float:
         if not answer: return 0.0
