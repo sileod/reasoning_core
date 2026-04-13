@@ -1624,11 +1624,12 @@ class CausalVE(SemanticTraceVE):
         if do is None: do = {}
         if evidence is None: evidence = {}
         
+        # 1. Clean slate
         self.trace_log = []
         self.factor_semantics = {}
         self.global_do = do 
         
-        # Log Goal
+        # 2. Log Goal
         do_str = ", ".join([f"do({k}={repr(v)})" for k, v in do.items()])
         ev_str = ", ".join([f"{k}={repr(v)}" for k, v in evidence.items()])
         query_parts = [p for p in [do_str, ev_str] if p]
@@ -1640,21 +1641,23 @@ class CausalVE(SemanticTraceVE):
             "description": f"Compute {'Causal Effect' if do else 'Observational Probability'}: {query_str}"
         })
 
-        # --- OPTIMIZATION: If no DO variables, skip surgery ---
+        # --- Observational Case ---
         if not do:
             if isinstance(elimination_order, str):
                 elimination_order = get_robust_elimination_order(self.model, variables, evidence)
 
-            result, trace = self.query_with_trace(
+            # Fix: Call base_query directly. It will populate self.trace_log naturally.
+            # No need to wipe it or extend it!
+            result = self.base_query(
                 variables=variables, 
                 evidence=evidence, 
                 elimination_order=elimination_order, 
-                joint=True
+                joint=True,
+                show_progress=show_progress # Pass this down nicely
             )
-            self.trace_log.extend(trace)
             return result
 
-        # --- Surgery (Original Stable Implementation) ---
+        # --- Causal Case (Surgery) ---
         model_prime = copy.deepcopy(self.model)
         surgery_details = []
 
@@ -1697,6 +1700,7 @@ class CausalVE(SemanticTraceVE):
 
         self.trace_log.append({"step": "SURGERY", "details": surgery_details})
 
+        # Inference on the surgically modified graph
         inference_prime = CausalVE(model_prime)
         inference_prime.global_do = self.global_do 
         
@@ -1704,6 +1708,7 @@ class CausalVE(SemanticTraceVE):
         if isinstance(elimination_order, str):
              final_order = get_robust_elimination_order(model_prime, variables, evidence)
         
+        # Here we CAN use query_with_trace because inference_prime is a separate object
         result, prime_trace = inference_prime.query_with_trace(
             variables=variables,
             evidence=evidence, 
@@ -1711,5 +1716,6 @@ class CausalVE(SemanticTraceVE):
             joint=True
         )
 
+        # Safely append the traces together
         self.trace_log.extend(prime_trace)
         return result
