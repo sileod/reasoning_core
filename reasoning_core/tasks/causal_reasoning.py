@@ -442,7 +442,7 @@ class Rung(ABC):
             f"System:\n{system_description}\n"
             f"Observed conditions:\n{metadata['scenario']}\n"
             f"Task: Compute probability distribution for {target} (possible values: {values}).\n\n"
-            f"Output: Python dict mapping each value to its probability, rounded to {n_round} decimals.\n"
+            f"The answer is a Python dict mapping each value to its probability, rounded to {n_round} decimals.\n"
             f"Example: {{0: {round(0.123456789,n_round)}, 1: {round(0.876543211,n_round)}}}"
         )
 

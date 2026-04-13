@@ -166,7 +166,7 @@ class GraphPathfinding(BaseGraphTask, Task):
     def prompt(self, m):
         return (f"Consider the graph:\n\n{m['graph_description']}\n\n"
                 f"Find the lexicographically smallest shortest path from Node {m['start_node']} to Node {m['end_node']}.\n"
-                "Answer with a Python list of nodes.")
+                "The answer is a Python list of nodes.")
 
     def score_answer(self, answer, entry):
             try: pred_path = literal_eval(answer)
@@ -221,7 +221,7 @@ class GraphNodeCentrality(BaseGraphTask, Task):
             f"Consider the following social network graph:\n\n{metadata['graph_description']}\n\n"
             "Based on the number of connections, identify all nodes that are the most central "
             "(i.e., have the highest degree centrality). There may be more than one.\n"
-            "Your answer must be a Python list of node integers, sorted in increasing order. "
+            "The answer is a Python list of node integers, sorted in increasing order. "
             "Example: `[3, 8]`."
         )
 
@@ -263,7 +263,7 @@ class GraphCycleDetection(BaseGraphTask, Task):
             f"Consider the graph below, which contains exactly one cycle.\n\n"
             f"{metadata['graph_description']}\n\n"
             "Identify all the nodes that form the cycle.\n"
-            "Your answer must be a Python list of nodes, sorted in increasing order. "
+            "The answer is a Python list of nodes, sorted in increasing order. "
             "Example: `[2, 5, 7, 8]`."
         )
 
@@ -327,7 +327,7 @@ class GraphIsomorphism(BaseGraphTask, Task):
             f"Graph B:\n{metadata['graph2_description']}\n\n"
             "Do Graph A and Graph B have the exact same structure, just with different node labels? "
             "(In other words, are they isomorphic?)\n"
-            "Answer with only `True` or `False`."
+            "The answer is `True` or `False`."
         )
 
     def score_answer(self, answer, entry):
@@ -429,7 +429,7 @@ class GraphSuccessors(BaseDirectedGraphTask, Task):
             f"Consider the directed graph:\n\n{m['graph_description']}\n\n"
             f"Queries: {m['queries']}\n"
             "Each pair (x, k) asks for the k-th successor of x.\n"
-            "Answer with a Python list of integers in query order."
+            "The answer is a Python list of integers in query order."
         )
 
     def score_answer(self, answer, entry):
@@ -507,7 +507,7 @@ class GraphDependencies(BaseDirectedGraphTask, Task):
             f"List all prerequisites of node {m['query']} (recursively), leaves first.\n"
             "Do not include the query node itself.\n"
             "If A depends on B and both appear in your answer, B must appear before A.\n"
-            "Answer with a Python list of integers."
+            "The answer is a Python list of integers."
         )
 
     def score_answer(self, answer, entry):
