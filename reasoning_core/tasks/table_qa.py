@@ -216,7 +216,7 @@ class TableConversion(Task):
         return (
             f"Convert the following table from {m['source_format']} to {m['target_format']}.\n\n"
             f"{m['source_table']}\n\n"
-            f"Output only the converted table."
+            f"The answer is the converted table."
         )
 
     def score_answer(self, answer, entry):
