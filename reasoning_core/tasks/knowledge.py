@@ -352,7 +352,7 @@ class LexicalKnowledge(Task):
             
             random.shuffle(pool)
             return Problem(
-                metadata=edict(expr=expr, answer_type=atype, candidates=pool, cot=f"{cot}\n{expr} = {answer_str}", gold_synsets=gold_sids),
+                metadata=edict(expr=expr, answer_type=atype, candidates=pool, gold_synsets=gold_sids),
                 answer=answer_str,
             )
             

@@ -495,7 +495,7 @@ def bn_round(self, n_round: int):
         cpd.round(n_round)
 
 DiscreteBayesianNetwork.round = bn_round
-
+ 
 
 @staticmethod
 def get_random_DBN(

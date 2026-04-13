@@ -310,7 +310,7 @@ class Rung12Config(Config):
         Whether to accept problem where no computationn only retriavial skills are necessary (mainly usefull for law level problems).
     is_verbose : bool
         Whether to use a more humanlike description of the system, or a less verbose one that describe the Bayesian Network by listing all the conditional probabilities.
-    """
+    """ 
     n_nodes: int = 3
     max_domain_size: int = 2
     edge_prob: float = 0.5

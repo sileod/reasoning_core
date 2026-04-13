@@ -515,14 +515,12 @@ class Planning(Task):
 
 
     def prompt(self, meta):
-        txt = meta.problem_english.strip()
-        txt += "\n\n[OUTPUT]"
-        
+        txt = meta.problem_english.strip()       
         if random.random() < self.config.hint_proba:
             txt += f"\nHint: Reference solution has {meta.na} actions (but it may not be optimal)."
         txt += (
             "\nThe answer is the plan."
-            "\nFormat: Multiple lines, one action per line: action(obj1, obj2)"
+            "\nAnswer format: Multiple lines, one action per line: action(obj1, obj2)"
         )
         return txt
 

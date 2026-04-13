@@ -39,9 +39,8 @@ def create_intension(domain : list, length : int):
 def make_domains(size, ordered=False):
     
     NUM = [int(i) for i in range(1,size+1)]
-    NUM_EN = [num2words(i,lang='en') for i in NUM]
-    NUM_FR = [num2words(i,lang='fr') for i in NUM]
-    
+    NUM_EN = [num2words(i, lang='en').replace(',', '') for i in NUM]
+    NUM_FR = [num2words(i, lang='fr').replace(',', '') for i in NUM]
     start = (datetime.date(2020, 1, 1))
     DATES = [(start + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(size)]
     DATES_EN = [(start + datetime.timedelta(days=i)).strftime('%B %d, %Y') for i in range(size)]
@@ -95,7 +94,7 @@ class SetOpsConfig(Config):
     set_size: int = 8
     n_max_perturbation: int = 2
     prob_equal: float = 0.5
-    n_domains : int = 1
+    n_domains : int = 2
     def update(self, c):
         self.set_size *= 1 + c
         self.domain_size *= 1 + c
