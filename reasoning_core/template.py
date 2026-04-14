@@ -158,6 +158,7 @@ def _load_tokenizer():
 class Task(ProceduralDataset):
     def __init_subclass__(cls):
         cls.task_name = getattr(cls, 'task_name', prepr_task_name(cls.__name__))
+        cls.category_name = getattr(cls, 'category_name', cls.__module__.split('.')[-1])
         register_dataset(cls.task_name, cls)
 
 

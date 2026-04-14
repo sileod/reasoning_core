@@ -1,7 +1,11 @@
 # Task Implementation Guide
 
 ## Goal
-Creating data providing useful cognitive primitives for pre-training and serving as useful general agents, for pre-training (next token prediction) or post-training. This data should provide high structural variety, but lexical/surface variety is not a priority, because this data should be used alongside natural data already providing surface variations.
+Craft verifiable procedural data generator targetting speficic capabilities.
+The data should be useful to learn cognitive primitives for language understanding and processing skill.
+Data is intended designed for both pre-training (next token prediction) or post-training.
+The data should provide high structural variety, but lexical/surface variety is not a priority.
+This data should be used alongside natural data already providing surface variations.
 
 Implement tasks that are:
 - concise in code, easy to audit
@@ -37,8 +41,12 @@ Important behavior:
 Design rules for `update(c)`:
 - monotonic difficulty increase,
 - no mutation of `c`,
-- keep generation solvable and diverse,
-- avoid brittle jumps (prefer gradual increments).
+- keep generation solvable and diverse
+- update should change knobs (sizes, etc), not hardcode different substacks
+
+Rough reference:
+Level 0 should be as simple as possible while ensuring diversity (for example in a task where we generate graphs for shortest path prediction, 3 nodes are not enough because the combinatorics run out quickly)
+Level 5 should be tough even for large LLMs.
 
 ## Reasoning-Core Philosophy
 1. External libraries first:
@@ -88,13 +96,15 @@ class MyTask(Task):
         return Problem(metadata=metadata, answer=answer)
 
     def prompt(self, metadata):
-        # Specify the answer format clearly, refer to it as the answer.
+        # Specify the answer format clearly, refer to it as "the answer" or "answer".
+        # Do not use answer as a verb
         # The "wording logic" should be in the prompt and not buried in the code.
         return f"Solve for x: {metadata['equation']}\n Answer is a scalar."
 
     def score_answer(self, answer, entry):
         # Answer is the answer to score (e.g. LLM prediction)
         # entry is a problem; entry.answer is the ground truth
+        # use ast.literal_eval for safety if evaluation is need
         return score_scalar(answer, entry)  # or custom semantic checker
 ```
 

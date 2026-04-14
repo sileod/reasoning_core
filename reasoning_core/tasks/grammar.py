@@ -2,6 +2,7 @@ from gramforge import init_grammar, generate_with_choices
 from gramforge import generate as gramforge_generate
 from tqdm.auto import tqdm
 from functools import cache
+from contextlib import contextmanager
 from nltk.parse.generate import generate as nltk_generate
 from nltk import CFG, ChartParser
 from nltk.parse.earleychart import EarleyChartParser
@@ -52,6 +53,9 @@ class GrammarConfig(Config):
     random_grammar_prob:float = 0.3
     tagging_prob: float = 0.5
     target_num_rules=10
+
+    n_resampled_grammars: int=200
+    prob_resampling_grammar: float=0.6
 
     def update(self, c):
         self.n_types += c
@@ -304,6 +308,31 @@ def sample_cfg(config=GrammarConfig, productive_only=False):
 
     raise ValueError("Failed to sample CFG")
 
+_grammar_pool = None
+
+def _init_pool(config):
+    global _grammar_pool
+    if _grammar_pool is not None:
+        return
+    state = random.getstate()
+    random.seed(42)
+    pool = []
+    for _ in range(config.n_resampled_grammars):
+        try:
+            pool.append(sample_cfg(config, productive_only=True))
+        except ValueError:
+            pass
+    random.setstate(state)
+    _grammar_pool = pool
+
+@contextmanager
+def resampled_grammar(config, **kw):
+    _init_pool(config)
+    if _grammar_pool and random.random() < config.prob_resampling_grammar:
+        yield random.choice(_grammar_pool)
+    else:
+        yield sample_cfg(config, **kw)
+
 def perturb(tokens, config=GrammarConfig):
     return random.choice([
         lambda t: random.sample(t, len(t)),
@@ -330,27 +359,27 @@ def make_cot(g, tokens):
 def generate_parse(config=GrammarConfig):
     meta = edict()
     while True:
-        g = sample_cfg(config)
-        g_u = nltk_to_gramforge(g)
-        
-        try:
-            tokens = (gramforge_generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth, mode=config.gramforge_algorithm) @ "lang").split()
-        except ValueError: continue
+        with resampled_grammar(config) as g:
+            g_u = nltk_to_gramforge(g)
+            
+            try:
+                tokens = (gramforge_generate(g_u, depth=config.max_prod_depth, min_depth=config.min_prod_depth, mode=config.gramforge_algorithm) @ "lang").split()
+            except ValueError: continue
 
-        if random.random() < config.perturbation_rate:
-            tokens = perturb(tokens, config)
+            if random.random() < config.perturbation_rate:
+                tokens = perturb(tokens, config)
 
-        try:
-            meta.cot, meta.parses = make_cot(g, tokens)
-        except (RecursionError, ValueError):
-            continue
+            try:
+                meta.cot, meta.parses = make_cot(g, tokens)
+            except (RecursionError, ValueError):
+                continue
 
-        meta.label = ("unparsable" if not meta.parses else 
-                     "ambiguous"   if len(meta.parses) > 1 else 
-                     "unambiguous")
-        meta.tokens = tokens
-        meta.g = "\n".join(str(p) for p in g.productions())
-        return meta
+            meta.label = ("unparsable" if not meta.parses else 
+                         "ambiguous"   if len(meta.parses) > 1 else 
+                         "unambiguous")
+            meta.tokens = tokens
+            meta.g = "\n".join(str(p) for p in g.productions())
+            return meta
 
 
 class Parsability(Task):
@@ -498,45 +527,44 @@ class Continuation(Task):
         
     def generate(self):
         for _ in range(100):
-            g = sample_cfg(self.config, productive_only=True)
-            
-            try:
-                sentences = list(islice(nltk_generate(g, depth=self.config.max_depth), 50))
-                if not sentences:
+            with resampled_grammar(self.config, productive_only=True) as g:
+                try:
+                    sentences = list(islice(nltk_generate(g, depth=self.config.max_depth), 50))
+                    if not sentences:
+                        continue
+                    sentence = random.choice(sentences)
+                except (RecursionError, ValueError):
                     continue
-                sentence = random.choice(sentences)
-            except (RecursionError, ValueError):
-                continue
-            
-            if len(sentence) < 2:
-                continue
-            
-            max_prefix = min(len(sentence) - 1, 5)
-            min_prefix = min(2, max_prefix)
-            if min_prefix > max_prefix:
-                continue
-            prefix_len = random.randint(min_prefix, max_prefix)
-            prefix = list(sentence[:prefix_len])
-            
-            try:
-                tokens, can_stop, justifications = get_valid_next_tokens(g, prefix)
-            except Exception:
-                continue
-            
-            if not tokens and not can_stop:
-                continue
-            
-            answer = '|'.join(sorted(tokens))
-            if can_stop:
-                answer = (answer + '|STOP') if answer else 'STOP'
-            
-            cot = _build_cot(tokens, can_stop, justifications)
-            
-            return Problem(
-                edict(g="\n".join(str(p) for p in g.productions()), 
-                      prefix=prefix, depth=len(prefix), cot=cot),
-                answer
-            )
+                
+                if len(sentence) < 2:
+                    continue
+                
+                max_prefix = min(len(sentence) - 1, 5)
+                min_prefix = min(2, max_prefix)
+                if min_prefix > max_prefix:
+                    continue
+                prefix_len = random.randint(min_prefix, max_prefix)
+                prefix = list(sentence[:prefix_len])
+                
+                try:
+                    tokens, can_stop, justifications = get_valid_next_tokens(g, prefix)
+                except Exception:
+                    continue
+                
+                if not tokens and not can_stop:
+                    continue
+                
+                answer = '|'.join(sorted(tokens))
+                if can_stop:
+                    answer = (answer + '|STOP') if answer else 'STOP'
+                
+                cot = _build_cot(tokens, can_stop, justifications)
+                
+                return Problem(
+                    edict(g="\n".join(str(p) for p in g.productions()), 
+                          prefix=prefix, depth=len(prefix), cot=cot),
+                    answer
+                )
         raise ValueError("Failed to generate continuation after 100 attempts")
     
     def prompt(self, meta):
@@ -642,43 +670,43 @@ class LocateError(Task):
 
     def generate(self):
         for _ in range(100):
-            g = sample_cfg(self.config, productive_only=True)
-            if len(grammar_terminals(g)) < 2:
-                continue
-            try:
-                toks = (gramforge_generate(
-                    nltk_to_gramforge(g),
-                    depth=self.config.max_prod_depth,
-                    min_depth=self.config.min_prod_depth,
-                    mode=self.config.gramforge_algorithm
-                ) @ "lang").split()
-            except ValueError:
-                continue
-            if len(toks) < 3:
-                continue
-
-            roll = random.random()
-            if roll < 0.15:
-                ans, idx, cot = first_error_marked(g, toks)
-                if ans != 'OK':
+            with resampled_grammar(self.config, productive_only=True) as g:
+                if len(grammar_terminals(g)) < 2:
                     continue
-                out = toks
-            elif roll < 0.30:
-                out = toks[:random.randint(1, len(toks) - 1)]
-                ans, idx, cot = first_error_marked(g, out)
-                if ans != 'INCOMPLETE':
-                    continue
-            else:
                 try:
-                    out, ans, idx, cot = corrupt_once(g, toks)
+                    toks = (gramforge_generate(
+                        nltk_to_gramforge(g),
+                        depth=self.config.max_prod_depth,
+                        min_depth=self.config.min_prod_depth,
+                        mode=self.config.gramforge_algorithm
+                    ) @ "lang").split()
                 except ValueError:
                     continue
+                if len(toks) < 3:
+                    continue
 
-            return Problem(
-                edict(g="\n".join(str(p) for p in g.productions()),
-                      tokens=out, error_index=idx, cot=cot),
-                ans
-            )
+                roll = random.random()
+                if roll < 0.15:
+                    ans, idx, cot = first_error_marked(g, toks)
+                    if ans != 'OK':
+                        continue
+                    out = toks
+                elif roll < 0.30:
+                    out = toks[:random.randint(1, len(toks) - 1)]
+                    ans, idx, cot = first_error_marked(g, out)
+                    if ans != 'INCOMPLETE':
+                        continue
+                else:
+                    try:
+                        out, ans, idx, cot = corrupt_once(g, toks)
+                    except ValueError:
+                        continue
+
+                return Problem(
+                    edict(g="\n".join(str(p) for p in g.productions()),
+                          tokens=out, error_index=idx, cot=cot),
+                    ans
+                )
         raise ValueError("Failed to generate locate-error task")
 
     def prompt(self, meta):
@@ -935,72 +963,72 @@ class ConstrainedContinuation(Task):
 
     def generate(self):
         for _ in range(200):
-            g = sample_cfg(self.config, productive_only=True)
-            try:
-                sentences = [
-                    list(s)
-                    for s in islice(
-                        nltk_generate(g, depth=self.config.max_depth), 80
-                    )
-                    if len(s) >= self.min_k + 1
-                ]
-            except (RecursionError, ValueError):
-                continue
-            if not sentences:
-                continue
-
-            sent = random.choice(sentences)
-            max_plen = min(5, len(sent) - self.min_k)
-            if max_plen < 1:
-                continue
-
-            for plen in random.sample(range(1, max_plen + 1), max_plen):
-                prefix = sent[:plen]
-                ks = list(range(
-                    self.min_k,
-                    min(self.max_k, len(sent) - plen) + 1,
-                ))
-                random.shuffle(ks)
-
-                for k in ks:
-                    cands = exact_completions(g, prefix, k)
-                    if not (2 <= len(cands) <= self.max_options):
-                        continue
-
-                    result = find_blanked_target(
-                        cands, self.min_blanks, self.max_blanks
-                    )
-                    if result is None:
-                        continue
-
-                    target, hints = result
-                    blanks = sorted(set(range(k)) - set(hints.keys()))
-
-                    # Safety: verify uniqueness among exact candidates
-                    alive = [
-                        c for c in cands
-                        if all(c[i] == hints[i] for i in hints)
+            with resampled_grammar(self.config, productive_only=True) as g:
+                try:
+                    sentences = [
+                        list(s)
+                        for s in islice(
+                            nltk_generate(g, depth=self.config.max_depth), 80
+                        )
+                        if len(s) >= self.min_k + 1
                     ]
-                    if len(alive) != 1 or alive[0] != target:
-                        continue
+                except (RecursionError, ValueError):
+                    continue
+                if not sentences:
+                    continue
 
-                    return Problem(
-                        edict(
-                            g="\n".join(str(p) for p in g.productions()),
-                            k=k,
-                            prefix=prefix,
-                            hints={str(i): tok for i, tok in hints.items()},
-                            template=_format_template(k, hints),
-                            blanks=blanks,
-                            n_blanks=len(blanks),
-                            n_hints=len(hints),
-                            n_options=len(cands),
-                            cot=_blanked_cot(
-                                prefix, cands, target, hints, k
+                sent = random.choice(sentences)
+                max_plen = min(5, len(sent) - self.min_k)
+                if max_plen < 1:
+                    continue
+
+                for plen in random.sample(range(1, max_plen + 1), max_plen):
+                    prefix = sent[:plen]
+                    ks = list(range(
+                        self.min_k,
+                        min(self.max_k, len(sent) - plen) + 1,
+                    ))
+                    random.shuffle(ks)
+
+                    for k in ks:
+                        cands = exact_completions(g, prefix, k)
+                        if not (2 <= len(cands) <= self.max_options):
+                            continue
+
+                        result = find_blanked_target(
+                            cands, self.min_blanks, self.max_blanks
+                        )
+                        if result is None:
+                            continue
+
+                        target, hints = result
+                        blanks = sorted(set(range(k)) - set(hints.keys()))
+
+                        # Safety: verify uniqueness among exact candidates
+                        alive = [
+                            c for c in cands
+                            if all(c[i] == hints[i] for i in hints)
+                        ]
+                        if len(alive) != 1 or alive[0] != target:
+                            continue
+
+                        return Problem(
+                            edict(
+                                g="\n".join(str(p) for p in g.productions()),
+                                k=k,
+                                prefix=prefix,
+                                hints={str(i): tok for i, tok in hints.items()},
+                                template=_format_template(k, hints),
+                                blanks=blanks,
+                                n_blanks=len(blanks),
+                                n_hints=len(hints),
+                                n_options=len(cands),
+                                cot=_blanked_cot(
+                                    prefix, cands, target, hints, k
+                                ),
                             ),
-                        ),
-                        " ".join(target),
-                    )
+                            " ".join(target),
+                        )
 
         raise ValueError(
             "Failed to generate constrained continuation after 200 attempts"

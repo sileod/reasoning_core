@@ -252,3 +252,169 @@ class RegexInduction(Task):
             f"NEGATIVE: {neg_examples}"
         )
 
+
+
+
+from greenery import parse as gparse
+
+ALPHA = "abcdefgh"
+
+
+
+def _sample_pair(G, depth, min_depth, mode, max_tries=40):
+    """Sample two non-equivalent regexes."""
+    r1, f1 = _sample_regex(G, depth, min_depth, mode)
+    if f1 is None:
+        return None
+    for _ in range(max_tries):
+        r2, f2 = _sample_regex(G, depth, min_depth, mode)
+        if f2 is not None and not f1.equivalent(f2):
+            return r1, f1, r2, f2
+    return None
+
+
+def _shortest_witness(fsm):
+    """Shortest string in fsm, or None if empty."""
+    for s in fsm.strings(otherchars=[]):
+        return s
+    return None
+
+
+@dataclass
+class RegexReasoningConfig(Config):
+    max_depth: int = 4
+    min_depth: int = 2
+    n_alpha: int = 3
+    gramforge_algorithm: str = "sequential"
+
+    def update(self, c):
+        self.max_depth += c
+        self.min_depth += c
+        self.n_alpha += 0.5 * c
+
+
+
+def _regex_grammar(alpha, words):
+    R = init_grammar(["re"], preprocess_template=lambda x: x)
+    R("start(regex)", "{0}")
+    R("regex(regex,regex)", "{0}{1}", weight=2)
+    R("regex(regex)", "({0})", weight=2)
+    R("regex(regex,regex)", "{0}|{1}", weight=1)
+    R("regex(char)", "{0}", weight=1)
+    R("regex(word)", "{0}", weight=1)
+    R("regex(regex)?", "{0}?")
+    R("regex(regex)*", "{0}*")
+    R("regex(regex)+", "{0}+")
+    for w in words:
+        R("word", w)
+    for c in alpha:
+        R("char", c)
+    return R
+
+
+
+def _sample_regex(G, depth, min_depth, mode="sequential", max_tries=60):
+    for _ in range(max_tries):
+        x = generate(G.start(), depth=depth, min_depth=min_depth, mode=mode)
+        if len(x.leaves) <= 1:
+            continue
+        r = x @ "re"
+        try:
+            f = gparse(r).to_fsm()
+            if not f.empty():
+                return r, f
+        except Exception:
+            continue
+    return None, None
+
+class RegexReasoning(Task):
+    def __init__(self, config=RegexReasoningConfig()):
+        super().__init__(config=config)
+
+    def generate(self):
+        cfg = self.config
+        alpha = ALPHA[: max(2, cfg.n_alpha)]
+        words = [a + b for a in alpha for b in alpha][:6]
+        G = _regex_grammar(alpha, random.sample(words, min(len(words), 4)))
+
+        pair = _sample_pair(G, cfg.max_depth, cfg.min_depth, cfg.gramforge_algorithm)
+        if pair is None:
+            return None
+        r1, f1, r2, f2 = pair
+
+        qtype = random.choice(["equivalence", "containment", "distinguishing"])
+
+        if qtype == "equivalence":
+            # ~40% "Yes" (reuse same regex string), ~60% "No" (use the pair)
+            if random.random() < 0.4:
+                meta = edict(qtype="equivalence", regex_a=r1, regex_b=r1)
+                return Problem(meta, "Yes")
+            meta = edict(qtype="equivalence", regex_a=r1, regex_b=r2)
+            return Problem(meta, "No")
+
+        if qtype == "containment":
+            # Force ~50% Yes by building a superset via union
+            if random.random() < 0.5:
+                sup = gparse(f"({r1})|({r2})")
+                r_sup = str(sup)
+                # A=r1 ⊆ B=r1|r2 is always true
+                meta = edict(qtype="containment", regex_a=r1, regex_b=r_sup)
+                return Problem(meta, "Yes")
+            else:
+                is_sub = f1.issubset(f2)
+                if random.random() < 0.5:
+                    meta = edict(qtype="containment", regex_a=r1, regex_b=r2)
+                    return Problem(meta, "Yes" if is_sub else "No")
+                else:
+                    meta = edict(qtype="containment", regex_a=r2, regex_b=r1)
+                    return Problem(meta, "Yes" if f2.issubset(f1) else "No")
+
+        # distinguishing
+        sd = f1.symmetric_difference(f2)
+        witness = _shortest_witness(sd)
+        if witness is None:
+            return None
+        meta = edict(qtype="distinguishing", regex_a=r1, regex_b=r2)
+        return Problem(meta, witness)
+
+    def prompt(self, metadata):
+        a, b = metadata["regex_a"], metadata["regex_b"]
+        qt = metadata["qtype"]
+        if qt == "equivalence":
+            return (
+                f"Consider the regular expressions A = {a} and B = {b}\n"
+                f"Do A and B accept exactly the same set of strings?\n"
+                f"The answer is Yes or No."
+            )
+        elif qt == "containment":
+            return (
+                f"Consider the regular expressions A = {a} and B = {b}\n"
+                f"Is every string accepted by A also accepted by B?\n"
+                f"The answer is Yes or No."
+            )
+        else:
+            return (
+                f"Consider the regular expressions A = {a} and B = {b}\n"
+                f"Find the shortest string that is accepted by exactly one of A or B (but not both).\n"
+                f"The answer is the shortest such string."
+            )
+
+    def score_answer(self, answer, entry):
+        qt = entry.metadata["qtype"]
+        answer = str(answer).strip()
+        if qt in ("equivalence", "containment"):
+            norm = answer.lower().strip().rstrip(".")
+            return float(norm == entry.answer.lower()) if norm in ("yes", "no") else 0.0
+        # distinguishing: verify witness semantically
+        try:
+            fa = gparse(entry.metadata["regex_a"]).to_fsm()
+            fb = gparse(entry.metadata["regex_b"]).to_fsm()
+        except Exception:
+            return 0.0
+        if fa.accepts(answer) == fb.accepts(answer):
+            return 0.0
+        expected_len = len(entry.answer)
+        return 1.0 / (1.0 + max(0, len(answer) - expected_len))
+
+    def balancing_key(self, problem):
+        return f"{problem.metadata.qtype}_{problem.answer}"

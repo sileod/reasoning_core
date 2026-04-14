@@ -45,6 +45,8 @@ dependencies = [
     "nltk",
     "wordfreq",
     "pgmpy",
+    "unification",
+    "toolz",
     "numpy",
     "sympy",
     "pyparsing",

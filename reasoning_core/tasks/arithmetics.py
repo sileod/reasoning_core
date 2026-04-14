@@ -48,7 +48,7 @@ class ArithmeticsConfig(Config):
     out_digits: int = 6
     n_trials: int = 50_000
     trailing_zero_prob: float = 0.2
-    trivial_prob = 0.1
+    trivial_prob = 0.01
 
     def update(self, c):
         self.min_depth += c
