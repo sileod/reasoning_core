@@ -5,9 +5,9 @@ Creating data providing useful cognitive primitives for pre-training and serving
 
 Implement tasks that are:
 - concise in code, easy to audit
-- solver-backed (use strong external libraries instead of re-implementing),
+- preferaby solver-backed (use strong external libraries instead of re-implementing),
 - distributionally broad (high structural variety),
-- robustly scorable (`score_answer(generate().answer) == 1`).
+- verifiable, formal and robustly scorable (`score_answer(generate().answer) == 1`).
 
 ## Core Contract (from `reasoning_core/template.py`)
 Every task should provide:
