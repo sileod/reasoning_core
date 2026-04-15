@@ -92,8 +92,6 @@ from easydict import EasyDict as edict
 from faker import Faker
 from rapidfuzz.distance import Levenshtein
 import whatthepatch
-
-# Assumed external dependencies (Reasoning Core)
 from reasoning_core.template import Task, Problem, Config, edict
 
 fake = Faker()

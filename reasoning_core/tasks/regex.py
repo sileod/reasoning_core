@@ -402,6 +402,8 @@ class RegexReasoning(Task):
     def score_answer(self, answer, entry):
         qt = entry.metadata["qtype"]
         answer = str(answer).strip()
+        if answer.lower() in ("ε", "\\epsilon", "ε (the empty string)", '""', "''"):
+            answer = ""
         if qt in ("equivalence", "containment"):
             norm = answer.lower().strip().rstrip(".")
             return float(norm == entry.answer.lower()) if norm in ("yes", "no") else 0.0
