@@ -184,7 +184,7 @@ class Task(ProceduralDataset):
         """To override, turns a problem metadata into a prompt"""
         return ""
 
-    def default_score_answer(self, answer, entry):
+    def score_answer(self, answer, entry):
         """To override in most cases; entry has entry.metadata and entry.answer fields"""
         reference = entry['answer']
         prepr = lambda x: str(x).strip()
