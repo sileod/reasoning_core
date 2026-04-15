@@ -312,15 +312,17 @@ def sample_cfg(config=GrammarConfig, productive_only=False):
 def resampled_grammar(config, **kw):
     if not hasattr(resampled_grammar, '_pool'):
         state = random.getstate()
-        random.seed(42)
         pool = []
-        for _ in range(config.n_resampled_grammars):
-            try:
-                pool.append(sample_cfg(config, productive_only=True))
-            except ValueError:
-                pass
-        random.setstate(state)
-        resampled_grammar._pool = pool
+        try:
+            random.seed(42)
+            for _ in range(config.n_resampled_grammars):
+                try:
+                    pool.append(sample_cfg(config, productive_only=True))
+                except ValueError:
+                    pass
+        finally:
+            random.setstate(state)
+            resampled_grammar._pool = pool
     if resampled_grammar._pool and random.random() < config.prob_resampling_grammar:
         yield random.choice(resampled_grammar._pool)
     else:
