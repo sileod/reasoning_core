@@ -242,10 +242,10 @@ DOMAIN_MAP = {
 }
 
 def get_random_tptp_axioms(
-    axiom_archive=AXIOM_ARCHIVE_PATH, 
-    prefixes=None, 
+    axiom_archive=AXIOM_ARCHIVE_PATH,
+    prefixes=None,
     cache_dir=dirs.user_cache_dir ):
-    
+
     try:
         with gzip.open(axiom_archive, 'rt', encoding='utf-8') as f:
             data = json.load(f)
@@ -302,7 +302,7 @@ class ConjectureEntailment(Task):
         from reasoning_core.utils.udocker_process import initialize_prover_session
         initialize_prover_session()
 
-    def _initialize_graph(self):    
+    def _initialize_graph(self):
         for _ in range(100):
             axiom_file_path, axiom_file_name = get_random_tptp_axioms(prefixes=self.config.domains)
 
@@ -337,14 +337,17 @@ class ConjectureEntailment(Task):
             useful_axioms_formula = [self.graph.nodes[node]['data'].full_cnf_clause for node in useful_axioms]
             if random.random() < self.config.positive_problem_ratio:
                 hypotheses = correct_hypotheses
-                if prove_conjecture(hypotheses, theorem) is not True:
+                try:
+                    if prove_conjecture(hypotheses, theorem, time_limit_seconds="15") is not True:
+                        continue
+                except TimeoutError:
                     continue
-                answer = True 
+                answer = True
             else:
                 distraction_pool = list(set(self.all_formulas) - {theorem})
                 hypotheses = perturb_list(correct_hypotheses, distraction_pool ,self.config.perturbation)
                 try:
-                    answer = prove_conjecture(hypotheses, theorem)
+                    answer = prove_conjecture(hypotheses, theorem, time_limit_seconds="15")
                 except TimeoutError:
                     continue
 
@@ -440,7 +443,7 @@ class TheoremPremiseSelection(DevTask):
             else:
                 continue 
 
-            is_provable = prove_conjecture(list(temp_set), conjecture)
+            is_provable = prove_conjecture(list(temp_set), conjecture, time_limit_seconds="15")
             
             if is_provable is True:
                 essential_hypotheses.remove(h)
@@ -466,12 +469,12 @@ class TheoremPremiseSelection(DevTask):
             
             try:
                 # Verify superset (optimization)
-                if prove_conjecture(superset, theorem) is not True: continue
-                
+                if prove_conjecture(superset, theorem, time_limit_seconds="15") is not True: continue
+
                 minimal = self.find_minimal_hypotheses(superset, theorem)
-                
+
                 # Verify minimal (safety)
-                if not minimal or prove_conjecture(minimal, theorem) is not True: continue
+                if not minimal or prove_conjecture(minimal, theorem, time_limit_seconds="15") is not True: continue
             except TimeoutException:
                 raise TimeoutException
             except Exception:

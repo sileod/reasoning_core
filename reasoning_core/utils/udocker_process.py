@@ -245,7 +245,8 @@ class Embeded_process:
 
         except Exception as e:
             self.kill()
-            if "timeout" in str(e).lower(): raise TimeoutError
+            if isinstance(e, subprocess.TimeoutExpired) or "timeout" in str(e).lower():
+                raise TimeoutError
             raise e
         finally:
             if os.path.exists(host_f): os.remove(host_f)
