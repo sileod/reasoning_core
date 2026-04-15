@@ -241,21 +241,16 @@ DOMAIN_MAP = {
     'TOP': 'Topology'
 }
 
-_AXIOM_CACHE = None
-
 def get_random_tptp_axioms(
     axiom_archive=AXIOM_ARCHIVE_PATH,
     prefixes=None,
     cache_dir=dirs.user_cache_dir ):
 
-    global _AXIOM_CACHE
-    if _AXIOM_CACHE is None:
-        try:
-            with gzip.open(axiom_archive, 'rt', encoding='utf-8') as f:
-                _AXIOM_CACHE = json.load(f)
-        except (FileNotFoundError, EOFError):
-            return None, None
-    data = _AXIOM_CACHE
+    try:
+        with gzip.open(axiom_archive, 'rt', encoding='utf-8') as f:
+            data = json.load(f)
+    except (FileNotFoundError, EOFError):
+        return None, None
 
     keys = list(data.keys())
     if prefixes:
