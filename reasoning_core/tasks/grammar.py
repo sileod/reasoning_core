@@ -308,28 +308,21 @@ def sample_cfg(config=GrammarConfig, productive_only=False):
 
     raise ValueError("Failed to sample CFG")
 
-_grammar_pool = None
-
-def _init_pool(config):
-    global _grammar_pool
-    if _grammar_pool is not None:
-        return
-    state = random.getstate()
-    random.seed(42)
-    pool = []
-    for _ in range(config.n_resampled_grammars):
-        try:
-            pool.append(sample_cfg(config, productive_only=True))
-        except ValueError:
-            pass
-    random.setstate(state)
-    _grammar_pool = pool
-
 @contextmanager
 def resampled_grammar(config, **kw):
-    _init_pool(config)
-    if _grammar_pool and random.random() < config.prob_resampling_grammar:
-        yield random.choice(_grammar_pool)
+    if not hasattr(resampled_grammar, '_pool'):
+        state = random.getstate()
+        random.seed(42)
+        pool = []
+        for _ in range(config.n_resampled_grammars):
+            try:
+                pool.append(sample_cfg(config, productive_only=True))
+            except ValueError:
+                pass
+        random.setstate(state)
+        resampled_grammar._pool = pool
+    if resampled_grammar._pool and random.random() < config.prob_resampling_grammar:
+        yield random.choice(resampled_grammar._pool)
     else:
         yield sample_cfg(config, **kw)
 

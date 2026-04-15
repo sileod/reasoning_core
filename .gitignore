@@ -75,3 +75,4 @@ ROADMAP.md
 
 # Claude Code artifacts
 .claude/
+.test/

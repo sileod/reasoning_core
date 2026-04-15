@@ -18,14 +18,10 @@ _GRAPH_GENERATORS = [
     (nx.barabasi_albert_graph, {'m': (1, 3)}),
     (nx.random_regular_graph, {'d': (2, 4)}), # Every node has d neighbors
 
-    # ADDITIONS
-    (nx.cycle_graph, {}),          # Pure ring, uniform degree
-    (nx.wheel_graph, {}),          # Cycle + 1 central hub
-    (nx.complete_graph, {}),       # All paths length 1 (tests baseline logic)
-    (nx.random_tree, {}),          # Guaranteed single unique path between nodes
-    (lambda n: nx.star_graph(n - 1), {}), # 1 center, n-1 leaves (perfect for Centrality)
-    (lambda n: nx.complete_bipartite_graph(n // 2, n - (n // 2)), {}), # 2-hop clusters
-    (lambda n: nx.lollipop_graph(max(2, n // 2), n - max(2, n // 2)), {}), # Clique attached to a path
+    # NB: we avoid graphs generating too much repetitions
+    (nx.random_labeled_tree, {}),
+    (nx.powerlaw_cluster_graph, {'m': (1, 3), 'p': (0.1, 0.5)}),
+    (nx.random_geometric_graph, {'radius': (0.3, 0.7)}),
 ]
 
 # Keep grid generation for higher levels only to avoid tuple-node complexity at level 0.

@@ -19,6 +19,7 @@ def _grammar(symbolic=False):
     g('expr(expr)',       '({0})',              weight=1)
     g('expr(expr,expr)',  '{0} + {1}',          weight=2)
     g('expr(expr,expr)',  '{0} - {1}',          weight=1)
+    g('expr(expr,expr)',  '{0} % {1}',          weight=1)
     g('expr(expr,expr)',  '{0} * {1}')
     g('expr(expr,expr)',  'max({0}, {1})',      weight=0.3)
     g('expr(expr,expr)',  'min({0}, {1})',      weight=0.3)
@@ -150,71 +151,73 @@ class Arithmetics(Task):
         return "\n".join(steps)
 
 
-@dataclass
-class SymbolicConfig(ArithmeticsConfig):
-    variables: tuple = ('x', 'y') # Start with just 2
-    max_int: int = 9              # Start with single digits
 
-def update(self, c):
-        super().update(c) 
-        
-        self.max_int += int(10 * c)
-        pool = "xyzabmnpqrstuvwdefghijkl"
-        target_len = int(len(self.variables) + c)
-        self.variables = tuple(pool[:min(len(pool), target_len)])
+_SYM_TRANSFORMS = standard_transformations + (implicit_multiplication_application,)
+
+@dataclass
+class SymbolicConfig(Config):
+    min_depth: int = 3
+    max_depth: int = 5
+    max_coeff: int = 9
+    variables: tuple = ('x', 'y')
+
+    def update(self, c):
+        self.min_depth += c
+        self.max_depth += c
+        self.max_coeff += 3 * c
+
 
 class SymbolicArithmetics(Task):
+    """Algebraic simplification via grammar-generated expressions."""
+
     def __init__(self, config=SymbolicConfig()):
         super().__init__(config=config)
 
     def generate(self):
-        # 1. Generate & Fill
+        cfg = self.config
         g_sym = _grammar(symbolic=True)
-        x = gramforge.generate(g_sym, depth=self.config.max_depth, min_depth=self.config.min_depth)
-        
-        filler = lambda m: random.choice(self.config.variables) if m.group()=='VAR' else str(random.randint(1,9))
-        final_expr = re.sub(r'\b(VAR|NUM)\b', filler, x @ 'py')
-        
-        # 2. Solve & Validate
-        trivial_allowed = random.random() < self.config.trivial_prob
+        tree = gramforge.generate(g_sym, depth=cfg.max_depth, min_depth=cfg.min_depth)
+
+        filler = lambda m: (random.choice(cfg.variables) if m.group() == 'VAR'
+                            else str(random.randint(1, cfg.max_coeff)))
+        expr_str = re.sub(r'\b(VAR|NUM)\b', filler, tree @ 'py')
 
         try:
-            raw = parse_expr(final_expr, evaluate=False)
-            simplified = sympy.simplify(raw)
-            # Retry if trivial (no change or just a number)
-            is_trivial = (raw == simplified) or (simplified.is_number and not raw.is_number)
-            if is_trivial and not trivial_allowed: return self.generate()
-        except: return self.generate()
+            parsed = parse_expr(expr_str, transformations=_SYM_TRANSFORMS)
+            ans = sympy.expand(parsed)
+            s = sympy.simplify(ans)
+            if len(str(s)) < len(str(ans)):
+                ans = s
+        except Exception:
+            return None
 
-        meta = edict(expr=final_expr, cot=self.make_cot(raw))
-        return Problem(metadata=meta, answer=str(simplified).lower())
+        ans_str = str(ans)
+        if expr_str.replace(' ', '') == ans_str.replace(' ', ''):
+            return None
+        # Reject pure numeric or cosmetic changes (paren removal, reordering)
+        if not ans.free_symbols or len(expr_str) <= len(ans_str) + 3:
+            return None
 
+        # CoT: original → (expanded if distinct) → answer
+        cot = [expr_str]
+        exp_s = str(sympy.expand(parsed))
+        if exp_s.replace(' ', '') not in (expr_str.replace(' ', ''), ans_str.replace(' ', '')):
+            cot.append(exp_s)
+        cot.append(ans_str)
 
-    def make_cot(self, node):
-        steps = []
-        def visit(n):
-            if n.is_Atom: return n
-            # Bottom-up reconstruction
-            new_n = n.func(*[visit(arg) for arg in n.args], evaluate=False)
-            # Check for simplification opportunities
-            simp = sympy.expand(new_n)
-            if simp == new_n: simp = sympy.simplify(new_n)
-            s_old, s_new = str(new_n), str(simp)
-            if s_old != s_new: steps.append(f"{new_n} = {simp}")
-            return simp
-        
-        visit(node)
-        return "\n".join(steps).lower()
+        meta = edict(expr=expr_str, height=tree.height, cot="\n= ".join(cot))
+        return Problem(metadata=meta, answer=ans_str)
 
     def prompt(self, meta):
-            # Clean prompt: No CoT here
-            return (f"Simplify the following algebraic expression:\n"
-                    f"{meta.expr}\n\n"
-                    f"The answer is the simplified expression.")
+        return (f"Simplify the following algebraic expression:\n"
+                f"{meta.expr}\n\n"
+                f"The answer is the simplified expression.")
+
     def score_answer(self, answer, entry):
         try:
-            clean = lambda s: str(s).split('=')[-1].strip().replace('^', '**')
-            T = (standard_transformations + (implicit_multiplication_application,))
-            diff = parse_expr(clean(answer), transformations=T) - parse_expr(clean(entry['answer']), transformations=T)
-            return 1.0 if sympy.simplify(diff) == 0 else 0.0
-        except: return 0.0
+            clean = str(answer).split('=')[-1].strip().replace('^', '**')
+            got = parse_expr(clean, transformations=_SYM_TRANSFORMS)
+            want = parse_expr(entry['answer'], transformations=_SYM_TRANSFORMS)
+            return 1.0 if sympy.simplify(got - want) == 0 else 0.0
+        except Exception:
+            return 0.0

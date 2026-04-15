@@ -8,13 +8,13 @@
 
 **Prompt:**
 ```
-Evaluate ((-5)).
+Evaluate 10 / 4.
 The answer is a number.
 ```
 
 **Answer:**
 ```
--5
+2.5
 ```
 
 ---
@@ -24,14 +24,14 @@ The answer is a number.
 **Prompt:**
 ```
 Simplify the following algebraic expression:
-x - 4 * y + min(2, y)
+x + y - 9 + 6
 
 The answer is the simplified expression.
 ```
 
 **Answer:**
 ```
-x - 4*y + min(2, y)
+x + y - 3
 ```
 
 ---
@@ -43,15 +43,14 @@ x - 4*y + min(2, y)
 Solve the following system of equations for the variable 'X2'.
 
 System:
-  X1 - 17 = 0
-  X1 - 17 = 0
+  X2 + 14 = 0
 
 The answer is the numerical value for X2, or 'No solution' / 'Multiple solutions' if a unique numerical solution does not exist.
 ```
 
 **Answer:**
 ```
-Multiple solutions
+-14
 ```
 
 ---
@@ -62,13 +61,12 @@ Multiple solutions
 ``
 Decide if the given premises entail the conjecture (i.e., the conjecture is provable) using Superposition/Resolution/Paramodulation.
 
-Domain: Group Theory
+Domain: Set Theory
 
 Premises:
-- (product(identity,X1,identity)|~product(X2,inverse(X2),inverse(X1)))
-- (inverse(inverse(X1))=X1)
+- (subset(X1,X2)|~subset(X3,X2)|~member(member_of_1_not_of_2(X1,X2),X3))
 
-Conjecture: `(multiply(multiply(X1,X2),inverse(X2))=X1)`
+Conjecture: `(subset(X1,X2)|~subset(X3,X2)|~subset(X1,X3))`
 
 The answer is `True` (provable) or `False` (not provable).
 ``
@@ -85,8 +83,8 @@ False
 **Prompt:**
 ```
 Reconstruct the proof dependency graph.
-Domain: Set Theory
-Theorem: (~subset(X1,empty_set)|~member(X2,apply(X1,X3)))
+Domain: Analysis
+Theorem: (less_or_equal(X1,X2)|X3!=minimum(X4,minimum(X5,X2))|X3!=X1)
 
 Rules:
 - Some clauses are axioms (no parents); do NOT list them
@@ -94,11 +92,13 @@ Rules:
 - Clauses can be reused as parents
 
 Shuffled clauses:
-1. (member(X3,X2)|~subset(X1,X2)|~member(X3,X1))
-2. (~subset(X1,empty_set)|~member(X2,X1))
-3. (~member(X1,empty_set))
-4. (~subset(X1,empty_set)|~member(X2,apply(X1,X3)))
-5. (member(f28(X1,X2,X3),X2)|~member(X1,apply(X2,X3)))
+1. (minimum(X1,X2)=X1|~less_or_equal(X1,X2))
+2. (less_or_equal(X1,X2)|X1!=minimum(X3,X2))
+3. (less_or_equal(X1,X2)|X3!=minimum(X4,minimum(X5,X2))|X3!=X1)
+4. (less_or_equal(X1,X2)|X1!=X2)
+5. (less_or_equal(X1,X3)|~less_or_equal(X1,minimum(X2,X3)))
+6. (less_or_equal(X1,X2)|X1!=minimum(X3,minimum(X4,X2)))
+7. (minimum(X1,X2)=X1|X1!=minimum(X3,X2))
 
 The answer is the list of derivations for derived clauses, one per line: CHILD <- PARENT_1, PARENT_2
 Example: 5 <- 2, 4
@@ -107,8 +107,10 @@ Example: 5 <- 2, 4
 
 **Answer:**
 ```
-2 <- 1, 3
-4 <- 2, 5
+2 <- 4, 5
+3 <- 6, 7
+6 <- 2, 5
+7 <- 1, 2
 ```
 
 ---
@@ -118,12 +120,13 @@ Example: 5 <- 2, 4
 **Prompt:**
 ```
 System:
-P(X_0) = {'0': 0.8, '1': 0.2} 
-P(X_1) = {'0': 0.5, '1': 0.5} 
-P(X_2) = {'0': 0.9, '1': 0.1}
+P(X_0) = {'0': 0.9, '1': 0.1} 
+P(X_2|X_0=0) = {'0': 0.4, '1': 0.6} 
+P(X_2|X_0=1) = {'0': 0.6, '1': 0.4} 
+P(X_1) = {'0': 0.4, '1': 0.6}
 Observed conditions:
-Observing/Knowing that the state X_0 is equal to 0
-Task: Compute probability distribution for X_2 (possible values: [0, 1]).
+Observing/Knowing that the state X_1 is equal to 1
+Task: Compute probability distribution for X_0 (possible values: [0, 1]).
 
 The answer is a Python dict mapping each value to its probability, rounded to 1 decimals.
 Example: {0: 0.1, 1: 0.9}
@@ -141,12 +144,12 @@ Example: {0: 0.1, 1: 0.9}
 **Prompt:**
 ```
 System:
-P(X_0) = {'0': 0.9, '1': 0.1} 
-P(X_1) = {'0': 0.3, '1': 0.7} 
-P(X_2) = {'0': 1.0, '1': 0.0}
+P(X_0) = {'0': 0.2, '1': 0.8} 
+P(X_1) = {'0': 0.2, '1': 0.8} 
+P(X_2) = {'0': 0.6, '1': 0.4}
 Observed conditions:
-Doing/Imposing that the state X_1 is equal to 1
-Task: Compute probability distribution for X_0 (possible values: [0, 1]).
+Doing/Imposing that the state X_2 is equal to 0
+Task: Compute probability distribution for X_1 (possible values: [0, 1]).
 
 The answer is a Python dict mapping each value to its probability, rounded to 1 decimals.
 Example: {0: 0.1, 1: 0.9}
@@ -154,7 +157,7 @@ Example: {0: 0.1, 1: 0.9}
 
 **Answer:**
 ```
-{0: 0.9, 1: 0.1}
+{0: 0.2, 1: 0.8}
 ```
 
 ---
@@ -165,13 +168,13 @@ Example: {0: 0.1, 1: 0.9}
 ```
 Premise:
 there is a room.
-everyone in the room plays as a goalkeeper for a local amateur soccer team
-no old person in the room is old
-Gravity inverts in Oakhaven on Tuesdays.
-all old people in the room are quiet
-everyone in the room who is not quiet, not old is not old
+more than one person outside the room either is a quiet person or is not old, not quiet but not both
+Fred has a pet dog
+Mary is not old
+all old people in the room are old
+exactly five people in the room writes and illustrates their own graphic novels
 Hypothesis:
-Mary is not quiet
+Paul is quiet
 
 If the Premise entails the Hypothesis, the label is 'entailment'.
 If the Premise contradicts the Hypothesis, the label is 'contradiction'.
@@ -191,14 +194,14 @@ neutral
 **Prompt:**
 ```
 Premise:
-[0] Mary is the only person in the room.
-[1] Fred is quiet
-[2] Mary enjoys naked-eye stargazing
-[3] everyone in the room is old
-[4] Fred collects rare and antique scientific instruments
-[5] Paul and Mary are respectively quiet and old
+[0] there is a room.
+[1] everyone outside the room is old only if they are not quiet
+[2] everyone in the room is not a quiet person if they are a quiet person
+[3] Paul has a saltwater aquarium
+[4] everyone in the room who is quiet is a professional photographer specializing in portrait photography
+[5] Fred and Mary are quiet people
 Hypothesis:
-Fred is not quiet
+Mary is old
 
 Which statements in the premise contradict the hypothesis?
 The answer is the list of supporting statements, e.g. [0, 6, 7].
@@ -206,7 +209,7 @@ The answer is the list of supporting statements, e.g. [0, 6, 7].
 
 **Answer:**
 ```
-[1]
+[1, 2, 5]
 ```
 
 ---
@@ -220,18 +223,15 @@ object_1, object_2
 
 [ACTIONS]
 action_0(x0)
-  Requires: (not fluent_4), (not fluent_3), (not fluent_2)
-  Effect: fluent_4, fluent_3, fluent_2
-action_1(x0, x1)
-  Effect: fluent_1(x1), fluent_2
+  Requires: (not fluent_1(x0)), (not fluent_0)
+  Effect: fluent_1(x0), fluent_0
 
 [STATE]
-Default: False
 Initial true values: None
 
 [GOAL]
 
-fluent_3
+fluent_1(object_2)
 Hint: Reference solution has 1 actions (but it may not be optimal).
 The answer is the plan.
 Answer format: Multiple lines, one action per line: action(obj1, obj2)
@@ -248,14 +248,14 @@ Answer format: Multiple lines, one action per line: action(obj1, obj2)
 
 **Prompt:**
 ```
-Set1: {279, 918, 219, 926, 606, 444, 870, 49}
-Set2: {918, 444, 890, 463, 49, 852}
+Set1: {276, 935, 71, 124, 573, 155, 653, 681}
+Set2: {573, 935, 681, 110, 660, 828}
 The answer is the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2, ..., elem_n}.
 ```
 
 **Answer:**
 ```
-{49, 444, 918}
+{573, 681, 935}
 ```
 
 ---
@@ -264,13 +264,13 @@ The answer is the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2
 
 **Prompt:**
 ```
-Set_A: {5, 8, 2, 9, 6, 11, 4, 10, 3}
+Set_A: {638, 629, 636, 637, 631, 634, 630}
 The answer is the missing elements from Set_A as a Python set.
 ```
 
 **Answer:**
 ```
-{7}
+{632, 633, 635}
 ```
 
 ---
@@ -279,8 +279,8 @@ The answer is the missing elements from Set_A as a Python set.
 
 **Prompt:**
 ```
-List: [15, 6, 15, 6, 8, 2, 5, 4, 5, 2]
-How many times does 5 appear? The answer is a number.
+List: ['o', 'f', 'a', 'i', 'f', 'o', 'n', 'r', 'b', 'k']
+How many times does 'o' appear? The answer is a number.
 ```
 
 **Answer:**
@@ -294,8 +294,8 @@ How many times does 5 appear? The answer is a number.
 
 **Prompt:**
 ```
-Set1: {'wf', 'eo', 'jh', 'po', 'fp', 'fj', 'ug', 'adv'}
-Set2: {'po', 'fp', 'ug', 'eo', 'fj', 'nn', 'wf', 'adv', 'jh'}
+Set1: {49, 280, 114, 976, 296, 538, 840, 638}
+Set2: {280, 638, 49, 114, 527, 840, 296, 538, 976}
 The answer is True if Set1 and Set2 contain exactly the same elements, False otherwise.
 ```
 
@@ -311,24 +311,24 @@ False
 **Prompt:**
 ```
 Infer a recurrence for a sequence indexed from 0: [U0, U1, ..., U7].
-Max recurrence degree: 0.
+Max recurrence degree: 1.
 
 Allowed binary ops: +, -, *, **
-- Previous terms must be referenced exactly as: U[n - 1] ... U[n - 0]
+- Previous terms must be referenced exactly as: U[n - 1] ... U[n - 1]
 - You may use "n" (current index).
 - The answer is the right-hand side only (do not write "U[n] =").
-- Your recurrence degree must be <= 0.
+- Your recurrence degree must be <= 1.
 
-Sequence: [5, 7, 9, 11, 13, 15, 17, 19]
-Degree of recurrence: 0
-Initial terms: []
+Sequence: [6, 7, 9, 12, 16, 21, 27, 34]
+Degree of recurrence: 1
+Initial terms: [6]
 
 The answer must hold for all n >= d and be as simple as possible.
 ```
 
 **Answer:**
 ```
-2*n + 5
+n + U[n - 1]
 ```
 
 ---
@@ -337,23 +337,23 @@ The answer must hold for all n >= d and be as simple as possible.
 
 **Prompt:**
 ```
-Qualitative reasoning over horizontal extents of 2D boxes.
+Qualitative reasoning over vertical extents of 2D boxes.
 There are 5 entities labeled 0 through 4.
 You are given the following facts (read 'i rel j' as 'entity i is rel to entity j'):
+  4 starts 2
+  3 equals 4
+  1 overlapped-by 4
   0 starts 1
-  3 finishes 1
-  2 overlapped-by 0
-  4 before 3
-  2 during 3
+  0 during 4
 
-Question: what is the relation of the horizontal extent of box 4 to that of box 2?
+Question: what is the relation of the vertical extent of box 2 to that of box 0?
 The answer is exactly one of: after, before, contains, during, equals, finished-by, finishes, meets, met-by, overlapped-by, overlaps, started-by, starts.
 Respond with only the relation name as the answer.
 ```
 
 **Answer:**
 ```
-before
+contains
 ```
 
 ---
@@ -366,24 +366,24 @@ Objects occupy distinct points on the integer grid [0, 4] x [0, 4].
 North is +y and East is +x. Any object not mentioned in a step stays fixed.
 
 Initial facts:
-- C starts at (3, 0).
-- A is above C.
-- A is in the same column as B.
-- C is below B.
-- A is left of C.
-- A is below B.
+- A is right of B.
+- B is in the same row as C.
+- C is right of A.
 - C is right of B.
+- A is above B.
+- A is above C.
+- A starts at (1, 2).
 
 Steps:
-1. C and A swap positions.
+1. C moves by (2, 0).
 
-What is the final coordinate of A? Answer as (x, y).
+What is the final Manhattan distance between B and C? Answer as an integer.
 
 ```
 
 **Answer:**
 ```
-(3, 0)
+4
 ```
 
 ---
@@ -393,26 +393,26 @@ What is the final coordinate of A? Answer as (x, y).
 **Prompt:**
 ```
 Inventory:
-- b1: blue
-- b2: black
-- b3: yellow
+- b1: black
+- b2: red
+- b3: white
 - b4: red
 Initial state:
 - b1 is in x2
-- b2 is in x1
-- b3 is in x2
-- b4 is in x2
+- b2 is in x3
+- b3 is in x3
+- b4 is in x1
 Moves:
-- Move b4 from x2 to x1.
-- Relocate b4 from x1 to x3.
-- Move it from x3 to x2.
-- Relocate b3 from x2 to x1.
-Question: Where is b2 now? Answer with a box tag like x1.
+- Move b2 from x3 to x2.
+- Transfer b2 from x2 into x1.
+- Move it from x1 to x2.
+- Relocate b4 from x1 to x2.
+Question: Where is b1 now? Answer with a box tag like x1.
 ```
 
 **Answer:**
 ```
-x1
+x2
 ```
 
 ---
@@ -426,9 +426,9 @@ Variables/domains:
 - 0 <= x1 <= 1
 
 Constraints:
-1. x1 == 0
-2. x0 - x1 != -3
-3. -x0 + 3*x1 != 3
+1. -3*x1 != -4
+2. 2*x0 - x1 != -4
+3. -2*x0 >= -4
 
 Enumerate ALL satisfying assignments in variable order [x0, x1].
 The answer is a Python list of lists of ints, sorted lexicographically, or UNSAT if no assignment exists.
@@ -437,7 +437,7 @@ The answer is a Python list of lists of ints, sorted lexicographically, or UNSAT
 
 **Answer:**
 ```
-[[0, 0], [1, 0], [2, 0]]
+[[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1]]
 ```
 
 ---
@@ -448,15 +448,15 @@ The answer is a Python list of lists of ints, sorted lexicographically, or UNSAT
 ```
 Consider the graph:
 
-graph { 0--3; 0--4; 1--4; 2--3; 3--4 }
+graph { 0--3; 1--3; 1--4; 2--3; 2--4; 3--4 }
 
-Find the lexicographically smallest shortest path from Node 2 to Node 3.
+Find the lexicographically smallest shortest path from Node 4 to Node 1.
 The answer is a Python list of nodes.
 ```
 
 **Answer:**
 ```
-[2, 3]
+[4, 1]
 ```
 
 ---
@@ -467,7 +467,7 @@ The answer is a Python list of nodes.
 ``
 Consider the following social network graph:
 
-Edges: 0-1, 0-2, 0-3, 0-4, 1-2, 1-3, 1-4, 2-3, 2-4, 3-4
+Edges: 0-1, 0-2, 0-3, 0-4, 1-4, 2-4
 
 Based on the number of connections, identify all nodes that are the most central (i.e., have the highest degree centrality). There may be more than one.
 The answer is a Python list of node integers, sorted in increasing order. Example: `[3, 8]`.
@@ -475,7 +475,7 @@ The answer is a Python list of node integers, sorted in increasing order. Exampl
 
 **Answer:**
 ```
-[0, 1, 2, 3, 4]
+[0]
 ```
 
 ---
@@ -486,7 +486,7 @@ The answer is a Python list of node integers, sorted in increasing order. Exampl
 ``
 Consider the graph below, which contains exactly one cycle.
 
-graph { 0--1; 0--2; 1--2; 2--3; 3--4 }
+Edges: 0-1, 1-2, 1-4, 2-3, 3-4
 
 Identify all the nodes that form the cycle.
 The answer is a Python list of nodes, sorted in increasing order. Example: `[2, 5, 7, 8]`.
@@ -494,7 +494,7 @@ The answer is a Python list of nodes, sorted in increasing order. Example: `[2, 
 
 **Answer:**
 ```
-[0, 1, 2]
+[1, 2, 3, 4]
 ```
 
 ---
@@ -506,10 +506,10 @@ The answer is a Python list of nodes, sorted in increasing order. Example: `[2, 
 Consider two graphs described below.
 
 Graph A:
-Edges: 0-1, 1-2, 1-3, 1-4
+Edges: 0-1, 1-2, 1-4, 2-3
 
 Graph B:
-Nodes [0, 1, 2, 3, 4] and edges: (2, 3), (3, 0), (3, 1), (3, 4).
+graph { 0--2; 0--4; 1--0; 2--3 }
 
 Do Graph A and Graph B have the exact same structure, just with different node labels? (In other words, are they isomorphic?)
 The answer is `True` or `False`.
@@ -528,16 +528,16 @@ True
 ```
 Consider the directed graph:
 
-Edges: 5->4, 3->3, 1->1, 0->0, 2->2, 4->5
+Edges: 3->2, 5->1, 1->5, 2->4, 0->0, 4->3
 
-Queries: [(5, 1)]
+Queries: [(1, 1)]
 Each pair (x, k) asks for the k-th successor of x.
 The answer is a Python list of integers in query order.
 ```
 
 **Answer:**
 ```
-[4]
+[5]
 ```
 
 ---
@@ -548,9 +548,9 @@ The answer is a Python list of integers in query order.
 ```
 Consider the dependency graph:
 
-Edges (X->Y means Y depends on X): 4->2, 4->3, 4->5, 5->3
+Edges (X->Y means Y depends on X): 1->2, 2->3, 2->4
 
-List all prerequisites of node 3 (recursively), leaves first.
+List all prerequisites of node 4 (recursively), leaves first.
 Do not include the query node itself.
 If A depends on B and both appear in your answer, B must appear before A.
 The answer is a Python list of integers.
@@ -558,7 +558,7 @@ The answer is a Python list of integers.
 
 **Answer:**
 ```
-[4, 5]
+[1, 2]
 ```
 
 ---
@@ -567,12 +567,12 @@ The answer is a Python list of integers.
 
 **Prompt:**
 ```
-The answer is a 7-character string that fully matches the regular expression: (1\.heart)
+The answer is a 1-character string that fully matches the regular expression: E|(7)
 ```
 
 **Answer:**
 ```
-1.heart
+E
 ```
 
 ---
@@ -580,15 +580,15 @@ The answer is a 7-character string that fully matches the regular expression: (1
 ## [regex_induction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/regex.py)
 
 **Prompt:**
-```
+``
 The answer is the shortest regex that fully matches all POSITIVE strings and none of the NEGATIVE strings.
-POSITIVE: '+Z', '+z', '+A', '+A', '+z', '+A', '+z', '+A'
-NEGATIVE: 'g', 'W', 'BK', 'HHK', 'A', 'm', 'X', '>QC'
-```
+POSITIVE: '¬', '`', ',', '$', '¢', '»', ']', '['
+NEGATIVE: 'win', '9', 'C', '<LPa', 'f', 'especially', '.last', '3583'
+``
 
 **Answer:**
 ```
-(\+([zZA]))
+((?:\W|[X-b]))
 ```
 
 ---
@@ -597,8 +597,8 @@ NEGATIVE: 'g', 'W', 'BK', 'HHK', 'A', 'm', 'X', '>QC'
 
 **Prompt:**
 ```
-Consider the regular expressions A = babbc and B = cb*
-Is every string accepted by A also accepted by B?
+Consider the regular expressions A = abb+ and B = c|c
+Do A and B accept exactly the same set of strings?
 The answer is Yes or No.
 ```
 
@@ -615,7 +615,7 @@ No
 ```
 Context: WordNet (relation holds for any valid noun sense).
 
-is_a(cent, coin)
+is_a(manual, training)
 The answer is True or False.
 ```
 
@@ -631,12 +631,12 @@ True
 **Prompt:**
 ```
 (GRAMMAR)
-S -> C
-C -> 'consider'
-C -> C
+S -> D
+D -> 'girl'
+D -> D
 
 (STRING)
-consider
+girl
 
 (QUESTION)
 What is the parsability of this string?
@@ -655,15 +655,19 @@ ambiguous
 **Prompt:**
 ```
 (GRAMMAR)
-start -> seq
-seq -> 
-seq -> expr seq
-expr -> '(' seq ')'
-expr -> '[' seq ']'
-expr -> '<' seq '>'
+decl -> decl_simple ',' conj decl_simple
+are -> 'are'
+root -> discourse '.'
+start -> root
+conj -> 'yet'
+det_pl_indef -> 'some'
+decl_simple -> there are det_pl_indef n_pl
+discourse -> decl ',' conj decl
+n_pl -> 'dogs'
+there -> 'there'
 
 (STRING)
-( ( ) ) < >
+there are some dogs , yet there are some dogs , yet there are some dogs , yet there are some dogs .
 
 (QUESTION)
 Identify the Part-of-Speech (immediate parent) and tree depth for each token.
@@ -673,7 +677,7 @@ Example: the<Det:3> cat<Noun:3>
 
 **Answer:**
 ```
-(<expr:3> (<expr:5> )<expr:5> )<expr:3> <<expr:4> ><expr:4>
+there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> ,<decl:4> yet<conj:5> there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> ,<discourse:3> yet<conj:4> there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> ,<decl:4> yet<conj:5> there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> .<root:2>
 ```
 
 ---
@@ -684,16 +688,19 @@ Example: the<Det:3> cat<Noun:3>
 ```
 List all valid next tokens for this prefix. The answer is the list of valid tokens sorted alphabetically and separated by |, with STOP at the end if the prefix forms a complete string.
 (GRAMMAR)
-S -> B
-B -> 'sense'
-B -> B B
+start -> seq
+seq -> 
+seq -> expr seq
+expr -> '(' seq ')'
+expr -> '[' seq ']'
+expr -> '<' seq '>'
 (PREFIX)
-sense sense
+( ) ( )
 ```
 
 **Answer:**
 ```
-sense|STOP
+(|<|[|STOP
 ```
 
 ---
@@ -703,12 +710,12 @@ sense|STOP
 **Prompt:**
 ```
 (GRAMMAR)
-S -> B
-B -> 'manage'
-B -> 'same' B
+S -> D
+D -> 'control'
+D -> 'avoid' D
 
 (STRING)
-same same same manage manage
+avoid avoid avoid avoid
 
 The answer is the shortest contiguous span from STRING that ends at the first invalid token and occurs only once in STRING.
 Mark the invalid token as >>token<<.
@@ -720,7 +727,7 @@ One line only.
 
 **Answer:**
 ```
-manage >>manage<<
+INCOMPLETE
 ```
 
 ---
@@ -741,7 +748,7 @@ expr -> '<' seq '>'
 ( )
 
 (TEMPLATE)
-[ ___ ( ___
+___ ) ( ___
 
 Fill in the 2 blanks (___) to form a grammatical continuation of PREFIX using exactly 4 tokens.
 Fixed tokens must remain in place. The answer is all 4 tokens space-separated.
@@ -749,7 +756,7 @@ Fixed tokens must remain in place. The answer is all 4 tokens space-separated.
 
 **Answer:**
 ```
-[ ] ( )
+( ) ( )
 ```
 
 ---
@@ -761,15 +768,14 @@ Fixed tokens must remain in place. The answer is all 4 tokens space-separated.
 Execute this SQL query on the table named dataframe:
 
 Table 1:
-revenue,rating
-601.38,2.9
-885.34,4.1
-511.7,3.4
-571.91,4.1
-19.07,4.8
+ revenue   product
+  359.11 Challenge
+  313.47    Attack
+  928.94     Treat
+  630.61  Identify
+  626.39 Available
 
-
-SQL: SELECT COUNT(*) FROM dataframe WHERE revenue > 571.91
+SQL: SELECT COUNT(*) FROM dataframe WHERE revenue > 626.39
 
 The answer is the result as single value.
 ```
@@ -785,19 +791,18 @@ The answer is the result as single value.
 
 **Prompt:**
 ```
-Convert the following table from to_latex to to_json.
+Convert the following table from to_yaml to to_html.
 
-\begin{tabular}{ll}
-\toprule
-date & price \\
-\midrule
-2025-06-15 & 136.6 \\
-2025-11-11 & 415.08 \\
-2025-05-22 & 493.45 \\
-2026-02-12 & 386.93 \\
-2026-02-08 & 353.97 \\
-\bottomrule
-\end{tabular}
+- date: 2025-07-28
+  job: Office manager
+- date: 2025-06-22
+  job: Public relations officer
+- date: 2026-02-21
+  job: Seismic interpreter
+- date: 2025-05-26
+  job: Sports administrator
+- date: 2025-06-13
+  job: Energy manager
 
 
 The answer is the converted table.
@@ -805,28 +810,36 @@ The answer is the converted table.
 
 **Answer:**
 ```
-[
-    {
-        "date":"2025-06-15T00:00:00.000",
-        "price":"136.6"
-    },
-    {
-        "date":"2025-11-11T00:00:00.000",
-        "price":"415.08"
-    },
-    {
-        "date":"2025-05-22T00:00:00.000",
-        "price":"493.45"
-    },
-    {
-        "date":"2026-02-12T00:00:00.000",
-        "price":"386.93"
-    },
-    {
-        "date":"2026-02-08T00:00:00.000",
-        "price":"353.97"
-    }
-]
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>date</th>
+      <th>job</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2025-07-28</td>
+      <td>Office manager</td>
+    </tr>
+    <tr>
+      <td>2025-06-22</td>
+      <td>Public relations officer</td>
+    </tr>
+    <tr>
+      <td>2026-02-21</td>
+      <td>Seismic interpreter</td>
+    </tr>
+    <tr>
+      <td>2025-05-26</td>
+      <td>Sports administrator</td>
+    </tr>
+    <tr>
+      <td>2025-06-13</td>
+      <td>Energy manager</td>
+    </tr>
+  </tbody>
+</table>
 ```
 
 ---
@@ -838,14 +851,14 @@ The answer is the converted table.
 Reduce the following untyped λ-term to β-normal form.
 Syntax: `\x.body` denotes λx.body; application is left-associative juxtaposition; free identifiers are treated as constants.
 
-Term: ((\v0.v0) (\v0.v0))
+Term: ((\v0.v0) (d b))
 
 The answer is the β-normal form (compared up to α-equivalence).
 ``
 
 **Answer:**
 ```
-(\v0.v0)
+(d b)
 ```
 
 ---
@@ -857,8 +870,8 @@ The answer is the β-normal form (compared up to α-equivalence).
 Find the most general unifier (MGU) of the following first-order terms.
 Uppercase identifiers are variables; lowercase are constants / function symbols.
 
-T1 = g(h(d,e,g(a)),p(p(X,h(p(b,e,e)))))
-T2 = g(h(d,e,g(a)),p(p(g(h(c),p(a,e)),Y)))
+T1 = p(f(g(c,X,q(b))))
+T2 = p(f(g(c,c,Y)))
 
 The answer is a Python dict mapping each bound variable (as a string key) to its fully-resolved ground term (as a string value), with keys sorted alphabetically.
 Example: {'X': 'f(a)', 'Y': 'b'}
@@ -866,7 +879,7 @@ Example: {'X': 'f(a)', 'Y': 'b'}
 
 **Answer:**
 ```
-{'X': 'g(h(c),p(a,e))', 'Y': 'h(p(b,e,e))'}
+{'X': 'c', 'Y': 'q(b)'}
 ```
 
 ---
@@ -878,9 +891,9 @@ Example: {'X': 'f(a)', 'Y': 'b'}
 Predict the printed output of the following Python code:
 
 ```python
-q = 2
-i = "sun"
-print([4, 4, 8])
+f = 2
+b = 0 + 3
+print("hi")
 ```
 
 The answer is the exact printed output string.
@@ -888,7 +901,7 @@ The answer is the exact printed output string.
 
 **Answer:**
 ```
-[4, 4, 8]
+hi
 ```
 
 ---
@@ -899,30 +912,35 @@ The answer is the exact printed output string.
 ```
 Below is the version history of a file.
 
-Version ad411e1:
-1    | Add service accept per success most today
-2    | Manage technology edge ahead reflect nation turn
-3    | Rise true hand perhaps heavy example
-4    | Any like blood strong tend
-5    | Remain especially board political
+Version 909251b:
+1    | General store crime
+2    | Follow us rise message
+3    | Building day himself expect role
+4    | Foreign wear unit mind
+5    | High improve control couple ability
 
-Version f6d20f3:
-1    | Add service accept per success most today
-2    | Manage technology edge ahead reflect nation turn
-3    | Rise true hand perhaps heavy example
-4    | Any like blood strong tend
+Version cacc5d5:
+1    | General store crime
+2    | Foreign wear unit mind
+3    | High improve control couple ability
 
-Generate the Unified Diff to transform version f6d20f3 into version ad411e1.
+Version 25972d6:
+1    | General store crime
+2    | Foreign wear unit mind
+3    | High improve control couple ability
+
+Generate the Unified Diff to transform version 909251b into version 25972d6.
 The answer is the diff chunks only (no file headers), or empty if no changes.
 ```
 
 **Answer:**
 ```
-@@ -2,3 +2,4 @@
- Manage technology edge ahead reflect nation turn
- Rise true hand perhaps heavy example
- Any like blood strong tend
-+Remain especially board political
+@@ -1,5 +1,3 @@
+ General store crime
+-Follow us rise message
+-Building day himself expect role
+ Foreign wear unit mind
+ High improve control couple ability
 ```
 
 ---
@@ -933,14 +951,14 @@ The answer is the diff chunks only (no file headers), or empty if no changes.
 ```
 Apply the following Unified Diff to the text.
 
-Original Text (Version 4a730d8):
-1    | Hospital rock do law own
-2    | War defense sister movie to according enough
-3    | Husband because wrong seem your national memory
-4    | For across tend
-5    | Camera government of she region although
+Original Text (Version 171eec7):
+1    | Meet go contain make force
+2    | Information ask painting around
+3    | End store whom
+4    | Final what despite we record soon beat
+5    | Morning adult care how player
 
-Diff (4a730d8 -> 071f8f6):
+Diff (171eec7 -> 42dc00e):
 
 
 The answer is the resulting text.
@@ -948,11 +966,11 @@ The answer is the resulting text.
 
 **Answer:**
 ```
-Hospital rock do law own
-War defense sister movie to according enough
-Husband because wrong seem your national memory
-For across tend
-Camera government of she region although
+Meet go contain make force
+Information ask painting around
+End store whom
+Final what despite we record soon beat
+Morning adult care how player
 ```
 
 ---

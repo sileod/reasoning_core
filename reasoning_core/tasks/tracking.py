@@ -62,9 +62,7 @@ class ReferenceTracking(Task):
     def __init__(self, config=ReferenceTrackingConfig()):
         super().__init__(config=config)
 
-    @staticmethod
-    def _norm(s: str) -> str:
-        return re.sub(r"[^a-z0-9]", "", str(s).strip().lower())
+
 
     def _box_inv(
         self, placement: Dict[str, str], boxes: List[str], balls: List[str]
@@ -352,13 +350,16 @@ class ReferenceTracking(Task):
         return "\n".join([rules, inv, init, mvs, facts, story, m.question])
 
     def score_answer(self, answer: str, entry: Problem) -> float:
-        gold = self._norm(entry.answer)
+
+        norm = lambda s: re.sub(r"[^a-z0-9]", "", str(s).strip().lower())
+
+        gold = norm(entry.answer)
         ans  = str(answer).lower()
-        if self._norm(ans) == gold:
+        if norm(ans) == gold:
             return 1.0
         
         prefix = gold[0] 
         found  = set(re.findall(rf"{prefix}\d+", ans))
-        if len(found) == 1 and self._norm(next(iter(found))) == gold:
+        if len(found) == 1 and norm(next(iter(found))) == gold:
             return 1.0
         return 0.0

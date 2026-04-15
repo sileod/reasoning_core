@@ -51,6 +51,7 @@ def shutup():
     warnings.filterwarnings("ignore", message=".*not support custom heuristic*")
     warnings.filterwarnings("ignore", message=".*cannot establish whether*")
     warnings.filterwarnings("ignore", message=".*does not support timeout")
+    logging.disable(logging.INFO) 
 
 
 def combinations(lst):
