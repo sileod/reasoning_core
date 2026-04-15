@@ -54,7 +54,7 @@ class GrammarConfig(Config):
     tagging_prob: float = 0.5
     target_num_rules=10
 
-    n_resampled_grammars: int=200
+    n_resampled_grammars: int=40
     prob_resampling_grammar: float=0.6
 
     def update(self, c):
@@ -62,6 +62,7 @@ class GrammarConfig(Config):
         self.n_terminals += c
         self.min_depth += c
         self.max_depth += c
+        self.prob_resampling_grammar = max(0.0, self.prob_resampling_grammar - 0.1 * c)
 
 def meta_grammar(config):
     R=init_grammar(['cfg'])
