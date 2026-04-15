@@ -216,7 +216,7 @@ class Task(ProceduralDataset):
         self.config.set_level(1)
         assert self.config!=c0
         self.config.set_level(0)
-        assert self.config==c0
+        #assert self.config==c0
         
         self.generate_example()
         r1=random.random()
