@@ -62,6 +62,7 @@ class GrammarConfig(Config):
         self.n_terminals += c
         self.min_depth += c
         self.max_depth += c
+        self.prob_resampling_grammar = max(0.0, self.prob_resampling_grammar - 0.1 * c)
 
 def meta_grammar(config):
     R=init_grammar(['cfg'])
@@ -310,19 +311,14 @@ def sample_cfg(config=GrammarConfig, productive_only=False):
 
 @contextmanager
 def resampled_grammar(config, **kw):
-    if not hasattr(resampled_grammar, '_pool'):
+    if random.random() < config.prob_resampling_grammar:
+        seed = random.randint(0, config.n_resampled_grammars - 1)
         state = random.getstate()
-        random.seed(42)
-        pool = []
-        for _ in range(config.n_resampled_grammars):
-            try:
-                pool.append(sample_cfg(config, productive_only=True))
-            except ValueError:
-                pass
-        random.setstate(state)
-        resampled_grammar._pool = pool
-    if resampled_grammar._pool and random.random() < config.prob_resampling_grammar:
-        yield random.choice(resampled_grammar._pool)
+        try:
+            random.seed(seed)
+            yield sample_cfg(config, productive_only=True)
+        finally:
+            random.setstate(state)
     else:
         yield sample_cfg(config, **kw)
 
