@@ -150,7 +150,8 @@ def _get_native_vampire():
         log(f"Resolved native vampire: {path}")
         return path
     except Exception as e:
-        log(f"Failed to resolve native vampire: {e}")
+        import traceback
+        log(f"Failed to resolve native vampire: {e}\n{traceback.format_exc()}")
         return None
 
 # ============================================================================
