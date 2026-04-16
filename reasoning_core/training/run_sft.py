@@ -158,36 +158,55 @@ def get_formatter(data_key):
         prefix = SPECIAL+"\n" if SPECIAL and data_key == "rc" else ""
         return lambda x: {"prompt": prefix+x["prompt"]+"\n", "completion": x.get("answer") + tokenizer.eos_token}
 
-def load_exact_tokens(key, budget, stream_skip=0, max_len=None):
-    if budget <= 0: 
+Yes, same code either way. Here's the drop-in replacement for your current load_exact_tokens:
+pythonfrom itertools import islice
+
+def load_exact_tokens(key, budget, stream_skip=0, max_len=None, batch_size=1000):
+    if budget <= 0:
         return None, 0
-    
+
     hf_path = DATA_MAP.get(key, key)
     fmt_fn = get_formatter(key)
-    
+
     print(f"⏳ Streaming {key} ({hf_path}) [skip={stream_skip}] target={budget/1e6:.2f}M tokens...")
     stream = load_dataset(hf_path, split="train", streaming=True).skip(stream_skip)
-    tokens = rows = 0
+
+    rows_consumed = 0
+    tokens_total = 0
+
     def gen():
-        nonlocal tokens, rows
-        for row in stream:
-            rows += 1
-            ex = fmt_fn(row)
-            text = ex['prompt'] + ex['completion']
-            length = len(tokenizer(text, add_special_tokens=True)['input_ids'])
-
-            if max_len and length > max_len: 
-                continue
-
-            tokens += length
-            yield ex
-            if tokens >= budget: 
+        nonlocal rows_consumed, tokens_total
+        it = iter(stream)
+        while tokens_total < budget:
+            chunk = list(islice(it, batch_size))
+            if not chunk:
                 break
+            rows_consumed += len(chunk)
+
+            exs = [fmt_fn(r) for r in chunk]
+            texts = [e['prompt'] + e['completion'] for e in exs]
+
+            lens = tokenizer(
+                texts,
+                add_special_tokens=True,
+                return_length=True,
+                return_attention_mask=False,
+                return_token_type_ids=False,
+            )['length']
+
+            for ex, L in zip(exs, lens):
+                if max_len and L > max_len:
+                    continue
+                tokens_total += L
+                yield ex
+                if tokens_total >= budget:
+                    return
 
     ds = Dataset.from_generator(gen)
-    print(f"✅ Loaded {ds.num_rows} rows ({tokens} tokens).")
-    return ds, rows
+    print(f"✅ Loaded {ds.num_rows} rows ({tokens_total} tokens).")
+    return ds, rows_consumed
 
+    
 # --- 🧪 Experiment Setup ---
 
 # 1. Load Stage 1: Main

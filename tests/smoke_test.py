@@ -7,7 +7,7 @@ for t in list_tasks():
     print(t.ljust(30, '.'), end="")
     try:
         get_task(t).validate()
-        print(round(time.time()-t0, 5))
+        print(f"{time.time() - t0:.5f}")
     except Exception as e:
         failed+=[t]
         print(e)

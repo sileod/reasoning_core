@@ -739,8 +739,6 @@ class LocateError(Task):
 
 # --- Constrained Generation ---
 
-# --- Constrained Generation ---
-
 
 def _compute_nullable_and_first(grammar):
     """Exact nullable + FIRST sets via fixed-point iteration (no depth cutoff)."""
@@ -849,81 +847,37 @@ def exact_completions(grammar, prefix, k, max_states=4096):
         )[1]
     ]
 
-
-def find_blanked_target(candidates, min_blanks=2, max_blanks=3):
-    """
-    Pick a target and a fill-in-the-blanks template.
-
-    Start with ALL positions revealed (hinted), then greedily remove hints
-    (creating blanks) while the target remains the unique candidate that
-    matches every remaining hint. Randomised removal order for variety.
-
-    Returns (target_as_list, hints {pos: token}) or None.
-    """
-    cands = [tuple(c) for c in candidates]
-    k = len(cands[0])
-    max_blanks = min(max_blanks, k - 1)          # keep ≥1 hint
+def sample_blanking(target, cands, min_blanks, max_blanks, tries=20):
+    """Sample a random valid hint set; falls back to greedy minimal."""
+    k = len(target)
+    max_blanks = min(max_blanks, k - 1)
     if min_blanks > max_blanks:
         return None
 
-    order = list(cands)
-    random.shuffle(order)
+    unique = lambda hints: sum(
+        all(c[i] == t for i, t in hints.items()) for c in cands
+    ) == 1
 
-    for target in order:
-        hinted = set(range(k))
-        positions = list(range(k))
-        random.shuffle(positions)
+    for _ in range(tries):
+        n = random.randint(min_blanks, max_blanks)
+        blanks = set(random.sample(range(k), n))
+        hints = {i: target[i] for i in range(k) if i not in blanks}
+        if unique(hints):
+            return list(target), hints
 
-        for pos in positions:
-            if k - len(hinted) >= max_blanks:    # enough blanks
-                break
-            trial = hinted - {pos}
-            alive = sum(
-                1 for c in cands if all(c[i] == target[i] for i in trial)
-            )
-            if alive == 1:                       # still unique → blank it
-                hinted = trial
-
-        n_blanks = k - len(hinted)
-        if min_blanks <= n_blanks <= max_blanks:
-            return list(target), {i: target[i] for i in sorted(hinted)}
-
+    hinted = set(range(k))
+    for pos in random.sample(range(k), k):
+        if k - len(hinted) >= max_blanks:
+            break
+        trial = hinted - {pos}
+        if unique({i: target[i] for i in trial}):
+            hinted = trial
+    if min_blanks <= k - len(hinted) <= max_blanks:
+        return list(target), {i: target[i] for i in sorted(hinted)}
     return None
-
 
 def _format_template(k, hints):
     return " ".join(hints.get(i, "___") for i in range(k))
-
-
-def _blanked_cot(prefix, candidates, target, hints, k):
-    blanks = sorted(set(range(k)) - set(hints.keys()))
-    lines = [
-        f"{len(candidates)} valid {k}-token continuations",
-        f"Template: {_format_template(k, hints)}",
-        f"Blanks at positions: {blanks}",
-    ]
-
-    alive = [tuple(c) for c in candidates]
-    for i in sorted(hints.keys()):
-        prev = len(alive)
-        alive = [c for c in alive if c[i] == hints[i]]
-        if len(alive) < prev:
-            lines.append(
-                f"  pos[{i}]='{hints[i]}': {prev} → {len(alive)} candidates"
-            )
-
-    for b in blanks:
-        vals = sorted({c[b] for c in alive})
-        lines.append(f"  pos[{b}] options: {{{', '.join(vals)}}}")
-
-    if len(alive) <= 6:
-        for j, c in enumerate(alive, 1):
-            mark = " ✓" if tuple(c) == tuple(target) else ""
-            lines.append(f"  {j}. {' '.join(c)}{mark}")
-
-    lines.append(f"Answer: {' '.join(target)}")
-    return "\n".join(lines)
-
 
 class ConstrainedContinuation(Task):
     """Fill-in-the-blanks grammar continuation.
@@ -940,7 +894,8 @@ class ConstrainedContinuation(Task):
         max_k=5,
         min_blanks=2,
         max_blanks=3,
-        max_options=20,
+        max_options=100,
+        min_options=4
     ):
         super().__init__(config=config)
         self.min_k = max(3, min_k)
@@ -948,80 +903,58 @@ class ConstrainedContinuation(Task):
         self.min_blanks = min_blanks
         self.max_blanks = max_blanks
         self.max_options = max_options
-        self.balancing_key_ratio = 0.1
+        self.min_options = min_options
+        self.balancing_key_ratio = 0.2
 
     def generate(self):
         for _ in range(200):
             with resampled_grammar(self.config, productive_only=True) as g:
                 try:
-                    sentences = [
-                        list(s)
-                        for s in islice(
-                            nltk_generate(g, depth=self.config.max_depth), 80
-                        )
-                        if len(s) >= self.min_k + 1
-                    ]
-                except (RecursionError, ValueError):
+                    sent = (gramforge_generate(
+                        nltk_to_gramforge(g),
+                        depth=self.config.max_prod_depth,
+                        min_depth=self.config.min_prod_depth,
+                        mode=self.config.gramforge_algorithm,
+                    ) @ "lang").split()
+                except (ValueError, RecursionError):
                     continue
-                if not sentences:
-                    continue
-
-                sent = random.choice(sentences)
-                max_plen = min(5, len(sent) - self.min_k)
-                if max_plen < 1:
+                if len(sent) < self.min_k + 1:
                     continue
 
-                for plen in random.sample(range(1, max_plen + 1), max_plen):
+                slots = [(plen, k)
+                        for plen in range(1, min(5, len(sent) - self.min_k) + 1)
+                        for k in range(self.min_k, min(self.max_k, len(sent) - plen) + 1)]
+                random.shuffle(slots)
+
+                for plen, k in slots:
                     prefix = sent[:plen]
-                    ks = list(range(
-                        self.min_k,
-                        min(self.max_k, len(sent) - plen) + 1,
-                    ))
-                    random.shuffle(ks)
+                    cands = exact_completions(g, prefix, k)
+                    if not (self.min_options <= len(cands) <= self.max_options):
+                        continue
 
-                    for k in ks:
-                        cands = exact_completions(g, prefix, k)
-                        if not (2 <= len(cands) <= self.max_options):
-                            continue
+                    target = list(random.choice(cands))
+                    result = sample_blanking(target, cands, self.min_blanks, self.max_blanks)
+                    if result is None:
+                        continue
+                    target, hints = result
+                    blanks = sorted(set(range(k)) - set(hints.keys()))
 
-                        result = find_blanked_target(
-                            cands, self.min_blanks, self.max_blanks
-                        )
-                        if result is None:
-                            continue
+                    return Problem(
+                        edict(
+                            g="\n".join(str(p) for p in g.productions()),
+                            k=k,
+                            prefix=prefix,
+                            hints={str(i): tok for i, tok in hints.items()},
+                            template=_format_template(k, hints),
+                            blanks=blanks,
+                            n_blanks=len(blanks),
+                            n_hints=len(hints),
+                            n_options=len(cands),
+                        ),
+                        " ".join(target),
+                    )
 
-                        target, hints = result
-                        blanks = sorted(set(range(k)) - set(hints.keys()))
-
-                        # Safety: verify uniqueness among exact candidates
-                        alive = [
-                            c for c in cands
-                            if all(c[i] == hints[i] for i in hints)
-                        ]
-                        if len(alive) != 1 or alive[0] != target:
-                            continue
-
-                        return Problem(
-                            edict(
-                                g="\n".join(str(p) for p in g.productions()),
-                                k=k,
-                                prefix=prefix,
-                                hints={str(i): tok for i, tok in hints.items()},
-                                template=_format_template(k, hints),
-                                blanks=blanks,
-                                n_blanks=len(blanks),
-                                n_hints=len(hints),
-                                n_options=len(cands),
-                                cot=_blanked_cot(
-                                    prefix, cands, target, hints, k
-                                ),
-                            ),
-                            " ".join(target),
-                        )
-
-        raise ValueError(
-            "Failed to generate constrained continuation after 200 attempts"
-        )
+        raise ValueError("Failed to generate constrained continuation after 200 attempts")
 
     def prompt(self, meta):
         pfx = " ".join(meta.prefix) if meta.prefix else "<empty>"
@@ -1074,3 +1007,6 @@ class ConstrainedContinuation(Task):
         if can_stop:
             return 0.3 + 0.6 * blank_correct   # 0.3 – 0.9
         return 0.15 * blank_correct             # 0.0 – 0.15
+
+    def balancing_key(self, problem):
+        return problem.metadata.g

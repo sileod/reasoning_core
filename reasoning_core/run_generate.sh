@@ -34,6 +34,7 @@ echo "- Starting $threads workers..."
 
 MEM_LIMIT_KB=$((50*1024*1024))  # 50GB in KB
 seq $((threads * 200)) | parallel \
+  --workdir "$PWD" \
   -j"$threads" \
   --joblog generation.log \
   --line-buffer \

@@ -1,16 +1,15 @@
 """Symbolic rewriting: λ-calculus β-reduction and first-order unification.
 
-Two tasks over symbolic expressions with binding / meta-variables:
-
 - `lambda_reduction` — reduce an untyped λ-term to β-normal form.
-  Named-variable representation with capture-avoiding substitution; answers are
-  compared up to α-equivalence by canonicalising to de Bruijn indices.
+  Instances are built by *anti-reduction*: sample an NF, then insert redexes
+  that reduce back to it. Three elementary moves:
+      1. dummy        (λx.M) N          x ∉ FV(M)
+      2. identity     (λx.x) M
+      3. substitution (λx.M[T↦x]) T     (optionally duplicating T)
+  Move 3 can fail capture-avoidance silently; we catch it by normalising the
+  result and checking α-equivalence with the target NF.
 
-- `term_unification` — find the most general unifier of two first-order terms,
-  backed by the `unification` library (logpy / kanren). Generation builds a
-  shared skeleton and two partial instantiations, guaranteeing unifiability;
-  instances whose MGU retains free variables are rejected to keep scoring
-  unambiguous.
+- `term_unification` — unchanged; MGU via the `unification` library.
 """
 from dataclasses import dataclass
 import ast, random, re
@@ -32,6 +31,12 @@ def _fv(t):
     if k == 'l': return _fv(t[2]) - {t[1]}
     return _fv(t[1]) | _fv(t[2])
 
+def _all_names(t):
+    k = t[0]
+    if k == 'v': return {t[1]}
+    if k == 'l': return _all_names(t[2]) | {t[1]}
+    return _all_names(t[1]) | _all_names(t[2])
+
 def _fresh(avoid):
     i = 0
     while (n := f"_{i}") in avoid: i += 1
@@ -41,7 +46,7 @@ def _subst(t, x, s):
     k = t[0]
     if k == 'v': return s if t[1] == x else t
     if k == 'a': return ('a', _subst(t[1], x, s), _subst(t[2], x, s))
-    y, body = t[1], t[2]                         # k == 'l'
+    y, body = t[1], t[2]
     if y == x: return t
     if y in _fv(s):
         y2 = _fresh(_fv(body) | _fv(s) | {x})
@@ -49,7 +54,7 @@ def _subst(t, x, s):
     return ('l', y, _subst(body, x, s))
 
 def _step(t):
-    """One leftmost-outermost β-step; None if already in normal form."""
+    """One leftmost-outermost β-step; None if already in NF."""
     k = t[0]
     if k == 'a':
         f, a = t[1], t[2]
@@ -65,7 +70,7 @@ def _normalize(t, max_steps=200):
         n = _step(t)
         if n is None: return t
         t = n
-    return None                                  # presumed diverging
+    return None
 
 def _pretty(t):
     if t[0] == 'v': return t[1]
@@ -73,7 +78,6 @@ def _pretty(t):
     return f"({_pretty(t[1])} {_pretty(t[2])})"
 
 def _debruijn(t, env=()):
-    """α-canonical form: bound vars → #i, free vars keep their name."""
     k = t[0]
     if k == 'v':
         return f"#{env.index(t[1])}" if t[1] in env else t[1]
@@ -108,28 +112,83 @@ def _parse_lam(s: str):
     if i[0] != len(toks): raise ValueError("trailing tokens")
     return out
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Anti-reduction: sample NF, then insert redexes that reduce back to it
+# ─────────────────────────────────────────────────────────────────────────────
 _LAM_CONSTS = ['a', 'b', 'c', 'd']
 
-def _gen_lam(depth, rng, env=()):
-    if depth <= 0:
-        if env and rng.random() < 0.7: return ('v', rng.choice(env))
-        return ('v', rng.choice(_LAM_CONSTS))
-    r = rng.random()
-    if r < 0.35:
+def _gen_nf(depth, rng, env):
+    """Sample a β-normal term.
+        NF       ::=  λx.NF  |  neutral
+        neutral  ::=  (var|const) NF*          (head is never a λ)
+    """
+    if depth > 0 and rng.random() < 0.35:
         name = f"v{len(env)}"
-        return ('l', name, _gen_lam(depth - 1, rng, env + (name,)))
-    if r < 0.9:
-        return ('a', _gen_lam(depth - 1, rng, env),
-                     _gen_lam(depth - 1, rng, env))
-    return _gen_lam(0, rng, env)
+        return ('l', name, _gen_nf(depth - 1, rng, env + (name,)))
+    head = ('v', rng.choice(env) if env and rng.random() < 0.7
+                  else rng.choice(_LAM_CONSTS))
+    n_args = 0 if depth <= 0 else rng.randint(0, 2)
+    t = head
+    for _ in range(n_args):
+        t = ('a', t, _gen_nf(depth - 1, rng, env))
+    return t
+
+def _positions(t, path=()):
+    yield path, t
+    if t[0] == 'a':
+        yield from _positions(t[1], path + (1,))
+        yield from _positions(t[2], path + (2,))
+    elif t[0] == 'l':
+        yield from _positions(t[2], path + (2,))
+
+def _replace_at(t, path, new):
+    if not path: return new
+    i, rest = path[0], path[1:]
+    if t[0] == 'a':
+        return (('a', _replace_at(t[1], rest, new), t[2]) if i == 1
+                else ('a', t[1], _replace_at(t[2], rest, new)))
+    return ('l', t[1], _replace_at(t[2], rest, new))
+
+def _replace_all(t, target, new):
+    if t == target: return new
+    if t[0] == 'a':
+        return ('a', _replace_all(t[1], target, new),
+                     _replace_all(t[2], target, new))
+    if t[0] == 'l':
+        return ('l', t[1], _replace_all(t[2], target, new))
+    return t
+
+def _insert_redex(M, rng, arg_depth):
+    """One anti-reduction move at a random subterm of M."""
+    path, S = rng.choice(list(_positions(M)))
+    x = _fresh(_all_names(M))
+    inner = [(p, s) for p, s in _positions(S) if p]
+    r = rng.random()
+
+    if r < 0.2 or not inner:                        # dummy:    (λx.S) N
+        N = _gen_nf(rng.randint(0, min(2, arg_depth)), rng, ())
+        new = ('a', ('l', x, S), N)
+    elif r < 0.35:                                  # identity: (λx.x) S
+        new = ('a', ('l', x, ('v', x)), S)
+    else:                                           # subst:    (λx.S[T↦x]) T
+        _, T = rng.choice(inner)
+        hits = [p for p, s in inner if s == T]
+        S_abs = (_replace_all(S, T, ('v', x)) if rng.random() < 0.5
+                 else _replace_at(S, rng.choice(hits), ('v', x)))
+        new = ('a', ('l', x, S_abs), T)
+
+    return _replace_at(M, path, new)
 
 
 @dataclass
 class LambdaReductionConfig(Config):
-    depth: int = 2
+    nf_depth: int = 2
+    n_insertions: int = 1
 
     def update(self, c=1):
-        self.depth += c
+        self.nf_depth     += c
+        self.n_insertions += c
 
 
 class LambdaReduction(Task):
@@ -138,17 +197,29 @@ class LambdaReduction(Task):
 
     def generate(self):
         rng = random.Random()
-        for _ in range(300):
-            t = _gen_lam(self.config.depth, rng)
-            if _step(t) is None: continue        # no redex → boring
-            nf = _normalize(t)
-            if nf is None: continue              # diverged
-            if len(_pretty(nf)) > 250: continue  # size blowup
+        cfg = self.config
+        for _ in range(500):
+            nf = _gen_nf(cfg.nf_depth, rng, ())
+            if not (3 <= len(_pretty(nf)) <= 60): continue
+            if _step(nf) is not None: continue        # invariant guard
+
+            t = nf
+            for _ in range(cfg.n_insertions):
+                t2 = _insert_redex(t, rng, cfg.nf_depth)
+                if len(_pretty(t2)) > 200: break       # stop growing
+                t = t2
+
+            if _step(t) is None: continue              # no redex committed
+            result = _normalize(t)
+            if result is None: continue                # diverged
+            if _debruijn(result) != _debruijn(nf):     # move 3 captured
+                continue
+
             return Problem(
                 metadata=edict(term=_pretty(t), normal_form=_pretty(nf)),
                 answer=_pretty(nf),
             )
-        raise RuntimeError("could not sample a non-trivial terminating term")
+        raise RuntimeError("could not sample a valid λ-term")
 
     def prompt(self, metadata):
         return (
@@ -170,10 +241,8 @@ class LambdaReduction(Task):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# First-order term unification
+# First-order term unification (unchanged)
 # ─────────────────────────────────────────────────────────────────────────────
-# Prolog-ish syntax:  f(a, X, g(Y, b))  —  Upper = Var, lower = functor/atom.
-
 _TERM_TOK = re.compile(r'[A-Za-z_]\w*|[(),]')
 
 def _show_term(t) -> str:
@@ -214,7 +283,7 @@ class TermUnificationConfig(Config):
     n_vars: int = 2
 
     def update(self, c=1):
-        self.depth += c
+        self.depth  += c
         self.n_vars += c
 
 
@@ -240,7 +309,7 @@ class TermUnification(Task):
             s1, s2 = _show_term(t1), _show_term(t2)
             if s1 == s2: continue
             mgu = unify(t1, t2)
-            if not mgu: continue                  # False or empty
+            if not mgu: continue
             fully = {k.token: reify(k, mgu) for k in mgu}
             if any(_has_var(v) for v in fully.values()): continue
             nice = {k: _show_term(v) for k, v in fully.items()}

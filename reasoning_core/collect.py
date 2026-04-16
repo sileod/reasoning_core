@@ -12,6 +12,13 @@ from datasets import disable_caching, load_dataset, Dataset
 from huggingface_hub import HfApi, login
 from nfsdict import NfsDict
 from tqdm import tqdm
+
+import random
+from io import BytesIO
+from multiprocessing import Pool
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 disable_caching()
 
 
@@ -132,43 +139,40 @@ def upload_with_retry(api: HfApi, local: str, remote: str, repo: str, msg: str):
     raise RuntimeError(f"Upload failed after {MAX_RETRIES} retries")
 
 
-def _gen_from_files(files):
-    for path in files:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    yield json.loads(line)
+# V2
 
+def _load_file(path):
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if not line.strip(): continue
+            ex = json.loads(line)
+            if len(ex.get("prompt", "")) >= 50_000: continue
+            rows.append({**ex, **process_row(ex)})
+    return rows
 
-def upload_shard(files: list[str], bid: str, api: HfApi,
-                 repo: str, num_proc: int) -> tuple[str, int | None]:
+def upload_shard(files, bid, api, repo, num_proc):
     shard = f"data/shard-{bid}.parquet"
     if api.file_exists(repo_id=repo, filename=shard, repo_type="dataset"):
-        print(f"  ↺ {shard} exists on hub")
-        return shard, None
+        print(f"  ↺ {shard} exists on hub"); return shard, None
 
-    print(f"  ⏳ Loading {len(files):,} files...")
-    ds = Dataset.from_generator(_gen_from_files, gen_kwargs={"files": files})
-    print(f"  ⏳ Processing {len(ds):,} rows...")
-    ds = ds.map(process_row, num_proc=num_proc)
-    ds = ds.filter(lambda ex: len(ex.get("prompt", "")) < 50_000, num_proc=num_proc)
-    ds = ds.shuffle()
-    rows = len(ds)
+    print(f"  ⏳ Loading & processing {len(files):,} files...")
+    with Pool(num_proc) as pool:
+        rows = [r for batch in pool.imap_unordered(_load_file, files, chunksize=8) for r in batch]
+    random.shuffle(rows)
 
-    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
-        tmp_path = f.name
-    try:
-        ds.to_parquet(tmp_path)
-        sz = os.path.getsize(tmp_path) / (1024 * 1024)
-        print(f"  📦 {shard} — {rows:,} rows, {sz:.1f} MB")
-        print(f"  📤 Uploading...")
-        upload_with_retry(api, tmp_path, shard, repo,
-                          f"shard {bid} ({len(files)} files, {rows:,} rows)")
-        print(f"  ✅ Uploaded!")
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-    return shard, rows
+    buf = BytesIO()
+    pq.write_table(pa.Table.from_pylist(rows), buf, compression="snappy")
+    buf.seek(0)
+    print(f"  📦 {shard} — {len(rows):,} rows, {buf.getbuffer().nbytes/1024/1024:.1f} MB")
+    print(f"  📤 Uploading...")
+    upload_with_retry(api, buf, shard, repo,
+                      f"shard {bid} ({len(files)} files, {len(rows):,} rows)")
+    print(f"  ✅ Uploaded!")
+    return shard, len(rows)
+
+# / V2
+
 
 
 def mark_batch_done(state: NfsDict, paths: list[str], shard: str, delete: bool = False):
@@ -208,7 +212,7 @@ def stats(state: NfsDict) -> tuple[int, int]:
 
 def main(args):
     repo = f"{args.org}/{args.dataset_name}"
-    state_dir = os.path.join(args.rc_path, "upload")
+    state_dir = os.path.join(args.rc_path, "upload_state")
 
     print(f"🕷️  collect → {repo}")
     print(f"   rc_path  = {args.rc_path}")
