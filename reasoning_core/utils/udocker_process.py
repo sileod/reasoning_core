@@ -145,13 +145,6 @@ def _load_sif_to_ram(nfs_path):
 def _get_native_vampire():
     """Get a working native vampire binary via gramforge (PATH → download → build from source)."""
     try:
-        # Pre-load nltk.data explicitly to avoid a circular import on some environments
-        # (gramforge.solver_utils.tptp uses nltk.data internally; if nltk is partially
-        # initialized when gramforge imports it, 'nltk' has no attribute 'data' yet).
-        try:
-            import nltk.data  # noqa: F401
-        except ImportError:
-            pass
         from gramforge.solver_utils.tptp import get_vampire_path
         path = get_vampire_path()
         log(f"Resolved native vampire: {path}")
