@@ -480,25 +480,6 @@ The answer is a Python list of node integers, sorted in increasing order. Exampl
 
 ---
 
-## [graph_cycle_detection](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/graph_operations.py)
-
-**Prompt:**
-``
-Consider the graph below, which contains exactly one cycle.
-
-Edges: 0-1, 1-2, 1-4, 2-3, 3-4
-
-Identify all the nodes that form the cycle.
-The answer is a Python list of nodes, sorted in increasing order. Example: `[2, 5, 7, 8]`.
-``
-
-**Answer:**
-```
-[1, 2, 3, 4]
-```
-
----
-
 ## [graph_isomorphism](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/graph_operations.py)
 
 **Prompt:**
@@ -974,4 +955,3 @@ Morning adult care how player
 ```
 
 ---
-
