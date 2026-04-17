@@ -8,7 +8,8 @@ from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
 import torch
 from tabulate import tabulate
-
+from lm_eval.evaluator import evaluate
+from lm_eval.tasks import TaskManager, get_task_dict
 
 platinum = ['gsm8k','svamp','winograd_wsc']
 

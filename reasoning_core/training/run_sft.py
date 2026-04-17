@@ -57,7 +57,7 @@ parser.add_argument('--aux_token', type=str, default="")
 # Dataset Registry
 DATA_MAP = {
     "fw": "HuggingFaceFW/fineweb-edu",
-    "rc": "reasoning-core/symbolic-pretraining-pile",
+    "rc": "reasoning-core/procedural-pretraining-pile",
     "synth": "tasksource/SYNTH",
     'dolci':'tasksource/dolci-instruct'
 }

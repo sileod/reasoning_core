@@ -38,7 +38,7 @@ MEM_LIMIT_KB=$((50*1024*1024))  # 50GB in KB
 seq $((threads * 200)) | parallel \
   --workdir "$PWD" \
   -j"$threads" \
-  --joblog generation.log \
+  --joblog "$script_dir/generation.log" \
   --line-buffer \
   'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python "'"$script_dir"'/generation_worker.py" --id {} --status_dir '"$STATUS_DIR"' '"$@"'' &
 
