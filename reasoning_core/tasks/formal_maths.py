@@ -214,8 +214,8 @@ def prove_conjecture(axioms: list[str], conjecture: str,
         if verb == True:
             print(f"output disproove vampire :  {result_disproove.stdout} ")
 
-        if "% Finite Model Found!" in result_disproove.stdout :
-            return False 
+        if "Finite Model Found!" in result_disproove.stdout or "% SZS status CounterSatisfiable" in result_disproove.stdout:
+            return False
         if "% Time limit reached!" in result_proove.stdout and "% Time limit reached!" in result_disproove.stdout  :
             return f"ERROR : TIME LIMIT in both tentative to proove AND to disproove"
         print(f"[prove_conjecture] vampire failed:"
