@@ -8,6 +8,9 @@ from ast import literal_eval
 @dataclass
 class GraphReasoningConfig(Config):
     num_nodes: int = 5  #needs 5 to avoid duplicates
+    no_solution_prob: float = 0.1
+    return_to_start_prob: float = 0.1
+
     def update(self, c): 
         self.num_nodes *= (1+c)
 
@@ -120,6 +123,49 @@ class GraphPathfinding(BaseGraphTask, Task):
                     queue.append((n, path + [n]))
         return None
 
+    def _disconnected_graph(self):
+        """Build two connected components to guarantee unreachable pairs."""
+        def connected_graph(n):
+            for _ in range(20):
+                G = nx.fast_gnp_random_graph(n, random.uniform(0.25, 0.75))
+                if G.number_of_nodes() > 0 and nx.is_connected(G):
+                    return G
+            return nx.path_graph(n)
+
+        n = max(2, self.config.num_nodes)
+        n1 = random.randint(1, n - 1)
+        g1 = connected_graph(n1)
+        g2 = connected_graph(n - n1)
+        return nx.disjoint_union(g1, g2)
+
+    def _lexicographic_shortest_non_empty_cycle(self, G, start):
+        candidates = []
+        for n in sorted(G.neighbors(start)):
+            H = G.copy()
+            H.remove_edge(start, n)
+            tail = self._lexicographic_shortest_path(H, n, start)
+            if tail is not None:
+                candidates.append([start] + tail)
+        return min(candidates, key=lambda p: (len(p), p)) if candidates else None
+
+    def _cycle_start_nodes(self, G):
+        return [
+            u for u in G.nodes()
+            if self._lexicographic_shortest_non_empty_cycle(G, u) is not None
+        ]
+
+    def _sample_same_node_cycle(self, G):
+        cycle_nodes = self._cycle_start_nodes(G)
+        if not cycle_nodes:
+            non_edges = list(nx.non_edges(G))
+            if non_edges:
+                G.add_edge(*random.choice(non_edges))
+                cycle_nodes = self._cycle_start_nodes(G)
+        if not cycle_nodes:
+            return None, None
+        start = random.choice(cycle_nodes)
+        return start, self._lexicographic_shortest_non_empty_cycle(G, start)
+
     def make_cot(self, G, start, end):
         # BFS State Initialization
         queue = [(start, [start])] # Tuple: (Current Node, Path History)
@@ -157,28 +203,64 @@ class GraphPathfinding(BaseGraphTask, Task):
 
         return "Target unreachable."
     def generate(self):
+        is_unsat = random.random() < self.config.no_solution_prob
+        if is_unsat:
+            G = self._disconnected_graph()
+            cc = list(nx.connected_components(G))
+            start = random.choice(list(cc[0]))
+            end = random.choice(list(cc[1]))
+            path = None
+            return Problem(
+                metadata={
+                    "graph_description": self._render_graph(G),
+                    "start_node": start,
+                    "end_node": end,
+                    "nodes": list(G.nodes()),
+                    "edges": list(G.edges()),
+                    "optimal_length": None,
+                    "cot": self.make_cot(G, start, end),
+                },
+                answer="None",
+            )
+
         G = self._generate_graph()
-        start, end = random.sample(list(G.nodes()), 2)
-        path = self._lexicographic_shortest_path(G, start, end)
+        if random.random() < self.config.return_to_start_prob:
+            start, path = self._sample_same_node_cycle(G)
+            if start is not None:
+                end = start
+            else:
+                start, end = random.sample(list(G.nodes()), 2)
+                path = self._lexicographic_shortest_path(G, start, end)
+        else:
+            start, end = random.sample(list(G.nodes()), 2)
+            path = self._lexicographic_shortest_path(G, start, end)
 
         metadata = {
             "graph_description": self._render_graph(G), "start_node": start, "end_node": end,
-            "nodes": list(G.nodes()), "edges": list(G.edges()), "optimal_length": len(path),
+            "nodes": list(G.nodes()), "edges": list(G.edges()),
+            "optimal_length": len(path) if path is not None else None,
             "cot": self.make_cot(G, start, end)
         }
         return Problem(metadata=metadata, answer=str(path))
 
     def prompt(self, m):
-        return (f"Consider the graph:\n\n{m['graph_description']}\n\n"
-                f"Find the lexicographically smallest shortest path from Node {m['start_node']} to Node {m['end_node']}.\n"
-                "The answer is a Python list of nodes.")
+        extra = " (non-empty)" if m["start_node"] == m["end_node"] else ""
+        return (
+            f"Consider the graph:\n\n{m['graph_description']}\n\n"
+            f"Find the lexicographically smallest shortest path{extra} from Node {m['start_node']} to Node {m['end_node']}.\n"
+            "If no path exists, answer `None`.\n"
+            "The answer is a Python list of nodes or `None`."
+        )
 
     def score_answer(self, answer, entry):
             try: pred_path = literal_eval(answer)
             except: return 0.0
-            if not isinstance(pred_path, list) or len(pred_path) < 1: return 0.0
-            
+
             meta = entry.metadata
+            if pred_path is None:
+                return 1.0 if meta.get("optimal_length") is None else 0.0
+            if not isinstance(pred_path, list) or len(pred_path) < 1:
+                return 0.0
             
             def to_hashable(x):
                 return tuple(x) if isinstance(x, list) else x
@@ -194,7 +276,13 @@ class GraphPathfinding(BaseGraphTask, Task):
             end_node = to_hashable(meta['end_node'])
             pred_path = [to_hashable(n) for n in pred_path]
 
-            if (pred_path[0] != start_node or pred_path[-1] != end_node or not nx.is_path(G, pred_path)):
+            if (pred_path[0] != start_node or pred_path[-1] != end_node):
+                return 0.0
+            if start_node == end_node and len(pred_path) < 3:
+                return 0.0
+            if not nx.is_path(G, pred_path):
+                return 0.0
+            if meta['optimal_length'] is None:
                 return 0.0
             return meta['optimal_length'] / len(pred_path)
 
@@ -238,49 +326,6 @@ class GraphNodeCentrality(BaseGraphTask, Task):
             true_list = literal_eval(entry.answer)
             # The lists must be identical (which also enforces the sorting rule).
             return 1.0 if pred_list == true_list else 0.0
-        except:
-            return 0.0
-
-class GraphCycleDetection(BaseGraphTask, Task):
-    """Task to identify the specific nodes that form a cycle in a graph."""
-
-    def generate(self):
-        # Create a graph with exactly one cycle.
-        # Start with a path graph (guaranteed acyclic), then add one edge.
-        G = nx.path_graph(self.config.num_nodes)
-        
-        # Add one edge between non-adjacent nodes to create a single cycle.
-        possible_edges = list(nx.non_edges(G))
-        if not possible_edges: # Should not happen for n > 2
-            return self.generate() # Retry
-        u, v = random.choice(possible_edges)
-        G.add_edge(u, v)
-
-        # The answer is the set of nodes forming this unique cycle.
-        cycle_edges = nx.find_cycle(G)
-        answer_nodes = sorted(list(set(node for edge in cycle_edges for node in edge)))
-        
-        metadata = {"graph_description": self._render_graph(G)}
-        return Problem(metadata=metadata, answer=str(answer_nodes))
-
-    def prompt(self, metadata):
-        return (
-            f"Consider the graph below, which contains exactly one cycle.\n\n"
-            f"{metadata['graph_description']}\n\n"
-            "Identify all the nodes that form the cycle.\n"
-            "The answer is a Python list of nodes, sorted in increasing order. "
-            "Example: `[2, 5, 7, 8]`."
-        )
-
-    def score_answer(self, answer, entry):
-        """Scores based on whether the predicted set of nodes matches the true cycle."""
-        try:
-            pred_nodes = literal_eval(answer)
-            true_nodes = literal_eval(entry.answer)
-            # Use sets for order-agnostic comparison, then check if sorted.
-            is_correct_set = (set(pred_nodes) == set(true_nodes))
-            is_sorted = (pred_nodes == sorted(pred_nodes))
-            return 1.0 if is_correct_set and is_sorted else 0.0
         except:
             return 0.0
 
