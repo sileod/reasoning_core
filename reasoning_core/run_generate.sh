@@ -13,10 +13,12 @@ export HF_HOME="/tmp/hf_$$"
 export NUMBA_CACHE_DIR="/tmp/numba_$$"
 mkdir -p "$HF_HOME" "$NUMBA_CACHE_DIR" 2>/dev/null
 
-BATCH=0; threads=""
+BATCH=0; threads=""; script_dir="."
+prev=""
 for i in "$@"; do
   [[ "$i" == "--batch" ]] && BATCH=1
   [[ "$prev" == "--threads" ]] && threads="$i"
+  [[ "$prev" == "--script_dir" ]] && script_dir="$i"
   prev="$i"
 done
 
@@ -38,7 +40,7 @@ seq $((threads * 200)) | parallel \
   -j"$threads" \
   --joblog generation.log \
   --line-buffer \
-  'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python generation_worker.py --id {} --status_dir '"$STATUS_DIR"' '"$@"'' &
+  'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python "'"$script_dir"'/generation_worker.py" --id {} --status_dir '"$STATUS_DIR"' '"$@"'' &
 
 PARALLEL_PID=$!
 
