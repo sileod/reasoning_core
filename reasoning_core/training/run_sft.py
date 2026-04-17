@@ -308,6 +308,7 @@ if "eval" not in completed:
         opt_state["optimizer"].eval()
     wandb.log(run_harness(model, tokenizer))
     wandb.log(run_platinum(model, tokenizer))
+    trainer.evaluate()
     wandb.finish()
     save_ckpt({"hash": run_hash, "group_id": group_id, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": sorted(completed | {"eval"}), "done": True}, ckpt_file)
 
