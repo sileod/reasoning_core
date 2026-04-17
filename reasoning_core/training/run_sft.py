@@ -4,9 +4,16 @@ for budget in 300_000_000 1_000_000_000; do   for r in 0.1 0.0 0.25 0.4 0.05; do
 
 import os, tempfile
 from pathlib import Path
-SAFE_TMP  = os.environ.get('SAFE_TMP',  str(Path.home() / '.cache'))
-HF_CACHE = os.environ.get('HF_CACHE', str(Path.home() / '.cache' / 'huggingface'))
+
+MEMORY = Path("/dev/shm/hf_cache") # Use memory = Path.home() for disk
+
+
+SAFE_TMP  = os.environ.get('SAFE_TMP',  str(MEMORY / '.cache'))
+HF_CACHE = os.environ.get('HF_CACHE', str(MEMORY / '.cache' / 'huggingface'))
+os.environ['HF_HOME'] = HF_CACHE
 os.environ['HF_DATASETS_CACHE'] = HF_CACHE
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["WANDB_LOG_MODEL"] = "false" 
 for k in ('TMPDIR', 'TEMP', 'TMP'): os.environ[k] = SAFE_TMP
 os.makedirs(SAFE_TMP, exist_ok=True)
 tempfile.tempdir = SAFE_TMP
@@ -28,8 +35,6 @@ from tabulate import tabulate
 from reasoning_core.downstream_eval import run_harness, run_platinum
 
 disable_caching()
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["WANDB_LOG_MODEL"] = "false" 
 logging.getLogger("trl.trainer.sft_trainer").setLevel(logging.ERROR)
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -109,7 +114,7 @@ def load_ckpt(path):
     return None
 
 run_hash = _args_hash(args)
-run_name = _run_name(run_hash)
+run_name = f"_run_name(run_hash)-r{args.aux_ratio}"
 ckpt_dir = Path("checkpoints") / run_hash
 ckpt_file = ckpt_dir / "run_state.json"
 ckpt = load_ckpt(ckpt_file)
