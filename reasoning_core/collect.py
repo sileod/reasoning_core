@@ -139,8 +139,6 @@ def upload_with_retry(api: HfApi, local: str, remote: str, repo: str, msg: str):
     raise RuntimeError(f"Upload failed after {MAX_RETRIES} retries")
 
 
-# V2
-
 def _load_file(path):
     rows = []
     with open(path, encoding="utf-8") as f:
@@ -170,8 +168,6 @@ def upload_shard(files, bid, api, repo, num_proc):
                       f"shard {bid} ({len(files)} files, {len(rows):,} rows)")
     print(f"  ✅ Uploaded!")
     return shard, len(rows)
-
-# / V2
 
 
 

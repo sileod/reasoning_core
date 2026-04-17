@@ -20,7 +20,8 @@ import signal
 from contextlib import contextmanager
 from inflection import underscore
 import tiktoken
-import psutil 
+import psutil
+from tqdm.auto import tqdm 
 
 #template.py
 
@@ -276,10 +277,10 @@ class Task(ProceduralDataset):
                     problem.prompt = self.prompt(problem.metadata)
 
                     prompt_tokens = len(self.tokenizer.encode(problem.prompt))
-                    cot_tokens = len(self.tokenizer.encode(problem.metadata.get('cot','') + problem.answer))
+                    answer_tokens = len(self.tokenizer.encode(problem.metadata.get('cot','') + problem.answer))
                     if max_tokens and prompt_tokens > max_tokens:
                         continue
-                    if max_tokens and cot_tokens > max_tokens:
+                    if max_tokens and answer_tokens > max_tokens:
                         continue
                     break  
                 
@@ -292,34 +293,34 @@ class Task(ProceduralDataset):
                 problem.metadata['_level'] = self.config.level
                 problem.metadata['_config'] = self.config.to_dict()
                 problem.metadata['_prompt_tokens'] = prompt_tokens
-                problem.metadata['_cot_tokens'] = cot_tokens
+                problem.metadata['_answer_tokens'] = answer_tokens
 
                 problem.balancing_key = self.balancing_key(problem)
                 problem.deduplication_key = self.deduplication_key(problem)
                 return problem
         return inner()
 
-    def generate_balanced_batch(self, batch_size=32, deduplication = False, **kwargs):
+    def generate_balanced_batch(self, batch_size=32, deduplication=False, progress=False, **kwargs):
         max_per_key = math.ceil(batch_size * self.balancing_key_ratio)
         counts = Counter()
-        if deduplication:
-            deduplication_values = []
+        seen = set()
         batch = []
-        while len(batch) < batch_size:
-            ex = self.generate_example(**kwargs)
-            b_key = ex.balancing_key
-            d_key = ex.deduplication_key
-            if d_key is not None and deduplication:
-                if d_key in deduplication_values:
-                    continue
-            if b_key is None or counts[b_key] < max_per_key:
-                batch.append(ex)
-                if d_key is not None and deduplication:
-                    deduplication_values.append(d_key)
-                if b_key is not None:
-                    counts[b_key] += 1
-        return batch
 
+        with tqdm(total=batch_size, disable=not progress) as pbar:
+            while len(batch) < batch_size:
+                ex = self.generate_example(**kwargs)
+                b, d = ex.balancing_key, ex.deduplication_key
+
+                if (deduplication and d in seen) or (b is not None and counts[b] >= max_per_key):
+                    continue
+
+                batch.append(ex)
+                pbar.update(1)
+                
+                if b is not None: counts[b] += 1
+                if deduplication and d is not None: seen.add(d)
+
+        return batch
 
     def __getitem__(self, idx: int) -> dict:
         if self.seed:

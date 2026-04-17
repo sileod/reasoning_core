@@ -1,6 +1,6 @@
 # 📖 Task Gallery
 
-[`arithmetics`](#arithmetics) · [`symbolic_arithmetics`](#symbolic_arithmetics) · [`equation_system`](#equation_system) · [`conjecture_entailment`](#conjecture_entailment) · [`proof_reconstruction`](#proof_reconstruction) · [`bayesian_association`](#bayesian_association) · [`bayesian_intervention`](#bayesian_intervention) · [`logic_nli`](#logic_nli) · [`evidence_retrieval`](#evidence_retrieval) · [`planning`](#planning) · [`set_intersection`](#set_intersection) · [`set_missing_element`](#set_missing_element) · [`count_elements`](#count_elements) · [`set_equality`](#set_equality) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`navigation`](#navigation) · [`reference_tracking`](#reference_tracking) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_node_centrality`](#graph_node_centrality) · [`graph_cycle_detection`](#graph_cycle_detection) · [`graph_isomorphism`](#graph_isomorphism) · [`graph_successors`](#graph_successors) · [`graph_dependencies`](#graph_dependencies) · [`regex_following`](#regex_following) · [`regex_induction`](#regex_induction) · [`regex_reasoning`](#regex_reasoning) · [`lexical_knowledge`](#lexical_knowledge) · [`parsability`](#parsability) · [`parsing`](#parsing) · [`continuation`](#continuation) · [`locate_error`](#locate_error) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_conversion`](#table_conversion) · [`lambda_reduction`](#lambda_reduction) · [`term_unification`](#term_unification) · [`code_execution`](#code_execution) · [`diff_prediction`](#diff_prediction) · [`diff_patching`](#diff_patching)
+[`arithmetics`](#arithmetics) · [`symbolic_arithmetics`](#symbolic_arithmetics) · [`equation_system`](#equation_system) · [`conjecture_entailment`](#conjecture_entailment) · [`proof_reconstruction`](#proof_reconstruction) · [`bayesian_association`](#bayesian_association) · [`bayesian_intervention`](#bayesian_intervention) · [`logic_nli`](#logic_nli) · [`evidence_retrieval`](#evidence_retrieval) · [`planning`](#planning) · [`set_intersection`](#set_intersection) · [`set_missing_element`](#set_missing_element) · [`count_elements`](#count_elements) · [`set_equality`](#set_equality) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`navigation`](#navigation) · [`reference_tracking`](#reference_tracking) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_node_centrality`](#graph_node_centrality) · [`graph_isomorphism`](#graph_isomorphism) · [`graph_successors`](#graph_successors) · [`graph_dependencies`](#graph_dependencies) · [`regex_following`](#regex_following) · [`regex_induction`](#regex_induction) · [`regex_reasoning`](#regex_reasoning) · [`lexical_knowledge`](#lexical_knowledge) · [`parsability`](#parsability) · [`parsing`](#parsing) · [`continuation`](#continuation) · [`locate_error`](#locate_error) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_conversion`](#table_conversion) · [`lambda_reduction`](#lambda_reduction) · [`term_unification`](#term_unification) · [`code_execution`](#code_execution) · [`diff_prediction`](#diff_prediction) · [`diff_patching`](#diff_patching)
 
 ---
 
@@ -8,13 +8,13 @@
 
 **Prompt:**
 ```
-Evaluate 10 / 4.
+Evaluate 9 + -11.2.
 The answer is a number.
 ```
 
 **Answer:**
 ```
-2.5
+-2.2
 ```
 
 ---
@@ -24,14 +24,14 @@ The answer is a number.
 **Prompt:**
 ```
 Simplify the following algebraic expression:
-x + y - 9 + 6
+min(x + (4)**2, 8)
 
 The answer is the simplified expression.
 ```
 
 **Answer:**
 ```
-x + y - 3
+Min(8, x + 16)
 ```
 
 ---
@@ -43,6 +43,7 @@ x + y - 3
 Solve the following system of equations for the variable 'X2'.
 
 System:
+  X1 - 9 = 0
   X2 + 14 = 0
 
 The answer is the numerical value for X2, or 'No solution' / 'Multiple solutions' if a unique numerical solution does not exist.
@@ -61,12 +62,12 @@ The answer is the numerical value for X2, or 'No solution' / 'Multiple solutions
 ``
 Decide if the given premises entail the conjecture (i.e., the conjecture is provable) using Superposition/Resolution/Paramodulation.
 
-Domain: Set Theory
+Domain: Geometry
 
 Premises:
-- (subset(X1,X2)|~subset(X3,X2)|~member(member_of_1_not_of_2(X1,X2),X3))
+- (on(point_on_plane(X1),X1)|~plane(X1))
 
-Conjecture: `(subset(X1,X2)|~subset(X3,X2)|~subset(X1,X3))`
+Conjecture: `(X1=X2|on(X1,X1)|~plane(X2)|~plane(X1)|~line(X1)|~point(point_on_plane(X2))|~on(point_on_plane(X2),X1))`
 
 The answer is `True` (provable) or `False` (not provable).
 ``
@@ -84,7 +85,7 @@ False
 ```
 Reconstruct the proof dependency graph.
 Domain: Analysis
-Theorem: (less_or_equal(X1,X2)|X3!=minimum(X4,minimum(X5,X2))|X3!=X1)
+Theorem: (minimum(n0,X1)=X1|half(X1)!=minimum(X2,n0))
 
 Rules:
 - Some clauses are axioms (no parents); do NOT list them
@@ -92,13 +93,13 @@ Rules:
 - Clauses can be reused as parents
 
 Shuffled clauses:
-1. (minimum(X1,X2)=X1|~less_or_equal(X1,X2))
+1. (less_or_equal(X1,X3)|~less_or_equal(X1,minimum(X2,X3)))
 2. (less_or_equal(X1,X2)|X1!=minimum(X3,X2))
-3. (less_or_equal(X1,X2)|X3!=minimum(X4,minimum(X5,X2))|X3!=X1)
+3. (minimum(n0,X1)=X1|half(X1)!=minimum(X2,n0))
 4. (less_or_equal(X1,X2)|X1!=X2)
-5. (less_or_equal(X1,X3)|~less_or_equal(X1,minimum(X2,X3)))
-6. (less_or_equal(X1,X2)|X1!=minimum(X3,minimum(X4,X2)))
-7. (minimum(X1,X2)=X1|X1!=minimum(X3,X2))
+5. (less_or_equal(X1,n0)|~less_or_equal(half(X1),n0))
+6. (minimum(X2,X1)=X1|~less_or_equal(X1,X2))
+7. (less_or_equal(X1,n0)|half(X1)!=minimum(X2,n0))
 
 The answer is the list of derivations for derived clauses, one per line: CHILD <- PARENT_1, PARENT_2
 Example: 5 <- 2, 4
@@ -107,10 +108,9 @@ Example: 5 <- 2, 4
 
 **Answer:**
 ```
-2 <- 4, 5
+2 <- 1, 4
 3 <- 6, 7
-6 <- 2, 5
-7 <- 1, 2
+7 <- 2, 5
 ```
 
 ---
@@ -120,13 +120,12 @@ Example: 5 <- 2, 4
 **Prompt:**
 ```
 System:
-P(X_0) = {'0': 0.9, '1': 0.1} 
-P(X_2|X_0=0) = {'0': 0.4, '1': 0.6} 
-P(X_2|X_0=1) = {'0': 0.6, '1': 0.4} 
-P(X_1) = {'0': 0.4, '1': 0.6}
+P(X_0) = {'0': 0.8, '1': 0.2} 
+P(X_1) = {'0': 0.3, '1': 0.7} 
+P(X_2) = {'0': 0.3, '1': 0.7}
 Observed conditions:
-Observing/Knowing that the state X_1 is equal to 1
-Task: Compute probability distribution for X_0 (possible values: [0, 1]).
+Observing/Knowing that the state X_0 is equal to 1
+Task: Compute probability distribution for X_2 (possible values: [0, 1]).
 
 The answer is a Python dict mapping each value to its probability, rounded to 1 decimals.
 Example: {0: 0.1, 1: 0.9}
@@ -134,7 +133,7 @@ Example: {0: 0.1, 1: 0.9}
 
 **Answer:**
 ```
-{0: 0.9, 1: 0.1}
+{0: 0.3, 1: 0.7}
 ```
 
 ---
@@ -144,12 +143,12 @@ Example: {0: 0.1, 1: 0.9}
 **Prompt:**
 ```
 System:
-P(X_0) = {'0': 0.2, '1': 0.8} 
-P(X_1) = {'0': 0.2, '1': 0.8} 
-P(X_2) = {'0': 0.6, '1': 0.4}
+P(X_0) = {'0': 0.6, '1': 0.4} 
+P(X_1) = {'0': 0.7, '1': 0.3} 
+P(X_2) = {'0': 0.7, '1': 0.3}
 Observed conditions:
-Doing/Imposing that the state X_2 is equal to 0
-Task: Compute probability distribution for X_1 (possible values: [0, 1]).
+Doing/Imposing that the state X_1 is equal to 0
+Task: Compute probability distribution for X_0 (possible values: [0, 1]).
 
 The answer is a Python dict mapping each value to its probability, rounded to 1 decimals.
 Example: {0: 0.1, 1: 0.9}
@@ -157,7 +156,7 @@ Example: {0: 0.1, 1: 0.9}
 
 **Answer:**
 ```
-{0: 0.2, 1: 0.8}
+{0: 0.6, 1: 0.4}
 ```
 
 ---
@@ -167,14 +166,14 @@ Example: {0: 0.1, 1: 0.9}
 **Prompt:**
 ```
 Premise:
-there is a room.
-more than one person outside the room either is a quiet person or is not old, not quiet but not both
-Fred has a pet dog
-Mary is not old
-all old people in the room are old
-exactly five people in the room writes and illustrates their own graphic novels
+Mary is the only person in the room.
+Paul and Mary are old
+Mary has a specialized collection of handmade artisan pottery
+no old person in the room is quiet
+someone who has a specialized collection of handmade artisan pottery hates someone who is old
+all quiet people in the room are quiet
 Hypothesis:
-Paul is quiet
+Paul is not old
 
 If the Premise entails the Hypothesis, the label is 'entailment'.
 If the Premise contradicts the Hypothesis, the label is 'contradiction'.
@@ -184,7 +183,7 @@ The answer is exactly one word: neutral, contradiction, or entailment.
 
 **Answer:**
 ```
-neutral
+contradiction
 ```
 
 ---
@@ -194,14 +193,14 @@ neutral
 **Prompt:**
 ```
 Premise:
-[0] there is a room.
-[1] everyone outside the room is old only if they are not quiet
-[2] everyone in the room is not a quiet person if they are a quiet person
-[3] Paul has a saltwater aquarium
-[4] everyone in the room who is quiet is a professional photographer specializing in portrait photography
-[5] Fred and Mary are quiet people
+[0] Mary is the only person in the room.
+[1] Fred practices pilates
+[2] all quiet people in the room are quiet
+[3] everyone in the room is not an old person if they are quiet
+[4] it is not the case that “Paul and Mary are an old quiet people”
+[5] Paul and Fred are respectively old and quiet
 Hypothesis:
-Mary is old
+Fred is not quiet
 
 Which statements in the premise contradict the hypothesis?
 The answer is the list of supporting statements, e.g. [0, 6, 7].
@@ -209,7 +208,7 @@ The answer is the list of supporting statements, e.g. [0, 6, 7].
 
 **Answer:**
 ```
-[1, 2, 5]
+[5]
 ```
 
 ---
@@ -219,19 +218,20 @@ The answer is the list of supporting statements, e.g. [0, 6, 7].
 **Prompt:**
 ```
 [OBJECTS]
-object_1, object_2
+object_1
 
 [ACTIONS]
-action_0(x0)
-  Requires: (not fluent_1(x0)), (not fluent_0)
-  Effect: fluent_1(x0), fluent_0
+action_0(x0, x1)
+  Requires: fluent_0(x1)
+  Effect: not fluent_0(x1)
 
 [STATE]
-Initial true values: None
+Default: True
+Initial true values: fluent_0(object_1)
 
 [GOAL]
 
-fluent_1(object_2)
+(not fluent_0(object_1))
 Hint: Reference solution has 1 actions (but it may not be optimal).
 The answer is the plan.
 Answer format: Multiple lines, one action per line: action(obj1, obj2)
@@ -239,7 +239,7 @@ Answer format: Multiple lines, one action per line: action(obj1, obj2)
 
 **Answer:**
 ```
-    action_0(object_2)
+    action_0(object_1, object_1)
 ```
 
 ---
@@ -248,14 +248,14 @@ Answer format: Multiple lines, one action per line: action(obj1, obj2)
 
 **Prompt:**
 ```
-Set1: {276, 935, 71, 124, 573, 155, 653, 681}
-Set2: {573, 935, 681, 110, 660, 828}
+Set1: {58, 289, 197, 421, 218, 734, 75, 496}
+Set2: {649, 869, 218, 958, 421, 289}
 The answer is the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2, ..., elem_n}.
 ```
 
 **Answer:**
 ```
-{573, 681, 935}
+{218, 289, 421}
 ```
 
 ---
@@ -264,13 +264,13 @@ The answer is the intersection of Set1 and Set2 as a Python set: {elem_1, elem_2
 
 **Prompt:**
 ```
-Set_A: {638, 629, 636, 637, 631, 634, 630}
+Set_A: {571, 569, 576, 573, 568, 572, 577}
 The answer is the missing elements from Set_A as a Python set.
 ```
 
 **Answer:**
 ```
-{632, 633, 635}
+{570, 574, 575}
 ```
 
 ---
@@ -279,13 +279,13 @@ The answer is the missing elements from Set_A as a Python set.
 
 **Prompt:**
 ```
-List: ['o', 'f', 'a', 'i', 'f', 'o', 'n', 'r', 'b', 'k']
-How many times does 'o' appear? The answer is a number.
+List: [17, 6, 12, 10, 16, 13, 19, 8, 20, 9]
+How many times does 9 appear? The answer is a number.
 ```
 
 **Answer:**
 ```
-2
+1
 ```
 
 ---
@@ -294,14 +294,14 @@ How many times does 'o' appear? The answer is a number.
 
 **Prompt:**
 ```
-Set1: {49, 280, 114, 976, 296, 538, 840, 638}
-Set2: {280, 638, 49, 114, 527, 840, 296, 538, 976}
+Set1: {978, 961, 36, 251, 67, 118, 214, 75}
+Set2: {978, 961, 67, 214, 251, 36, 75, 118}
 The answer is True if Set1 and Set2 contain exactly the same elements, False otherwise.
 ```
 
 **Answer:**
 ```
-False
+True
 ```
 
 ---
@@ -319,16 +319,16 @@ Allowed binary ops: +, -, *, **
 - The answer is the right-hand side only (do not write "U[n] =").
 - Your recurrence degree must be <= 1.
 
-Sequence: [6, 7, 9, 12, 16, 21, 27, 34]
+Sequence: [-5, -3, 1, 7, 15, 25, 37, 51]
 Degree of recurrence: 1
-Initial terms: [6]
+Initial terms: [-5]
 
 The answer must hold for all n >= d and be as simple as possible.
 ```
 
 **Answer:**
 ```
-n + U[n - 1]
+2*n + U[n - 1]
 ```
 
 ---
@@ -337,23 +337,22 @@ n + U[n - 1]
 
 **Prompt:**
 ```
-Qualitative reasoning over vertical extents of 2D boxes.
+Qualitative reasoning over horizontal extents of 2D boxes.
 There are 5 entities labeled 0 through 4.
 You are given the following facts (read 'i rel j' as 'entity i is rel to entity j'):
-  4 starts 2
-  3 equals 4
-  1 overlapped-by 4
-  0 starts 1
-  0 during 4
+  2 after 4
+  0 overlaps 2
+  1 after 0
+  3 during 2
 
-Question: what is the relation of the vertical extent of box 2 to that of box 0?
+Question: what is the relation of the horizontal extent of box 4 to that of box 1?
 The answer is exactly one of: after, before, contains, during, equals, finished-by, finishes, meets, met-by, overlapped-by, overlaps, started-by, starts.
 Respond with only the relation name as the answer.
 ```
 
 **Answer:**
 ```
-contains
+before
 ```
 
 ---
@@ -366,16 +365,15 @@ Objects occupy distinct points on the integer grid [0, 4] x [0, 4].
 North is +y and East is +x. Any object not mentioned in a step stays fixed.
 
 Initial facts:
+- C is below A.
+- B is above A.
+- C is left of B.
+- A is right of C.
+- B is above C.
 - A is right of B.
-- B is in the same row as C.
-- C is right of A.
-- C is right of B.
-- A is above B.
-- A is above C.
-- A starts at (1, 2).
 
 Steps:
-1. C moves by (2, 0).
+1. C jumps to B's position offset by (-1, 0).
 
 What is the final Manhattan distance between B and C? Answer as an integer.
 
@@ -383,7 +381,7 @@ What is the final Manhattan distance between B and C? Answer as an integer.
 
 **Answer:**
 ```
-4
+1
 ```
 
 ---
@@ -394,25 +392,25 @@ What is the final Manhattan distance between B and C? Answer as an integer.
 ```
 Inventory:
 - b1: black
-- b2: red
-- b3: white
-- b4: red
+- b2: white
+- b3: blue
+- b4: white
 Initial state:
 - b1 is in x2
 - b2 is in x3
 - b3 is in x3
-- b4 is in x1
+- b4 is in x3
 Moves:
-- Move b2 from x3 to x2.
-- Transfer b2 from x2 into x1.
-- Move it from x1 to x2.
-- Relocate b4 from x1 to x2.
-Question: Where is b1 now? Answer with a box tag like x1.
+- Transfer b2 from x3 into x2.
+- Move b4 from x3 to x1.
+- Move b3 from x3 to x2.
+- Move b3 from x2 to x3.
+Question: Where is b4 now? Answer with a box tag like x1.
 ```
 
 **Answer:**
 ```
-x2
+x1
 ```
 
 ---
@@ -423,12 +421,12 @@ x2
 ```
 Variables/domains:
 - 0 <= x0 <= 2
-- 0 <= x1 <= 1
+- 0 <= x1 <= 2
 
 Constraints:
-1. -3*x1 != -4
-2. 2*x0 - x1 != -4
-3. -2*x0 >= -4
+1. -x0 + 2*x1 != 6
+2. -3*x0 + x1 != 5
+3. x1 != 2
 
 Enumerate ALL satisfying assignments in variable order [x0, x1].
 The answer is a Python list of lists of ints, sorted lexicographically, or UNSAT if no assignment exists.
@@ -445,18 +443,19 @@ The answer is a Python list of lists of ints, sorted lexicographically, or UNSAT
 ## [graph_pathfinding](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/graph_operations.py)
 
 **Prompt:**
-```
+``
 Consider the graph:
 
-graph { 0--3; 1--3; 1--4; 2--3; 2--4; 3--4 }
+graph { 0--1; 1--3; 2--3; 3--4 }
 
-Find the lexicographically smallest shortest path from Node 4 to Node 1.
-The answer is a Python list of nodes.
-```
+Find the lexicographically smallest shortest path from Node 2 to Node 1.
+If no path exists, answer `None`.
+The answer is a Python list of nodes or `None`.
+``
 
 **Answer:**
 ```
-[4, 1]
+[2, 3, 1]
 ```
 
 ---
@@ -467,7 +466,7 @@ The answer is a Python list of nodes.
 ``
 Consider the following social network graph:
 
-Edges: 0-1, 0-2, 0-3, 0-4, 1-4, 2-4
+graph { 0--2; 0--3; 1--3; 1--4; 2--4; 3--4 }
 
 Based on the number of connections, identify all nodes that are the most central (i.e., have the highest degree centrality). There may be more than one.
 The answer is a Python list of node integers, sorted in increasing order. Example: `[3, 8]`.
@@ -475,7 +474,7 @@ The answer is a Python list of node integers, sorted in increasing order. Exampl
 
 **Answer:**
 ```
-[0]
+[3, 4]
 ```
 
 ---
@@ -487,10 +486,10 @@ The answer is a Python list of node integers, sorted in increasing order. Exampl
 Consider two graphs described below.
 
 Graph A:
-Edges: 0-1, 1-2, 1-4, 2-3
+Edges: 0-4, 1-3, 2-3, 2-4
 
 Graph B:
-graph { 0--2; 0--4; 1--0; 2--3 }
+Edges: 0-1, 2-3, 2-4, 3-4
 
 Do Graph A and Graph B have the exact same structure, just with different node labels? (In other words, are they isomorphic?)
 The answer is `True` or `False`.
@@ -498,7 +497,7 @@ The answer is `True` or `False`.
 
 **Answer:**
 ```
-True
+False
 ```
 
 ---
@@ -509,16 +508,16 @@ True
 ```
 Consider the directed graph:
 
-Edges: 3->2, 5->1, 1->5, 2->4, 0->0, 4->3
+Edges: 2->2, 4->4, 5->5, 1->1, 0->3, 3->0
 
-Queries: [(1, 1)]
+Queries: [(4, 1)]
 Each pair (x, k) asks for the k-th successor of x.
 The answer is a Python list of integers in query order.
 ```
 
 **Answer:**
 ```
-[5]
+[4]
 ```
 
 ---
@@ -529,9 +528,9 @@ The answer is a Python list of integers in query order.
 ```
 Consider the dependency graph:
 
-Edges (X->Y means Y depends on X): 1->2, 2->3, 2->4
+Edges (X->Y means Y depends on X): 3->1, 5->1, 5->4
 
-List all prerequisites of node 4 (recursively), leaves first.
+List all prerequisites of node 1 (recursively), leaves first.
 Do not include the query node itself.
 If A depends on B and both appear in your answer, B must appear before A.
 The answer is a Python list of integers.
@@ -539,7 +538,7 @@ The answer is a Python list of integers.
 
 **Answer:**
 ```
-[1, 2]
+[3, 5]
 ```
 
 ---
@@ -548,12 +547,12 @@ The answer is a Python list of integers.
 
 **Prompt:**
 ```
-The answer is a 1-character string that fully matches the regular expression: E|(7)
+The answer is a 26-character string that fully matches the regular expression: (y)(often)+
 ```
 
 **Answer:**
 ```
-E
+yoftenoftenoftenoftenoften
 ```
 
 ---
@@ -561,15 +560,15 @@ E
 ## [regex_induction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/regex.py)
 
 **Prompt:**
-``
+```
 The answer is the shortest regex that fully matches all POSITIVE strings and none of the NEGATIVE strings.
-POSITIVE: '¬', '`', ',', '$', '¢', '»', ']', '['
-NEGATIVE: 'win', '9', 'C', '<LPa', 'f', 'especially', '.last', '3583'
-``
+POSITIVE: 'XX', 'AXA', 'XoX', 'AoXA', 'X', 'oXoA', 'XAo', 'X'
+NEGATIVE: '999', ';', 'j', '48', 'm', '\', 'amount2', ';'
+```
 
 **Answer:**
 ```
-((?:\W|[X-b]))
+(?:[XAo])+
 ```
 
 ---
@@ -578,14 +577,14 @@ NEGATIVE: 'win', '9', 'C', '<LPa', 'f', 'especially', '.last', '3583'
 
 **Prompt:**
 ```
-Consider the regular expressions A = abb+ and B = c|c
+Consider the regular expressions A = a|a* and B = a|a*
 Do A and B accept exactly the same set of strings?
 The answer is Yes or No.
 ```
 
 **Answer:**
 ```
-No
+Yes
 ```
 
 ---
@@ -595,14 +594,14 @@ No
 **Prompt:**
 ```
 Context: WordNet (relation holds for any valid noun sense).
-
-is_a(manual, training)
-The answer is True or False.
+Select all cohyponyms(motor)
+From: [machinery, aspirin, cart, rein, weir, computer, depot]
+The answer is a JSON list.
 ```
 
 **Answer:**
 ```
-True
+["computer", "machinery"]
 ```
 
 ---
@@ -613,11 +612,11 @@ True
 ```
 (GRAMMAR)
 S -> D
-D -> 'girl'
+D -> 'alone'
 D -> D
 
 (STRING)
-girl
+alone
 
 (QUESTION)
 What is the parsability of this string?
@@ -636,29 +635,24 @@ ambiguous
 **Prompt:**
 ```
 (GRAMMAR)
-decl -> decl_simple ',' conj decl_simple
-are -> 'are'
-root -> discourse '.'
-start -> root
-conj -> 'yet'
-det_pl_indef -> 'some'
-decl_simple -> there are det_pl_indef n_pl
-discourse -> decl ',' conj decl
-n_pl -> 'dogs'
-there -> 'there'
+start -> seq
+seq -> 
+seq -> expr seq
+expr -> '(' seq ')'
+expr -> '[' seq ']'
+expr -> '<' seq '>'
 
 (STRING)
-there are some dogs , yet there are some dogs , yet there are some dogs , yet there are some dogs .
+< < > > < [ ] > [ ]
 
 (QUESTION)
-Identify the Part-of-Speech (immediate parent) and tree depth for each token.
-format per token: token<POS:depth>
-Example: the<Det:3> cat<Noun:3>
+The answer is the fully parenthesized parse tree of STRING in Lisp style.
+Given G_ex: S -> NP VP, NP -> 'd' N, N -> 'n', VP -> 'v' and "d n v", correct is (S (NP d (N n)) (VP v)).
 ```
 
 **Answer:**
 ```
-there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> ,<decl:4> yet<conj:5> there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> ,<discourse:3> yet<conj:4> there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> ,<decl:4> yet<conj:5> there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> .<root:2>
+(start (seq (expr < (seq (expr < (seq ) >) (seq )) >) (seq (expr < (seq (expr [ (seq ) ]) (seq )) >) (seq (expr [ (seq ) ]) (seq )))))
 ```
 
 ---
@@ -669,19 +663,17 @@ there<there:6> are<are:6> some<det_pl_indef:6> dogs<n_pl:6> ,<decl:4> yet<conj:5
 ```
 List all valid next tokens for this prefix. The answer is the list of valid tokens sorted alphabetically and separated by |, with STOP at the end if the prefix forms a complete string.
 (GRAMMAR)
-start -> seq
-seq -> 
-seq -> expr seq
-expr -> '(' seq ')'
-expr -> '[' seq ']'
-expr -> '<' seq '>'
+S -> A
+A -> D D
+D -> 'account'
+D -> A
 (PREFIX)
-( ) ( )
+account account account
 ```
 
 **Answer:**
 ```
-(|<|[|STOP
+account|STOP
 ```
 
 ---
@@ -691,12 +683,12 @@ expr -> '<' seq '>'
 **Prompt:**
 ```
 (GRAMMAR)
-S -> D
-D -> 'control'
-D -> 'avoid' D
+S -> B
+B -> 'quite' B
+B -> 'woman'
 
 (STRING)
-avoid avoid avoid avoid
+quite quite quite quite quite woman woman
 
 The answer is the shortest contiguous span from STRING that ends at the first invalid token and occurs only once in STRING.
 Mark the invalid token as >>token<<.
@@ -708,7 +700,7 @@ One line only.
 
 **Answer:**
 ```
-INCOMPLETE
+woman >>woman<<
 ```
 
 ---
@@ -726,18 +718,18 @@ expr -> '[' seq ']'
 expr -> '<' seq '>'
 
 (PREFIX)
-( )
+[
 
 (TEMPLATE)
-___ ) ( ___
+( ___ ___
 
-Fill in the 2 blanks (___) to form a grammatical continuation of PREFIX using exactly 4 tokens.
-Fixed tokens must remain in place. The answer is all 4 tokens space-separated.
+Fill in the 2 blanks (___) to form a grammatical continuation of PREFIX using exactly 3 tokens.
+Fixed tokens must remain in place. The answer is all 3 tokens space-separated.
 ```
 
 **Answer:**
 ```
-( ) ( )
+( ) ]
 ```
 
 ---
@@ -749,21 +741,22 @@ Fixed tokens must remain in place. The answer is all 4 tokens space-separated.
 Execute this SQL query on the table named dataframe:
 
 Table 1:
- revenue   product
-  359.11 Challenge
-  313.47    Attack
-  928.94     Treat
-  630.61  Identify
-  626.39 Available
+country,price
+Bolivia,38.78
+Brunei Darussalam,223.88
+Myanmar,361.31
+Macao,40.49
+Turkmenistan,231.06
 
-SQL: SELECT COUNT(*) FROM dataframe WHERE revenue > 626.39
+
+SQL: SELECT ROUND(MIN(price), 2) FROM dataframe
 
 The answer is the result as single value.
 ```
 
 **Answer:**
 ```
-2
+38.78
 ```
 
 ---
@@ -772,19 +765,14 @@ The answer is the result as single value.
 
 **Prompt:**
 ```
-Convert the following table from to_yaml to to_html.
+Convert the following table from to_string to to_html.
 
-- date: 2025-07-28
-  job: Office manager
-- date: 2025-06-22
-  job: Public relations officer
-- date: 2026-02-21
-  job: Seismic interpreter
-- date: 2025-05-26
-  job: Sports administrator
-- date: 2025-06-13
-  job: Energy manager
-
+        country         customer
+        Romania       Carol Shaw
+Solomon Islands   Vincent Martin
+      Swaziland   David Robinson
+        Croatia Courtney Hoffman
+       Pakistan   Jennifer Adams
 
 The answer is the converted table.
 ```
@@ -794,30 +782,30 @@ The answer is the converted table.
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
-      <th>date</th>
-      <th>job</th>
+      <th>country</th>
+      <th>customer</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>2025-07-28</td>
-      <td>Office manager</td>
+      <td>Romania</td>
+      <td>Carol Shaw</td>
     </tr>
     <tr>
-      <td>2025-06-22</td>
-      <td>Public relations officer</td>
+      <td>Solomon Islands</td>
+      <td>Vincent Martin</td>
     </tr>
     <tr>
-      <td>2026-02-21</td>
-      <td>Seismic interpreter</td>
+      <td>Swaziland</td>
+      <td>David Robinson</td>
     </tr>
     <tr>
-      <td>2025-05-26</td>
-      <td>Sports administrator</td>
+      <td>Croatia</td>
+      <td>Courtney Hoffman</td>
     </tr>
     <tr>
-      <td>2025-06-13</td>
-      <td>Energy manager</td>
+      <td>Pakistan</td>
+      <td>Jennifer Adams</td>
     </tr>
   </tbody>
 </table>
@@ -832,14 +820,14 @@ The answer is the converted table.
 Reduce the following untyped λ-term to β-normal form.
 Syntax: `\x.body` denotes λx.body; application is left-associative juxtaposition; free identifiers are treated as constants.
 
-Term: ((\v0.v0) (d b))
+Term: ((((\_0.b) c) (\v0.v0)) (\v0.a))
 
 The answer is the β-normal form (compared up to α-equivalence).
 ``
 
 **Answer:**
 ```
-(d b)
+((b (\v0.v0)) (\v0.a))
 ```
 
 ---
@@ -851,8 +839,8 @@ The answer is the β-normal form (compared up to α-equivalence).
 Find the most general unifier (MGU) of the following first-order terms.
 Uppercase identifiers are variables; lowercase are constants / function symbols.
 
-T1 = p(f(g(c,X,q(b))))
-T2 = p(f(g(c,c,Y)))
+T1 = q(f(Y,e,g(Y,f(p(c,b,c)),Y)))
+T2 = q(f(b,e,g(b,X,b)))
 
 The answer is a Python dict mapping each bound variable (as a string key) to its fully-resolved ground term (as a string value), with keys sorted alphabetically.
 Example: {'X': 'f(a)', 'Y': 'b'}
@@ -860,7 +848,7 @@ Example: {'X': 'f(a)', 'Y': 'b'}
 
 **Answer:**
 ```
-{'X': 'c', 'Y': 'q(b)'}
+{'X': 'f(p(c,b,c))', 'Y': 'b'}
 ```
 
 ---
@@ -872,9 +860,9 @@ Example: {'X': 'f(a)', 'Y': 'b'}
 Predict the printed output of the following Python code:
 
 ```python
-f = 2
-b = 0 + 3
-print("hi")
+f = 16
+v = 13
+print(v - f)
 ```
 
 The answer is the exact printed output string.
@@ -882,7 +870,7 @@ The answer is the exact printed output string.
 
 **Answer:**
 ```
-hi
+-3
 ```
 
 ---
@@ -893,35 +881,41 @@ hi
 ```
 Below is the version history of a file.
 
-Version 909251b:
-1    | General store crime
-2    | Follow us rise message
-3    | Building day himself expect role
-4    | Foreign wear unit mind
-5    | High improve control couple ability
+Version 1a9553b:
+1    | Job executive visit available
+2    | Wide do capital business kind manage world
+3    | Natural will open make
+4    | Near first purpose
+5    | Democrat force issue national
 
-Version cacc5d5:
-1    | General store crime
-2    | Foreign wear unit mind
-3    | High improve control couple ability
+Version b835196:
+1    | Job executive visit available
+2    | Wide do capital business kind manage world
+3    | Near first purpose
+4    | Democrat force issue national
 
-Version 25972d6:
-1    | General store crime
-2    | Foreign wear unit mind
-3    | High improve control couple ability
+Version ea569cc:
+1    | Job executive visit available
+2    | Wide do capital business kind manage world
+3    | Near first purpose
+4    | Democrat force issue national
 
-Generate the Unified Diff to transform version 909251b into version 25972d6.
+Version 12e3347:
+1    | Job executive visit available
+2    | Near first purpose
+3    | Democrat force issue national
+
+Generate the Unified Diff to transform version 12e3347 into version b835196.
 The answer is the diff chunks only (no file headers), or empty if no changes.
 ```
 
 **Answer:**
 ```
-@@ -1,5 +1,3 @@
- General store crime
--Follow us rise message
--Building day himself expect role
- Foreign wear unit mind
- High improve control couple ability
+@@ -1,3 +1,4 @@
+ Job executive visit available
++Wide do capital business kind manage world
+ Near first purpose
+ Democrat force issue national
 ```
 
 ---
@@ -932,14 +926,14 @@ The answer is the diff chunks only (no file headers), or empty if no changes.
 ```
 Apply the following Unified Diff to the text.
 
-Original Text (Version 171eec7):
-1    | Meet go contain make force
-2    | Information ask painting around
-3    | End store whom
-4    | Final what despite we record soon beat
-5    | Morning adult care how player
+Original Text (Version 91bef3e):
+1    | Listen also capital network
+2    | Natural pass middle behavior score assume
+3    | grow large dinner set important
+4    | Leave industry since beyond blood laugh itself political
+5    | Reason lose those between way best state
 
-Diff (171eec7 -> 42dc00e):
+Diff (91bef3e -> ca364eb):
 
 
 The answer is the resulting text.
@@ -947,11 +941,12 @@ The answer is the resulting text.
 
 **Answer:**
 ```
-Meet go contain make force
-Information ask painting around
-End store whom
-Final what despite we record soon beat
-Morning adult care how player
+Listen also capital network
+Natural pass middle behavior score assume
+grow large dinner set important
+Leave industry since beyond blood laugh itself political
+Reason lose those between way best state
 ```
 
 ---
+

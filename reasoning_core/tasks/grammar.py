@@ -57,6 +57,13 @@ class GrammarConfig(Config):
     n_resampled_grammars: int=200
     prob_resampling_grammar: float=0.6
 
+    min_k: int = 3
+    max_k: int = 5
+    min_blanks: int = 2
+    max_blanks: int = 3
+    min_options: int = 4
+    max_options: int = 25
+
     def update(self, c):
         self.n_types += c
         self.n_terminals += c
@@ -817,7 +824,7 @@ def _exact_next_tokens_and_stop(grammar, prefix, parser=None, nullable=None, fir
     return valid_tokens, can_stop
 
 
-def exact_completions(grammar, prefix, k, max_states=4096):
+def exact_completions(grammar, prefix, k, max_states=1024):
     """
     All distinct k-length suffixes making prefix+suffix a complete sentence.
     Returns [] (safe skip) if state space overflows — never produces wrong results.
@@ -889,22 +896,12 @@ class ConstrainedContinuation(Task):
 
     def __init__(
         self,
-        config: GrammarConfig = GrammarConfig(),
-        min_k=3,
-        max_k=5,
-        min_blanks=2,
-        max_blanks=3,
-        max_options=100,
-        min_options=4
+        config: GrammarConfig = GrammarConfig()
     ):
+        config.prob_resampling_grammar=0.0 # needed for speed
+        config.min_k = max(3, config.min_k)
         super().__init__(config=config)
-        self.min_k = max(3, min_k)
-        self.max_k = max_k
-        self.min_blanks = min_blanks
-        self.max_blanks = max_blanks
-        self.max_options = max_options
-        self.min_options = min_options
-        self.balancing_key_ratio = 0.2
+        self.balancing_key_ratio = 0.25
 
     def generate(self):
         for _ in range(200):
@@ -918,22 +915,22 @@ class ConstrainedContinuation(Task):
                     ) @ "lang").split()
                 except (ValueError, RecursionError):
                     continue
-                if len(sent) < self.min_k + 1:
+                if len(sent) < self.config.min_k + 1:
                     continue
 
                 slots = [(plen, k)
-                        for plen in range(1, min(5, len(sent) - self.min_k) + 1)
-                        for k in range(self.min_k, min(self.max_k, len(sent) - plen) + 1)]
+                        for plen in range(1, min(5, len(sent) - self.config.min_k) + 1)
+                        for k in range(self.config.min_k, min(self.config.max_k, len(sent) - plen) + 1)]
                 random.shuffle(slots)
 
                 for plen, k in slots:
                     prefix = sent[:plen]
                     cands = exact_completions(g, prefix, k)
-                    if not (self.min_options <= len(cands) <= self.max_options):
+                    if not (self.config.min_options <= len(cands) <= self.config.max_options):
                         continue
 
                     target = list(random.choice(cands))
-                    result = sample_blanking(target, cands, self.min_blanks, self.max_blanks)
+                    result = sample_blanking(target, cands, self.config.min_blanks, self.config.max_blanks)
                     if result is None:
                         continue
                     target, hints = result
@@ -1007,6 +1004,3 @@ class ConstrainedContinuation(Task):
         if can_stop:
             return 0.3 + 0.6 * blank_correct   # 0.3 – 0.9
         return 0.15 * blank_correct             # 0.0 – 0.15
-
-    def balancing_key(self, problem):
-        return problem.metadata.g

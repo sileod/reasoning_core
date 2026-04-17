@@ -3,7 +3,7 @@ import random
 from reasoning_core.template import Task, Problem, Config
 from dataclasses import dataclass
 from ast import literal_eval
-
+import re
 # --- Configuration for All Graph Tasks ---
 @dataclass
 class GraphReasoningConfig(Config):
@@ -110,13 +110,10 @@ class BaseGraphTask:
 
 class GraphPathfinding(BaseGraphTask, Task):
     def _lexicographic_shortest_path(self, G, start, end):
-        """BFS exploring neighbors in sorted order → lexicographically smallest shortest path."""
-        queue = [(start, [start])]
-        visited = {start}
+        queue, visited = [(start, [start])], {start}
         while queue:
             curr, path = queue.pop(0)
-            if curr == end:
-                return path
+            if curr == end: return path
             for n in sorted(G.neighbors(curr)):
                 if n not in visited:
                     visited.add(n)
@@ -124,168 +121,90 @@ class GraphPathfinding(BaseGraphTask, Task):
         return None
 
     def _disconnected_graph(self):
-        """Build two connected components to guarantee unreachable pairs."""
         def connected_graph(n):
             for _ in range(20):
                 G = nx.fast_gnp_random_graph(n, random.uniform(0.25, 0.75))
-                if G.number_of_nodes() > 0 and nx.is_connected(G):
-                    return G
+                if G.number_of_nodes() > 0 and nx.is_connected(G): return G
             return nx.path_graph(n)
-
         n = max(2, self.config.num_nodes)
         n1 = random.randint(1, n - 1)
-        g1 = connected_graph(n1)
-        g2 = connected_graph(n - n1)
-        return nx.disjoint_union(g1, g2)
-
-    def _lexicographic_shortest_non_empty_cycle(self, G, start):
-        candidates = []
-        for n in sorted(G.neighbors(start)):
-            H = G.copy()
-            H.remove_edge(start, n)
-            tail = self._lexicographic_shortest_path(H, n, start)
-            if tail is not None:
-                candidates.append([start] + tail)
-        return min(candidates, key=lambda p: (len(p), p)) if candidates else None
-
-    def _cycle_start_nodes(self, G):
-        return [
-            u for u in G.nodes()
-            if self._lexicographic_shortest_non_empty_cycle(G, u) is not None
-        ]
-
-    def _sample_same_node_cycle(self, G):
-        cycle_nodes = self._cycle_start_nodes(G)
-        if not cycle_nodes:
-            non_edges = list(nx.non_edges(G))
-            if non_edges:
-                G.add_edge(*random.choice(non_edges))
-                cycle_nodes = self._cycle_start_nodes(G)
-        if not cycle_nodes:
-            return None, None
-        start = random.choice(cycle_nodes)
-        return start, self._lexicographic_shortest_non_empty_cycle(G, start)
+        return nx.disjoint_union(connected_graph(n1), connected_graph(n - n1))
 
     def make_cot(self, G, start, end):
-        # BFS State Initialization
-        queue = [(start, [start])] # Tuple: (Current Node, Path History)
-        visited = {start}
-        
-        lines = [f"Goal: Shortest path from {start} to {end} using BFS."]
-        lines.append(f"Initialize Queue: [{start}]")
-        
+        queue, visited = [(start, [start])], {start}
+        lines = [f"Goal: Shortest path from {start} to {end} using BFS.", f"Initialize Queue: [{start}]"]
         while queue:
             curr, path = queue.pop(0)
             lines.append(f"\nPop {curr}. Current Path: {path}")
-            
             if curr == end:
                 lines.append(f"Target {end} found! Search Complete.")
                 return "\n".join(lines)
             
-            # Explore Neighbors (Sorted for deterministic reasoning)
-            new_neighbors = []
-            for n in sorted(G.neighbors(curr)):
-                if n not in visited:
-                    visited.add(n)
-                    new_neighbors.append(n)
-                    queue.append((n, path + [n]))
+            new_neighbors = [n for n in sorted(G.neighbors(curr)) if n not in visited]
+            for n in new_neighbors:
+                visited.add(n)
+                queue.append((n, path + [n]))
             
-            # Reasoning Step: Explain the update
             if new_neighbors:
-                lines.append(f"  -> Found new neighbors: {new_neighbors}")
-                lines.append(f"  -> Add to queue. Visited set updated.")
+                lines.extend([f"  -> Found new neighbors: {new_neighbors}", "  -> Add to queue. Visited set updated."])
             else:
-                lines.append(f"  -> All neighbors visited or empty. Backtrack.")
-                
-            # Explicit State Dump (Crucial for Transformer State Tracking)
-            q_state = [n for n, _ in queue]
-            lines.append(f"  -> Queue is now: {q_state}")
+                lines.append("  -> All neighbors visited or empty. Backtrack.")
+            lines.append(f"  -> Queue is now: {[n for n, _ in queue]}")
+        return "\n".join(lines + ["Target unreachable."])
 
-        return "Target unreachable."
     def generate(self):
-        is_unsat = random.random() < self.config.no_solution_prob
-        if is_unsat:
+        if random.random() < self.config.no_solution_prob:
             G = self._disconnected_graph()
             cc = list(nx.connected_components(G))
-            start = random.choice(list(cc[0]))
-            end = random.choice(list(cc[1]))
-            path = None
-            return Problem(
-                metadata={
-                    "graph_description": self._render_graph(G),
-                    "start_node": start,
-                    "end_node": end,
-                    "nodes": list(G.nodes()),
-                    "edges": list(G.edges()),
-                    "optimal_length": None,
-                    "cot": self.make_cot(G, start, end),
-                },
-                answer="None",
-            )
-
-        G = self._generate_graph()
-        if random.random() < self.config.return_to_start_prob:
-            start, path = self._sample_same_node_cycle(G)
-            if start is not None:
-                end = start
-            else:
-                start, end = random.sample(list(G.nodes()), 2)
-                path = self._lexicographic_shortest_path(G, start, end)
+            start, end, path = random.choice(list(cc[0])), random.choice(list(cc[1])), None
         else:
+            G = self._generate_graph()
             start, end = random.sample(list(G.nodes()), 2)
             path = self._lexicographic_shortest_path(G, start, end)
 
-        metadata = {
-            "graph_description": self._render_graph(G), "start_node": start, "end_node": end,
-            "nodes": list(G.nodes()), "edges": list(G.edges()),
-            "optimal_length": len(path) if path is not None else None,
-            "cot": self.make_cot(G, start, end)
-        }
-        return Problem(metadata=metadata, answer=str(path))
+        return Problem(
+            metadata={
+                "graph_description": self._render_graph(G), "start_node": start, "end_node": end,
+                "nodes": list(G.nodes()), "edges": list(G.edges()),
+                "optimal_length": len(path) if path is not None else None,
+                "cot": self.make_cot(G, start, end)
+            },
+            answer=str(path)
+        )
 
     def prompt(self, m):
-        extra = " (non-empty)" if m["start_node"] == m["end_node"] else ""
         return (
             f"Consider the graph:\n\n{m['graph_description']}\n\n"
-            f"Find the lexicographically smallest shortest path{extra} from Node {m['start_node']} to Node {m['end_node']}.\n"
+            f"Find the lexicographically smallest shortest path from Node {m['start_node']} to Node {m['end_node']}.\n"
             "If no path exists, answer `None`.\n"
             "The answer is a Python list of nodes or `None`."
         )
 
     def score_answer(self, answer, entry):
-            try: pred_path = literal_eval(answer)
-            except: return 0.0
+        text = str(answer).strip()
+        if "none" in text.lower():
+            pred = None
+        else:
+            try: pred = literal_eval(text)
+            except Exception:
+                m = re.search(r"\[[^\]]*\]", text)
+                try: pred = literal_eval(m.group(0)) if m else None
+                except Exception: return 0.0
 
-            meta = entry.metadata
-            if pred_path is None:
-                return 1.0 if meta.get("optimal_length") is None else 0.0
-            if not isinstance(pred_path, list) or len(pred_path) < 1:
-                return 0.0
-            
-            def to_hashable(x):
-                return tuple(x) if isinstance(x, list) else x
+        meta, opt_len = entry.metadata, entry.metadata.get("optimal_length")
+        if pred is None: return 1.0 if opt_len is None else 0.0
+        if isinstance(pred, tuple): pred = list(pred)
+        if not isinstance(pred, list) or not pred: return 0.0
 
-            nodes = [to_hashable(n) for n in meta['nodes']]
-            edges = [(to_hashable(u), to_hashable(v)) for u, v in meta['edges']]
-            
-            G = nx.Graph()
-            G.add_nodes_from(nodes)
-            G.add_edges_from(edges)
+        th = lambda x: tuple(x) if isinstance(x, list) else x
+        G = nx.Graph()
+        G.add_nodes_from(map(th, meta["nodes"]))
+        G.add_edges_from((th(u), th(v)) for u, v in meta["edges"])
 
-            start_node = to_hashable(meta['start_node'])
-            end_node = to_hashable(meta['end_node'])
-            pred_path = [to_hashable(n) for n in pred_path]
-
-            if (pred_path[0] != start_node or pred_path[-1] != end_node):
-                return 0.0
-            if start_node == end_node and len(pred_path) < 3:
-                return 0.0
-            if not nx.is_path(G, pred_path):
-                return 0.0
-            if meta['optimal_length'] is None:
-                return 0.0
-            return meta['optimal_length'] / len(pred_path)
-
+        pred = list(map(th, pred))
+        if pred[0] != th(meta["start_node"]) or pred[-1] != th(meta["end_node"]): return 0.0
+        if not nx.is_path(G, pred) or opt_len is None or len(pred) < opt_len: return 0.0
+        return opt_len / len(pred)
 
 class GraphNodeCentrality(BaseGraphTask, Task):
     """Task to find all nodes with the highest centrality in a graph."""
