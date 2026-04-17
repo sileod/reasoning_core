@@ -11,6 +11,7 @@ for k in ('TMPDIR', 'TEMP', 'TMP'): os.environ[k] = SAFE_TMP
 os.makedirs(SAFE_TMP, exist_ok=True)
 tempfile.tempdir = SAFE_TMP
 
+from itertools import islice
 
 
 import warnings
@@ -158,8 +159,6 @@ def get_formatter(data_key):
         prefix = SPECIAL+"\n" if SPECIAL and data_key == "rc" else ""
         return lambda x: {"prompt": prefix+x["prompt"]+"\n", "completion": x.get("answer") + tokenizer.eos_token}
 
-Yes, same code either way. Here's the drop-in replacement for your current load_exact_tokens:
-pythonfrom itertools import islice
 
 def load_exact_tokens(key, budget, stream_skip=0, max_len=None, batch_size=1000):
     if budget <= 0:
