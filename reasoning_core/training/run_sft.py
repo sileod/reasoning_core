@@ -294,14 +294,15 @@ def run_stage(ds, stage_name, epochs=1.0, restart=False):
     trainer.train(resume_from_checkpoint=resume)
     completed.add(stage_name)
     save_ckpt({"hash": run_hash, "group_id": group_id, "args": {k: str(v) for k, v in vars(args).items()}, "completed_stages": sorted(completed), "done": False}, ckpt_file)
+    return trainer
 
 # --- 🚀 Execution ---
 print(f"🚀 STAGE 1: Mixed ({args.main_data} + {args.aux_data})")
-run_stage(s1_final, "stage1")
+trainer=run_stage(s1_final, "stage1")
 
 if s2_main_ds:
     print(f"\n🚀 STAGE 2: Main Only ({args.main_data})")
-    run_stage(s2_main_ds, "stage2")
+    trainer=run_stage(s2_main_ds, "stage2")
 
 if "eval" not in completed:
     if opt_state["optimizer"] is not None:
