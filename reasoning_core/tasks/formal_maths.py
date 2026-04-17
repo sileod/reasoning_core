@@ -204,27 +204,19 @@ def prove_conjecture(axioms: list[str], conjecture: str,
         if verb == True:
             print(f"output proove vampire :  {result_proove.stdout} ")
 
-        _proved = lambda out: "% SZS status Theorem" in out or "% SZS status Unsatisfiable" in out
-        _disproved = lambda out: (
-            "% SZS status CounterSatisfiable" in out
-            or "% SZS status Satisfiable" in out
-            or "Finite Model Found!" in out
-        )
-        _timed_out = lambda out: "% Time limit reached!" in out or "% SZS status ResourceOut" in out
-
-        if _proved(result_proove.stdout):
+        if "% SZS status Theorem" in result_proove.stdout :
             return True
-        if _disproved(result_proove.stdout):
+        if "% SZS status CounterSatisfiable" in result_proove.stdout :
             return False
 
         result_disproove = get_prover_session().run_prover('vampire',vampire_command_disproove,temp_f.name)
-
+    
         if verb == True:
             print(f"output disproove vampire :  {result_disproove.stdout} ")
 
-        if _disproved(result_disproove.stdout):
+        if "Finite Model Found!" in result_disproove.stdout or "% SZS status CounterSatisfiable" in result_disproove.stdout:
             return False
-        if _timed_out(result_proove.stdout) and _timed_out(result_disproove.stdout):
+        if "% Time limit reached!" in result_proove.stdout and "% Time limit reached!" in result_disproove.stdout  :
             return f"ERROR : TIME LIMIT in both tentative to proove AND to disproove"
         print(f"[prove_conjecture] vampire failed:"
               f"\n  prove: rc={result_proove.returncode} stdout={result_proove.stdout[:200]!r} stderr={result_proove.stderr[:200]!r}"
