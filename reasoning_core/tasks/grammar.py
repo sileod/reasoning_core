@@ -1,27 +1,26 @@
-from gramforge import init_grammar, generate_with_choices
-from gramforge import generate as gramforge_generate
-from tqdm.auto import tqdm
-from functools import cache
-from contextlib import contextmanager
 from nltk.parse.generate import generate as nltk_generate
 from nltk import CFG, ChartParser
 from nltk.parse.earleychart import EarleyChartParser
+from nltk.data import path as nltk_path
+from nltk.tree import Tree
+from nltk.grammar import CFG, Nonterminal
+from gramforge import init_grammar, generate_with_choices
+from gramforge import generate as gramforge_generate
+from gramforge.grammars import simple_english_grammar, arith_grammar, dyck_grammar
+from gramforge import gramforge_to_nltk
+from tqdm.auto import tqdm
+from functools import cache
+from contextlib import contextmanager
 import sys
 from reasoning_core.template import Task, Problem, Config
 import random
 from pathlib import Path
-from nltk.data import path as nltk_path
 import string
 from easydict import EasyDict as edict
 from faker import Faker
 import re
-from nltk.tree import Tree
 from collections import defaultdict
-from gramforge.grammars import simple_english_grammar, arith_grammar, dyck_grammar
-from gramforge import gramforge_to_nltk
 from rapidfuzz.distance import Levenshtein
-from itertools import islice
-from nltk.grammar import CFG, Nonterminal
 from itertools import islice, combinations
 
 
