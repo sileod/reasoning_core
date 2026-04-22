@@ -40,7 +40,7 @@ seq $((threads * 200)) | parallel \
   -j"$threads" \
   --joblog "$script_dir/generation.log" \
   --line-buffer \
-  'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python "'"$script_dir"'/generation_worker.py" --id {} --status_dir '"$STATUS_DIR"' '"$@"'' &
+  'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python "'"$script_dir"'/generation_worker.py" --id {} --status_dir '"$STATUS_DIR"' --out_path "'"$script_dir"'/generated_data" '"$@"'' &
 
 PARALLEL_PID=$!
 
