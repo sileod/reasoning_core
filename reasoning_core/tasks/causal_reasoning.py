@@ -34,7 +34,7 @@ import copy
 import types
 import logging
 
-from ._causal_utils_claude import *
+from ._causal_utils import *
 
 
 # --- Monkey patching for pgmpy --- 🐒
@@ -401,8 +401,7 @@ class Rung(ABC):
         
         answer, specific_metadata = self._calculate_answer_and_metadata(n_round)
 
-        mode = "concise" if self.config.concise_cot else "verbose"
-        cot = self.reason_graph.ie.generate_natural_language_proof(scientific=self.config.cot_scientific_notation, precision=n_round, mode=mode)
+        cot = self.reason_graph.ie.generate_natural_language_proof(scientific_notation=self.config.cot_scientific_notation, precision=n_round, concise=self.config.concise_cot)
 
         while nan in set(eval(answer).values()): #Create another scenario if this one is probabilistically impossible.
             if self.config.graph_seed != None:

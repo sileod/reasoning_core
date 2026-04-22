@@ -57,10 +57,10 @@ parser.add_argument('--aux_data', type=str, default="rc")
 parser.add_argument('--max_length', type=int, default=1024)
 parser.add_argument('--decay', type=float, default=0.01)
 parser.add_argument('--from_scratch', type=ast.literal_eval, default=True)
-parser.add_argument('--aux_version', type=str, default="rc11")
-parser.add_argument('--script_version', type=str, default="6")
+parser.add_argument('--aux_version', type=str, default="rc12")
+parser.add_argument('--script_version', type=str, default="7")
 parser.add_argument('--aux_token', type=str, default="")
-parser.add_argument('--iterable_mode', type=bool, default=True)
+parser.add_argument('--iterable_mode', type=ast.literal_eval, default=True)
 
 DATA_MAP = {
     "fw": "HuggingFaceFW/fineweb-edu",
@@ -122,7 +122,8 @@ def load_ckpt(path):
     return None
 
 run_hash = _args_hash(args)
-run_name = f"{_run_name(run_hash)}-r{args.aux_ratio}"
+b=f"{args.token_budget/1e6:.2f}M"
+run_name = f"{_run_name(run_hash)}-b{b}-r{args.aux_ratio}"
 ckpt_dir = Path("checkpoints") / run_hash
 ckpt_file = ckpt_dir / "run_state.json"
 ckpt = load_ckpt(ckpt_file)
@@ -213,34 +214,25 @@ def load_exact_tokens_materialized(key, budget, stream_skip=0, max_len=None, bat
 
 # --- Iterable loader: lazy, approximate tokens-via-chars ---
 def load_exact_tokens_iterable(key, budget, max_len=None, chars_per_token=4.0):
-    """Stream rows until approximate token budget is hit.
-    Token count is estimated from character length (cheap + stream-friendly).
-    Returns (IterableDataset, live_state_dict)."""
     if budget <= 0:
         return None, {"tokens": 0, "rows": 0}
 
     hf_path = DATA_MAP.get(key, key)
     fmt_fn = get_formatter(key)
-    print(f"⏳ [iterable] {key} ({hf_path}) target≈{budget/1e6:.2f}M tokens (char-est @ {chars_per_token:.1f} c/t)")
+    print(f"⏳ [iterable] {key} ({hf_path}) infinite stream (budget handled by max_steps)")
 
-    state = {"tokens": 0, "rows": 0}
     max_chars = max_len * chars_per_token if max_len else None
 
     def gen():
         stream = load_dataset(hf_path, split="train", streaming=True)
         for row in stream:
-            if state["tokens"] >= budget:
-                return
             ex = fmt_fn(row)
-            n_chars = len(ex["prompt"]) + len(ex["completion"])
-            if max_chars and n_chars > max_chars:
+            if max_chars and (len(ex["prompt"]) + len(ex["completion"])) > max_chars:
                 continue
-            state["tokens"] += n_chars / chars_per_token
-            state["rows"] += 1
             yield ex
 
     ds = IterableDataset.from_generator(gen)
-    return ds, state
+    return ds
 
 
 # --- 🧪 Experiment Setup ---
@@ -254,8 +246,8 @@ if eval_aux: evals["aux"] = eval_aux
 aux_budget = int(args.token_budget * args.aux_ratio)
 
 if args.iterable_mode:
-    s1_main_ds, _ = load_exact_tokens_iterable(args.main_data, args.token_budget, max_len=args.max_length)
-    s1_aux_ds, _ = load_exact_tokens_iterable(args.aux_data, aux_budget, max_len=args.max_length)
+    s1_main_ds = load_exact_tokens_iterable(args.main_data, args.token_budget, max_len=args.max_length)
+    s1_aux_ds = load_exact_tokens_iterable(args.aux_data, aux_budget, max_len=args.max_length)
 
     parts = [d for d in [s1_main_ds, s1_aux_ds] if d is not None]
     if len(parts) == 2:
@@ -263,9 +255,9 @@ if args.iterable_mode:
         s1_final = interleave_datasets(
             parts, probabilities=[p_main, 1 - p_main],
             seed=42, stopping_strategy="all_exhausted",
-        ).shuffle(seed=42, buffer_size=10_000)
+        ).shuffle(seed=42, buffer_size=100)
     else:
-        s1_final = parts[0].shuffle(seed=42, buffer_size=10_000)
+        s1_final = parts[0].shuffle(seed=42, buffer_size=100)
 
     s2_main_ds = None  # disabled in iterable mode
 else:
@@ -303,7 +295,7 @@ common_args = dict(
     gradient_accumulation_steps=grad_accum, max_grad_norm=1.0,
     logging_steps=10, gradient_checkpointing=False, bf16=True, report_to="wandb",
     eval_strategy="steps", eval_steps=50, packing=True,
-    dataset_num_proc=8, max_length=args.max_length,
+    dataset_num_proc=1, max_length=args.max_length,
     save_strategy="steps", save_steps=200, save_total_limit=2,
 )
 

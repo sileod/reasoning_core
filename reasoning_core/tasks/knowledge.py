@@ -6,6 +6,7 @@ from nltk.corpus import wordnet as wn
 from wordfreq import zipf_frequency
 import random
 import json
+from functools import partial
 
 _FULL_WORDS = []
 _FULL_W2S = {}
@@ -83,13 +84,18 @@ class LexicalKnowledge(Task):
         super().__init__(config=config)
         _load_wn()
         self.generators = [
-            lambda: self._g_hypernym(1), self._g_hyponyms, self._g_parts,
-            lambda: self._g_common_category(1), lambda: self._g_hypernym(2),
-            self._g_cohyponyms, self._g_is_a, self._g_lch, 
-            self._g_odd_one_out,
-            lambda: self._g_common_category(2), lambda: self._g_hypernym(3)
-        ]
-
+                    partial(self._g_hypernym, 1), 
+                    self._g_hyponyms, 
+                    self._g_parts,
+                    partial(self._g_common_category, 1), 
+                    partial(self._g_hypernym, 2),
+                    self._g_cohyponyms, 
+                    self._g_is_a, 
+                    self._g_lch, 
+                    self._g_odd_one_out,
+                    partial(self._g_common_category, 2), 
+                    partial(self._g_hypernym, 3)
+                ]
     def _pick(self, n=1):
         pool = _FULL_WORDS[:min(self.config.n_words, len(_FULL_WORDS))]
         return random.sample(pool, n) if n > 1 else random.choice(pool)

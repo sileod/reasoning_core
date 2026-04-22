@@ -22,6 +22,7 @@ from inflection import underscore
 import tiktoken
 import psutil
 from tqdm.auto import tqdm 
+from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 
 #template.py
 
@@ -300,27 +301,36 @@ class Task(ProceduralDataset):
                 return problem
         return inner()
 
-    def generate_balanced_batch(self, batch_size=32, deduplication=False, progress=False, **kwargs):
+    def generate_balanced_batch(self, batch_size=32, deduplication=False,
+                                progress=False, workers=1, **kwargs):
         max_per_key = math.ceil(batch_size * self.balancing_key_ratio)
-        counts = Counter()
-        seen = set()
-        batch = []
+        counts, seen, batch = Counter(), set(), []
+
+        def try_accept(ex):
+            b, d = ex.balancing_key, ex.deduplication_key
+            if (deduplication and d in seen) or (b is not None and counts[b] >= max_per_key):
+                return False
+            batch.append(ex)
+            if b is not None: counts[b] += 1
+            if deduplication and d is not None: seen.add(d)
+            return True
 
         with tqdm(total=batch_size, disable=not progress) as pbar:
-            while len(batch) < batch_size:
-                ex = self.generate_example(**kwargs)
-                b, d = ex.balancing_key, ex.deduplication_key
-
-                if (deduplication and d in seen) or (b is not None and counts[b] >= max_per_key):
-                    continue
-
-                batch.append(ex)
-                pbar.update(1)
-                
-                if b is not None: counts[b] += 1
-                if deduplication and d is not None: seen.add(d)
-
+            if workers == 1:
+                while len(batch) < batch_size:
+                    if try_accept(self.generate_example(**kwargs)): pbar.update(1)
+            else:
+                submit = lambda pool: pool.submit(self.generate_example, **kwargs)
+                with ProcessPoolExecutor(max_workers=workers) as pool:
+                    pending = {submit(pool) for _ in range(workers)}
+                    while len(batch) < batch_size:
+                        done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                        for f in done:
+                            if len(batch) >= batch_size: break
+                            if try_accept(f.result()): pbar.update(1)
+                        pending |= {submit(pool) for _ in range(workers - len(pending))}
         return batch
+
 
     def __getitem__(self, idx: int) -> dict:
         if self.seed:
