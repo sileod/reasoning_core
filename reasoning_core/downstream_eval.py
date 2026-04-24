@@ -31,6 +31,12 @@ platinum = [
     "bbh_object_counting",
 ]
 
+harness_tasks = [
+    "cola", "sst2", "mnli", "qnli", "rte", "swag", "boolq", "copa", "cb",
+    "piqa", "arc_easy", "openbookqa", "winogrande", "hellaswag", "lambada_openai", "msgs"
+]
+
+
 tasksource = ['ConTRoL-nli', 'folio','anli/a1','WANLI','sick/label','glue/rte','glue/cola','cladder']
 
 downstream_tasks = tasksource + platinum 
@@ -71,10 +77,11 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
         ds = load_dataset("madrylab/platinum-bench", t, split=f"test[:{limit}]")
         ds = ds.filter(lambda x: x['platinum_target'] is not None)
         def process(x):
+            q_text = x['platinum_prompt_no_cot'] + "\n"
             if tokenizer.chat_template and use_chat_template:
-                q_ids = tokenizer.apply_chat_template([{"role":"user", "content":x['platinum_prompt_no_cot']}], tokenize=True, add_generation_prompt=True)
+                q_ids = tokenizer.apply_chat_template([{"role":"user", "content":q_text}], tokenize=True, add_generation_prompt=True)
             else:
-                q_ids = tokenizer(x['platinum_prompt_no_cot']).input_ids
+                q_ids = tokenizer(q_text).input_ids
             a_ids = tokenizer(x['platinum_target'][0] + tokenizer.eos_token, add_special_tokens=False).input_ids
             return {"input_ids": q_ids + a_ids, "labels": [-100]*len(q_ids) + a_ids}
 
@@ -88,6 +95,8 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
     metrics['platinum/nll'] = np.mean(list(metrics.values()))
     print(tabulate(metrics.items()))
     return metrics
+
+
 
 
 def run_harness(model, tokenizer, limit=200):
@@ -109,7 +118,7 @@ def run_harness(model, tokenizer, limit=200):
     hflm = HFLM(pretrained=model, tokenizer=tokenizer, batch_size="auto")
     
     task_manager = TaskManager()
-    standard_tasks = get_task_dict(["cola", "sst2", "mnli", "qnli", "rte", "swag"], task_manager)
+    standard_tasks = get_task_dict(harness_tasks, task_manager)
     
     task_dict = {**standard_tasks, **custom_tasks}
     

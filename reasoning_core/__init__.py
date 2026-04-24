@@ -14,6 +14,7 @@ from tqdm.auto import tqdm
 import os
 from .template import _REGISTRY, prepr_task_name
 from . import tasks
+from .zero_shot_eval import evaluate_model
 
 _PACKAGE_NAME = __name__ 
 
