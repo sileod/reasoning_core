@@ -47,8 +47,7 @@ client = OpenAI( base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPE
 results = env.evaluate(client=client, model="gpt-4.1-mini", num_examples=20, rollouts_per_example=1)
 df=env.make_dataset(results).to_pandas()
 ```
-
-### Reasoning gym integration
+### Reasoning gym
 
 We use a custom interface but compatible interface. Our tasks, which are mostly orthogonal to RG, can be imported in it.
 ```python
@@ -70,10 +69,11 @@ from reasoning_core import get_task
 t=get_task('reasoning_gym')
 t.generate_example(level=1, rg_task='lcm') #or unspecified for random task
 ```
+### Openreward
+https://openreward.ai/dsileo/reasoning-core
 
 ## Citation and paper
-https://arxiv.org/abs/2603.02208
-```
+```bibtex
 @article{reasoningcore2026,
   title={Reasoning Core: A Scalable Procedural Data Generation Suite for Symbolic Pre-training and Post-Training},
   author={Lacombe, Valentin and Quesnel, Valentin and Sileo, Damien},
@@ -82,3 +82,5 @@ https://arxiv.org/abs/2603.02208
   url={https://arxiv.org/abs/2603.02208}
 }
 ```
+https://arxiv.org/abs/2603.02208  
+Contact: damien.sileo@inria.fr
