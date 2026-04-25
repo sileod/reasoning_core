@@ -2,7 +2,7 @@
 
 
 reasoning-core is a suite of textual procedural data generators for language model pre-training and post-training.
-It is centered on expressive symbolic and algorithmic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG syntax tasks.
+It is centered on expressive formal and algorithmic tasks, including full fledged first-order-logic, formal mathematics with TPTP, planning, and CFG syntax tasks.
 
 We release pre-generated data scaled to more than 10B tokens  
 🤗 [https://hf.co/collections/reasoning-core/datasets](https://huggingface.co/collections/reasoning-core/datasets)
@@ -66,7 +66,7 @@ D=reasoning_gym.create_dataset('composite', size=10, seed=42, datasets=specs)
 
 And the other way around:
 ```python
-frm reasoning_core import get_task
+from reasoning_core import get_task
 t=get_task('reasoning_gym')
 t.generate_example(level=1, rg_task='lcm') #or unspecified for random task
 ```
