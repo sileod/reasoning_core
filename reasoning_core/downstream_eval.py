@@ -33,7 +33,7 @@ platinum = [
 
 harness_tasks = [
     "cola", "sst2", "mnli", "qnli", "rte", "swag", "boolq", "copa", "cb",
-    "piqa", "arc_easy", "openbookqa", "winogrande", "hellaswag", "lambada_openai", "msgs"
+    "piqa", "arc_easy", "openbookqa", "winogrande", "hellaswag", "lambada_openai"
 ]
 
 
