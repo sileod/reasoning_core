@@ -42,7 +42,7 @@ Design rules for `update(c)`:
 - monotonic difficulty increase,
 - no mutation of `c`,
 - keep generation solvable and diverse
-- update should change knobs (sizes, etc), not hardcode different substacks
+- update should change knobs (problem sizes or reasoning depth, etc), not hardcode different subtasks (do not use "if level ... then ...")
 
 Rough reference:
 Level 0 should be as simple as possible while ensuring diversity (for example in a task where we generate graphs for shortest path prediction, 3 nodes are not enough because the combinatorics run out quickly)
