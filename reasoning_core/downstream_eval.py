@@ -32,10 +32,22 @@ platinum = [
 ]
 
 harness_tasks = [
-    "cola", "sst2", "mnli", "qnli", "rte", "swag", "boolq", "copa", "cb",
-    "piqa", "arc_easy", "openbookqa", "winogrande", "hellaswag", "lambada_openai",
-    "sciq", "social_iqa","triviaqa","wsc273",
+    # GLUE & SuperGLUE (NLI / Reading Comprehension)
+    "cola", "sst2", "mnli", "qnli", "rte", "boolq", "copa", "cb",
+    
+    # Commonsense & QA
+    "swag", "piqa", "openbookqa", "sciq", "triviaqa",
+    #"social_iqa" wsc: not working
+    # Context & Discourse
+    "lambada_openai",
+
+    # TinyBenchmarks (IRT estimators replacing full equivalents)
+    "tinyMMLU",
+    "tinyHellaswag",
+    "tinyWinogrande",
+    "tinyArc",  # Replaces arc_easy/arc_challenge    
 ]
+
 
 
 tasksource = ['ConTRoL-nli', 'folio','anli/a1','WANLI','sick/label','glue/rte','glue/cola','cladder']
