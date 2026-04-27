@@ -58,10 +58,11 @@ parser.add_argument('--max_length', type=int, default=1024)
 parser.add_argument('--decay', type=float, default=0.01)
 parser.add_argument('--from_scratch', type=ast.literal_eval, default=True)
 parser.add_argument('--aux_version', type=str, default="rc12")
-parser.add_argument('--script_version', type=str, default="7")
+parser.add_argument('--script_version', type=str, default="8")
 parser.add_argument('--aux_token', type=str, default="")
 parser.add_argument('--iterable_mode', type=ast.literal_eval, default=True)
 parser.add_argument('--title', type=str, default=True)
+parser.add_argument('--seed', type=int, default=True)
 
 DATA_MAP = {
     "fw": "HuggingFaceFW/fineweb-edu",

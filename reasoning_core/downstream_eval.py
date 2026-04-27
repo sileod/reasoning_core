@@ -32,21 +32,10 @@ platinum = [
 ]
 
 harness_tasks = [
-    # GLUE & SuperGLUE (NLI / Reading Comprehension)
     "cola", "sst2", "mnli", "qnli", "rte", "boolq", "copa", "cb",
-    
-    # Commonsense & QA
-    "swag", "piqa", "openbookqa", "sciq", "triviaqa",
-    #"social_iqa" wsc: not working
-    # Context & Discourse
-    "lambada_openai",
-
-    # TinyBenchmarks (IRT estimators replacing full equivalents)
-    "tinyMMLU",
-    "tinyHellaswag",
-    "tinyWinogrande",
-    "tinyArc",  # Replaces arc_easy/arc_challenge    
-]
+    "swag", "piqa", "openbookqa", "sciq", "triviaqa","arc_easy", "lambada_openai",
+    "tinyMMLU", "tinyHellaswag", "tinyWinogrande", "tinyArc", "tinyGSM8k"
+    ]     #social_iqa wsc tinytruthfullqa: not working 
 
 
 
@@ -103,9 +92,9 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
         with torch.no_grad():
             losses = [model(**{k: v.to(model.device) for k,v in b.items()}).loss.item() for b in dl]
         
-        metrics[f"{t}/nll"] = float(np.mean(losses))
+        metrics[f"platinum/{t}/nll"] = float(np.mean(losses))
     
-    metrics['platinum/nll'] = np.mean(list(metrics.values()))
+    metrics['platinum/platinum_avg/nll'] = np.mean(list(metrics.values()))
     print(tabulate(metrics.items()))
     return metrics
 
