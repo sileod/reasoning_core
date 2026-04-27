@@ -32,7 +32,7 @@ from datasets import (
 )
 from huggingface_hub import dataset_info
 import hashlib
-from transformers import AutoTokenizer, AutoModelForCausalLM, get_constant_schedule, TrainerCallback
+from transformers import AutoTokenizer, AutoModelForCausalLM, get_constant_schedule, TrainerCallback, AutoConfig
 from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
 from trl import SFTConfig, SFTTrainer
 from tabulate import tabulate
@@ -58,7 +58,7 @@ parser.add_argument('--max_length', type=int, default=1024)
 parser.add_argument('--decay', type=float, default=0.01)
 parser.add_argument('--from_scratch', type=ast.literal_eval, default=True)
 parser.add_argument('--aux_version', type=str, default="rc12")
-parser.add_argument('--script_version', type=str, default="8")
+parser.add_argument('--script_version', type=str, default="9")
 parser.add_argument('--aux_token', type=str, default="")
 parser.add_argument('--iterable_mode', type=ast.literal_eval, default=True)
 parser.add_argument('--title', type=str, default=True)
@@ -146,12 +146,14 @@ else:
 
 
 # --- 🧠 Model & Tokenizer ---
-model = AutoModelForCausalLM.from_pretrained(
-    args.model_name,
-    dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
-    device_map="auto",
-    attn_implementation="sdpa",
-)
+dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+if not args.from_scratch:
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name,
+        dtype=dtype, device_map="auto", attn_implementation="sdpa")
+else:
+    cfg = AutoConfig.from_pretrained(args.model_name)
+    model = AutoModelForCausalLM.from_config(cfg, dtype=dtype, attn_implementation="sdpa").to("cuda")
 
 tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 if tokenizer.pad_token is None: tokenizer.pad_token = tokenizer.eos_token
@@ -164,7 +166,6 @@ if SPECIAL.strip():
     tokenizer.add_special_tokens({"additional_special_tokens": [SPECIAL]})
     model.resize_token_embeddings(len(tokenizer))
 
-if args.from_scratch: model.apply(model._init_weights)
 if getattr(tokenizer, "chat_template", None) is None:
     tokenizer.chat_template = "{% for message in messages %}{{ message['content'] }}{% endfor %}"
 

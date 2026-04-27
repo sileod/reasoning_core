@@ -12,8 +12,10 @@ def evaluate_model(
     from litlm import complete, extract_answer
     
     y=complete(df.prompt + system_prompt, model=model_name)
+    df['y'] = y
     df['format_check']=df['y'].map(lambda x: '</answer>' in x)
     df['pred']=df.y.map(extract_answer)
-    df['score']=df.apply(lambda x: T.score_answer(x.pred, x),axis=1)
+    df['score']=df.apply(lambda x: scorer(x.pred, x),axis=1)
+    df.results = lambda: df.groupby('task')[['format_check', 'score']].mean().reset_index()
     return df
         

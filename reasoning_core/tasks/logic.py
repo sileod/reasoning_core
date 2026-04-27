@@ -67,27 +67,28 @@ prop_pattern = list(exrex.generate('proposition[a-z]'))
 nprop_pattern = list(exrex.generate('~proposition[a-z]'))
 
 
-def verbalize_predicates(x, seed=None, strip_underscores=True):
+def predicate_mapping(seed):
     rng = random.Random(seed)
     source = sorted(list(fol_nli_verbalization.predicates))
     preds = rng.sample(source, len(preds_pattern))
     npreds = [fol_nli_verbalization.negate_predicate(p) for p in preds]
-
-    prop_pairs = list(zip(fol_nli_verbalization.short_propositions, fol_nli_verbalization.neg_short_propositions))
+    prop_pairs = list(zip(fol_nli_verbalization.short_propositions,
+                          fol_nli_verbalization.neg_short_propositions))
     rng.shuffle(prop_pairs)
     props, nprops = zip(*prop_pairs)
+    return {**dict(zip(npreds_pattern, npreds)),
+            **dict(zip(preds_pattern, preds)),
+            **dict(zip(nprop_pattern, nprops)),
+            **dict(zip(prop_pattern, props))}
 
-    mapping = {**dict(zip(npreds_pattern, npreds)), 
-               **dict(zip(preds_pattern, preds)),
-               **dict(zip(nprop_pattern, nprops)),
-               **dict(zip(prop_pattern, props))}
-    
+def verbalize_predicates(x, seed=None, strip_underscores=True):  # now thin wrapper
+    mapping = predicate_mapping(seed)
     for k in sorted(mapping, key=len, reverse=True):
-        v = mapping[k].replace(' ', '_') if not strip_underscores else mapping[k]
+        v = mapping[k] if strip_underscores else mapping[k].replace(' ', '_')
         x = x.replace(k, v)
-        
     return x.replace('_', ' ') if strip_underscores else x
 
+    
 def valid(x):
     for p in "", "~":
         status= run(f"fof(f,axiom,{p}({x@tptp})).").status
@@ -103,7 +104,7 @@ class LogicConfig(Config):
     generation_algorithm: str = "sequential"
     n_names: int = 3
     n_adjectives: int = 3
-
+    bloat_skip_rate:float = 0.90
     def update(self, c):
         self.n_formulas *= (1 + c)
         self.n_names += c
@@ -135,7 +136,17 @@ def get_cot(text: str) -> str:
 
     return "\n".join(lines)
 
-    
+
+
+def is_bloat(meta, label):
+    rules = tuple(meta.proof['rules']) if meta.proof else ()
+    bloat_signatures = {
+        ('input', 'input', 'cnf', 'cnf', 'subsumption'),                     
+        ('input', 'input', 'pure', 'cnf', 'cnf', 'subsumption'),             
+        ('input', 'input', 'pure', 'pure', 'cnf', 'cnf', 'subsumption')      
+    }
+    return rules in bloat_signatures
+
 class LogicNLI(Task):
 
     def __init__(self, config=LogicConfig()):
@@ -184,6 +195,11 @@ class LogicNLI(Task):
             if label=="other":
                 print("WARNING","\n".join(proofs))
                 continue
+
+            if is_bloat(meta, label):
+                if random.random()<meta.bloat_skip_rate:
+                    continue
+            
             meta.prem, meta.hyp = x.dict(), hyp.dict()
             return Problem(meta, label)
 
@@ -203,6 +219,13 @@ class LogicNLI(Task):
 
     def balancing_key(self, problem):
         return problem.answer
+
+
+
+
+@dataclass
+class EvidenceRetrievalConfig(LogicConfig):
+    bloat_skip_rate: float= 0.2
 
 class EvidenceRetrieval(Task):
     def __init__(self, config=LogicConfig()):
@@ -256,5 +279,55 @@ class EvidenceRetrieval(Task):
 
     def balancing_key(self, problem):
         return None
-        return len(problem.metadata.proof.indices)
+        #return len(problem.metadata.proof.indices) # too slow
 
+
+
+class LogicFormalization(Task):
+    def __init__(self, config=LogicConfig()):
+        super().__init__(config=config)
+        self.names = NAMES[:self.config.n_names]
+        self.adjectives = ADJECTIVES[:self.config.n_adjectives]
+
+    def generate(self):
+        include_propositional = random.choice([True, False])
+        empty_room = random.choice([True, False])
+        G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives,
+                       empty_room=empty_room, include_propositional=include_propositional)
+        x = generate_N_premises(self.config.n_formulas, G,
+                                mode=self.config.generation_algorithm)
+        meta = edict(prem=x.dict(), verbalize_seed=random.randint(0, int(1e6)))
+        return Problem(meta, x@tptp)
+
+    def prompt(self, meta):
+        eng = verbalize_predicates(meta.prem.eng, seed=meta.verbalize_seed)
+        mapping = predicate_mapping(meta.verbalize_seed)
+        # only show symbols that actually appear; positive forms only (negations follow)
+        used = [k for k in preds_pattern + prop_pattern if k in meta.prem.tptp]
+        glossary = "\n".join(f"  {mapping[k]!r} -> {k}" for k in used)
+        return (
+            f"Premise:\n{eng}\n\n"
+            f"Glossary (English phrase -> TPTP symbol):\n{glossary}\n\n"
+            "Translate the premise into a single TPTP first-order-logic formula, "
+            "joining the lines with '&'.\n"
+            "Connectives: '&', '|', '~', '=>', '<=>'. "
+            "Quantifiers: '![X]:...' (forall) and '?[X]:...' (exists). Equality: '='.\n"
+            "Use the symbols from the glossary for verbalized predicates. "
+            "Names (mary, paul, ...), 'room', 'person', and adjectives (old, tall, ...) "
+            "appear as-is.\n"
+            "The answer is the TPTP formula only (no fof(...) wrapper, no commentary)."
+        )
+
+    def score_answer(self, answer, entry):
+        answer = answer.strip()
+        m = re.match(r'^fof\([^,]+,\s*[^,]+,\s*(.*)\)\s*\.\s*$', answer, re.DOTALL)
+        if m: answer = m.group(1).strip()
+        gold = entry.metadata.prem.tptp
+        try:
+            status = run(f"fof(eq, axiom, ~(({answer}) <=> ({gold}))).").status
+        except Exception:
+            return 0.0
+        return float(status == "Unsatisfiable")
+
+    def balancing_key(self, problem):
+        return None
