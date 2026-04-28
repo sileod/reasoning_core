@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import multiprocessing as _mp
 import random
 import re
 import cvc5
@@ -186,7 +187,7 @@ def _synth_smallest(io_pairs, size_bound, timeout_ms):
     slv = cvc5.Solver()
     slv.setOption("sygus", "true")
     slv.setOption("sygus-abort-size", str(size_bound))
-    slv.setOption("tlimit-per", str(timeout_ms))
+    slv.setOption("tlimit", str(timeout_ms))
     slv.setLogic("SLIA")
 
     S, I, B = slv.getStringSort(), slv.getIntegerSort(), slv.getBooleanSort()
@@ -239,6 +240,29 @@ def _synth_smallest(io_pairs, size_bound, timeout_ms):
         ))
     res = slv.checkSynth()
     return str(slv.getSynthSolution(f)) if res.hasSolution() else None
+
+
+def _synth_worker_proc(io_pairs, size_bound, timeout_ms, queue):
+    try:
+        queue.put(_synth_smallest(io_pairs, size_bound, timeout_ms))
+    except Exception:
+        queue.put(None)
+
+
+def _synth_with_timeout(io_pairs, size_bound, timeout_ms):
+    """Run synthesis in a subprocess so CVC5 can be hard-killed if it ignores its own timeout."""
+    ctx = _mp.get_context('fork')
+    queue = ctx.Queue()
+    proc = ctx.Process(target=_synth_worker_proc,
+                       args=(io_pairs, size_bound, timeout_ms, queue),
+                       daemon=True)
+    proc.start()
+    proc.join(timeout=timeout_ms / 1000 + 3)
+    if proc.is_alive():
+        proc.kill()
+        proc.join()
+        return None
+    return queue.get_nowait() if not queue.empty() else None
 
 
 # --- filters ----------------------------------------------------------------
@@ -299,7 +323,7 @@ class ProgramSynthesisCfg(Config):
 
 class ProgramSynthesis(DevTask):
     def __init__(self, config=ProgramSynthesisCfg()):
-        super().__init__(config=config)
+        super().__init__(config=config, timeout=120)
 
     def _sample_inputs(self, k_shown, k_holdout):
         shown_budget = max(0, k_shown - len(_EDGE_CASES))
@@ -336,7 +360,7 @@ class ProgramSynthesis(DevTask):
             holdout = self._execute_all(py_body, holdout_in)
             if holdout is None: continue
 
-            smt_answer = _synth_smallest(shown, cfg.size_bound, cfg.timeout_ms)
+            smt_answer = _synth_with_timeout(shown, cfg.size_bound, cfg.timeout_ms)
             if smt_answer is None: continue
             try: py_expr = _smt_to_py(smt_answer)
             except Exception: continue
