@@ -12,6 +12,7 @@ Implement tasks that are:
 - preferaby solver-backed (use strong external libraries instead of re-implementing),
 - distributionally broad (high structural variety),
 - verifiable, formal and robustly scorable (`score_answer(generate().answer) == 1`).
+- favour answer uniqueness if possible (e.g. specify lexicographic order) to ease next token prediction training.
 
 ## Core Contract (from `reasoning_core/template.py`)
 Every task should provide:
