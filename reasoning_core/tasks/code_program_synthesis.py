@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-import multiprocessing as _mp
 import random
 import re
 import cvc5
 from cvc5 import Kind
+import timeout_decorator
+from timeout_decorator.timeout_decorator import TimeoutError as _TimeoutError
 from gramforge import init_grammar, generate
 from reasoning_core.template import Task, DevTask, Problem, Config, edict
 
@@ -242,27 +243,12 @@ def _synth_smallest(io_pairs, size_bound, timeout_ms):
     return str(slv.getSynthSolution(f)) if res.hasSolution() else None
 
 
-def _synth_worker_proc(io_pairs, size_bound, timeout_ms, queue):
-    try:
-        queue.put(_synth_smallest(io_pairs, size_bound, timeout_ms))
-    except Exception:
-        queue.put(None)
-
-
 def _synth_with_timeout(io_pairs, size_bound, timeout_ms):
-    """Run synthesis in a subprocess so CVC5 can be hard-killed if it ignores its own timeout."""
-    ctx = _mp.get_context('fork')
-    queue = ctx.Queue()
-    proc = ctx.Process(target=_synth_worker_proc,
-                       args=(io_pairs, size_bound, timeout_ms, queue),
-                       daemon=True)
-    proc.start()
-    proc.join(timeout=timeout_ms / 1000 + 3)
-    if proc.is_alive():
-        proc.kill()
-        proc.join()
+    try:
+        return timeout_decorator.timeout(timeout_ms // 1000 + 2)(_synth_smallest)(
+            io_pairs, size_bound, timeout_ms)
+    except _TimeoutError:
         return None
-    return queue.get_nowait() if not queue.empty() else None
 
 
 # --- filters ----------------------------------------------------------------
