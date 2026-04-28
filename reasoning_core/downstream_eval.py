@@ -32,11 +32,10 @@ platinum = [
 ]
 
 harness_tasks = [
-    "cola", "sst2", "mnli", "qnli", "rte", "boolq", "copa", "cb",
-    "swag", "piqa", "openbookqa", "sciq", "triviaqa","arc_easy", "lambada_openai",
-    "tinyMMLU", "tinyHellaswag", "tinyWinogrande", "tinyArc", "tinyGSM8k"
-    ]     #social_iqa wsc tinytruthfullqa: not working 
-
+    "cola", "sst2", "mnli", "qnli", "rte", "boolq", "copa", "cb",'commonsense_qa',
+    "swag", "piqa", "openbookqa", "sciq", "triviaqa","arc_easy",'arc_challenge', "lambada_openai","lambada_standard",
+    "tinyMMLU", "tinyHellaswag", "tinyWinogrande", "tinyArc", "tinyGSM8k", "winogrande",
+    ]     #social_iqa wsc prost: not working
 
 
 tasksource = ['ConTRoL-nli', 'folio','anli/a1','WANLI','sick/label','glue/rte','glue/cola','cladder']
