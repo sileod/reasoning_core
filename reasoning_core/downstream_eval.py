@@ -100,7 +100,7 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
 
 
 
-def run_harness(model, tokenizer, limit=200):
+def run_bbh(model, tokenizer, limit=200):
     custom_tasks = {
         name: ConfigurableTask(config={
             "task": name, "dataset_path": path,
@@ -131,7 +131,7 @@ def run_harness(model, tokenizer, limit=200):
 
 
 
-def run_bbh(model, tokenizer, limit=200) -> dict:
+def run_lighteval(model, tokenizer, limit=200) -> dict:
     """"lighteval==0.9.2"""
     from lighteval.tasks.registry import Registry
     import shutil, numpy as np
@@ -156,11 +156,16 @@ def run_bbh(model, tokenizer, limit=200) -> dict:
         )
         pipe.evaluate()
         results = pipe.get_results().get("results", {})
-        scores = {
-            f"bbh/{k.split(':')[1].split('|')[0]}": next(iter(v.values()))
-            for k, v in results.items() if ":" in k and k != "all"
-        }
+        scores = {}
+        for k, v in results.items():
+            parts = k.replace("|", ":").split(":")
+            if "bbh" in parts and len(parts) >= 3:
+                sub = parts[parts.index("bbh") + 1]
+                if sub and sub != "_average":
+                    scores[f"bbh/{sub}"] = next(iter(v.values()))
         scores["bbh/Average"] = float(np.mean(list(scores.values())))
+
+        
         return scores
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
