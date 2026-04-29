@@ -128,3 +128,37 @@ def run_harness(model, tokenizer, limit=200):
     s = {t: next((m[k] for k in ['mcc,none', 'acc_norm,none', 'acc,none'] if k in m), 0.) for t, m in res.items()}
     return s
     
+
+
+
+def run_lighteval(model, tokenizer, tasks=["bigbench_hard|0"]) -> dict:
+    import shutil
+    from pathlib import Path
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from lighteval.pipeline import Pipeline, PipelineParameters, ParallelismManager
+    from lighteval.models.transformers.transformers_model import TransformersModelConfig
+    from lighteval.logging.evaluation_tracker import EvaluationTracker
+
+    tmp_dir = Path.home() / "tmp" / "lighteval_tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    
+    try:
+        model.save_pretrained(tmp_dir)
+        tokenizer.save_pretrained(tmp_dir)
+
+        pipeline = Pipeline(
+            tasks=",".join(tasks), 
+            pipeline_parameters=PipelineParameters(launcher_type=ParallelismManager.ACCELERATE),
+            evaluation_tracker=EvaluationTracker(output_dir=str(tmp_dir)),
+            model_config=TransformersModelConfig(model_name=str(tmp_dir))
+        )
+        
+        pipeline.evaluate()
+        raw_data = pipeline.get_results()
+        
+        return {
+            f"bbh|{k.split(':')[2]}/{'avg' if k.split(':')[1] == '_average' else k.split(':')[1]}": v["acc"]
+            for k, v in raw_data.get("results", {}).items() if k != "all"
+        }
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)

@@ -5,6 +5,7 @@ import cvc5
 from cvc5 import Kind
 from gramforge import init_grammar, generate
 from reasoning_core.template import Task, DevTask, Problem, Config, edict
+import ast
 
 
 # --- grammar: python + smt in parallel --------------------------------------
@@ -287,7 +288,7 @@ class ProgramSynthesisCfg(Config):
     size_bound: int = 10
     n_io: int = 6
     n_holdout: int = 5
-    timeout_ms: int = 10000
+    timeout_ms: int = 3000
     max_attempts: int = 80
 
     def update(self, c=1):
@@ -339,13 +340,16 @@ class ProgramSynthesis(DevTask):
             smt_answer = _synth_smallest(shown, cfg.size_bound, cfg.timeout_ms)
             if smt_answer is None: continue
             try: py_expr = _smt_to_py(smt_answer)
-            except Exception: continue
+            except Exception as e:
+                print(e)
+                continue
             if _is_trivial_answer(py_expr): continue
 
             try:
                 if not all(_run(py_expr, i) == o for i, o in shown + holdout):
                     continue
-            except Exception:
+            except Exception as e:
+                print(e)
                 continue
 
             py_function = _wrap_as_function(py_expr, name="f")
@@ -394,10 +398,10 @@ class ProgramSynthesis(DevTask):
         try:
             exec(src, ns)
             fn = ns[func_name]
-        except Exception as e:
-            print("ERRORED:",e)
-            print(src)
-            return 0.0
+        except (SyntaxError, NameError, AttributeError, TypeError,
+                ValueError, IndexError, KeyError, ZeroDivisionError,
+                RecursionError, ImportError):
+            return 0.0  # candidate is wrong, silently
 
         all_pairs = list(entry.metadata.io_pairs) + list(entry.metadata.holdout)
         hits = 0
@@ -407,3 +411,34 @@ class ProgramSynthesis(DevTask):
             except Exception:
                 pass
         return hits / len(all_pairs)
+
+
+
+class ProgramExtrapolation(ProgramSynthesis, DevTask):
+    def generate(self) -> Problem:
+        p = super().generate()
+        query_in, query_out = p.metadata.holdout[0]
+        meta = edict(
+            io_pairs=p.metadata.io_pairs,
+            query=query_in,
+            source_py=p.metadata.source_py,
+            answer_expr=p.metadata.answer_expr,
+        )
+        return Problem(metadata=meta, answer=query_out)
+
+    def prompt(self, metadata) -> str:
+        examples = "\n".join(f"  f({i!r}) = {o!r}" for i, o in metadata.io_pairs)
+        return (
+            "A function `f(s: str) -> str` produces these outputs:\n"
+            f"{examples}\n\n"
+            f"What is f({metadata.query!r})?\n"
+            "Answer with the output string as a Python literal "
+            "(e.g. 'abc' or '' for the empty string)."
+        )
+
+    def score_answer(self, answer, entry) -> float:
+        try:
+            if ast.literal_eval(answer.strip()) == entry.answer: return 1.0
+        except Exception:
+            pass
+        return 1.0 if answer == entry.answer or answer.strip() == entry.answer else 0.0

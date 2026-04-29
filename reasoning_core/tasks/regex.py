@@ -1,7 +1,6 @@
 
 import random, re
 from pathlib import Path
-from functools import cache
 import string
 import exrex
 import regex
@@ -40,59 +39,64 @@ fake = Faker()
 
 wordlist = fake.words(nb=100,unique=True)
 
-@cache
-def regex_grammar():
-    R = init_grammar(['re'], preprocess_template=lambda x: x)
 
-    R('start(regex)', '{0}')
-    R('regex(regex,regex)', '{0}{1}', weight=2)
-    R('regex(regex)', '({0})', weight=2)
-    R('regex(regex,regex)', '{0}|{1}', weight=1)
-    R('regex(char)', '{0}',weight=1)
-    R('regex(word)', '{0}',weight=1)
+def regex_grammar(fsm_subset=False, alpha=None, words=None):
+    R = init_grammar(["re"], preprocess_template=lambda x: x)
+
+    R("start(regex)", "{0}")
+    R("regex(regex,regex)", "{0}{1}", weight=2)
+    R("regex(regex)", "({0})", weight=2)
+    R("regex(regex,regex)", "{0}|{1}", weight=1)
+    R("regex(char)", "{0}", weight=1)
+    R("regex(word)", "{0}", weight=1)
+
+    if fsm_subset: #greenery
+        assert alpha and words
+        R("regex(regex)?", "{0}?")
+        R("regex(regex)*", "{0}*")
+        R("regex(regex)+", "{0}+")
+        for w in words: R("word", w)
+        for c in alpha: R("char", c)
+        return R
 
     for w in random.sample(wordlist, 8):
-        R('word', w)
+        R("word", w)
 
-    R('regex(regex)?', '{0}?')
-    R('regex(regex)*', '{0}*')
-    R('regex(regex)+', '{0}+')
-    
-    # Exact and bounded quantifiers
+    R("regex(regex)?", "{0}?")
+    R("regex(regex)*", "{0}*")
+    R("regex(regex)+", "{0}+")
+
     for i in range(1, 4):
-        R('count_exact', '{{%d}}' % i)
-        for j in range(i+1, 6):
-            R('count_range', '{{%d,%d}}' % (i, j))
-    R('regex(regex,count_exact)', '{0}{1}')
-    R('regex(regex,count_range)', '{0}{1}')
+        R("count_exact", "{{%d}}" % i)
+        for j in range(i + 1, 6):
+            R("count_range", "{{%d,%d}}" % (i, j))
 
-    # Sets and Negated character classes
-    R('regex(rangechar,rangechar)', '[{0}-{1}]')
-    R('regex(rangechar,rangechar)', '[^{0}-{1}]')
-    R('regex(char,char,char)', '[{0}{1}{2}]')
-    R('regex(char,char,char)', '[^{0}{1}{2}]')
-    
-    # Non-capturing groups
-    R('regex(regex)', '(?:{0})')
+    R("regex(regex,count_exact)", "{0}{1}")
+    R("regex(regex,count_range)", "{0}{1}")
 
-    R('regex(predef)', '{0}',weight=3)
+    R("regex(rangechar,rangechar)", "[{0}-{1}]")
+    R("regex(rangechar,rangechar)", "[^{0}-{1}]")
+    R("regex(char,char,char)", "[{0}{1}{2}]")
+    R("regex(char,char,char)", "[^{0}{1}{2}]")
 
-    chars = string.ascii_letters + string.digits
-    for c in chars:
-        R('char', c)
-        R('rangechar', c)
+    R("regex(regex)", "(?:{0})")
 
-    for s in [r'\d', r'\w', r'\s', '.', r'\.']:
-        R('predef', s, weight=1)
+    R("regex(predef)", "{0}", weight=3)
 
-    for s in [r'\D', r'\W', r'\S']: # Keep only non-matching classes if desired, but they can also be complex
-        R('predef', s, weight=0.25)
-        
-    for s in [r'\+', r'\*', r'\?', r'\\', r'\(', r'\)', r'\[', r'\]']:
-        R('predef', s, weight=0.25)
+    for c in string.ascii_letters + string.digits:
+        R("char", c)
+        R("rangechar", c)
+
+    for s in [r"\d", r"\w", r"\s", ".", r"\."]:
+        R("predef", s, weight=1)
+
+    for s in [r"\D", r"\W", r"\S"]:
+        R("predef", s, weight=0.25)
+
+    for s in [r"\+", r"\*", r"\?", r"\\", r"\(", r"\)", r"\[", r"\]"]:
+        R("predef", s, weight=0.25)
 
     return R
-
 
 
 @shutup
@@ -197,7 +201,7 @@ def strip_anchors_safe(text: str) -> str:
     if "```" in text:
         m = regex.search(r"```(?:regex|re|text)?\n(.*?)\n```", text, regex.DOTALL)
         if m: text = m.group(1)
-    text = text.strip().strip('`').strip()
+    text = text.strip('\r\n').strip('`').strip('\r\n')
     m = regex.match(r"^\^?(.*?)(?<!\\)\$?$", text)
     return m.group(1) if m else text
 
@@ -207,10 +211,19 @@ class RegexInduction(Task):
         super().__init__(config=config)
 
     def generate(self):
-        meta = edict()
-        meta.regex =sample_regex(self.config)
-        assert meta.regex == meta.regex.strip().strip('`').strip(), f"Gold regex incompatible with strip: {repr(meta.regex)}"
-        meta.positives = [sample_instance(meta.regex) for _ in range(self.config.n_ex)]
+        while True:
+            meta = edict()
+            meta.regex = sample_regex(self.config)
+            assert meta.regex == meta.regex.strip('\r\n').strip('`').strip('\r\n'), f"Gold regex incompatible with strip: {repr(meta.regex)}"
+            positives = set()
+            for _ in range(self.config.n_ex * 5):
+                positives.add(sample_instance(meta.regex))
+                if len(positives) == self.config.n_ex:
+                    break
+            if len(positives) < 2:
+                continue
+            meta.positives = list(positives)
+            break
         
         negatives = []
         while len(negatives) < self.config.n_ex:
@@ -294,25 +307,6 @@ class RegexReasoningConfig(Config):
 
 
 
-def _regex_grammar(alpha, words):
-    R = init_grammar(["re"], preprocess_template=lambda x: x)
-    R("start(regex)", "{0}")
-    R("regex(regex,regex)", "{0}{1}", weight=2)
-    R("regex(regex)", "({0})", weight=2)
-    R("regex(regex,regex)", "{0}|{1}", weight=1)
-    R("regex(char)", "{0}", weight=1)
-    R("regex(word)", "{0}", weight=1)
-    R("regex(regex)?", "{0}?")
-    R("regex(regex)*", "{0}*")
-    R("regex(regex)+", "{0}+")
-    for w in words:
-        R("word", w)
-    for c in alpha:
-        R("char", c)
-    return R
-
-
-
 def _sample_regex(G, depth, min_depth, mode="sequential", max_tries=60):
     for _ in range(max_tries):
         x = generate(G.start(), depth=depth, min_depth=min_depth, mode=mode)
@@ -335,7 +329,7 @@ class RegexReasoning(Task):
         cfg = self.config
         alpha = ALPHA[: max(2, cfg.n_alpha)]
         words = [a + b for a in alpha for b in alpha][:6]
-        G = _regex_grammar(alpha, random.sample(words, min(len(words), 4)))
+        G = regex_grammar(fsm_subset=True, alpha=alpha, words=random.sample(words, min(len(words), 4)))
 
         pair = _sample_pair(G, cfg.max_depth, cfg.min_depth, cfg.gramforge_algorithm)
         if pair is None:
