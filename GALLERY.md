@@ -8,13 +8,13 @@
 
 **Prompt:**
 ```
-Evaluate (1).
+Evaluate (1)/5.
 The answer is a number.
 ```
 
 **Answer:**
 ```
-1
+0.2
 ```
 
 ---
