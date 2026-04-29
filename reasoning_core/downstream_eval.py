@@ -98,9 +98,41 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
     return metrics
 
 
+
+
+def run_harness(model, tokenizer, limit=200):
+    custom_tasks = {
+        name: ConfigurableTask(config={
+            "task": name, "dataset_path": path,
+            "output_type": "multiple_choice",
+            "test_split": "train", "doc_to_text": "",
+            "doc_to_choice": '["{{sentence_good}}", "{{sentence_bad}}"]',
+            "doc_to_target": 0,
+            "metric_list": [{"metric": "acc", "aggregation": "mean", "higher_is_better": True}],
+        })
+        for name, path in [
+            ("blimp", "tasksource/blimp"),
+            ("zorro", "tasksource/zorro"),
+        ]
+    }
+
+    hflm = HFLM(pretrained=model, tokenizer=tokenizer, batch_size="auto")
     
+    task_manager = TaskManager()
+    standard_tasks = get_task_dict(harness_tasks, task_manager)
+    
+    task_dict = {**standard_tasks, **custom_tasks}
+    
+    res = evaluate(lm=hflm, task_dict=task_dict, limit=limit)['results']
+    
+    s = {t: next((m[k] for k in ['mcc,none', 'acc_norm,none', 'acc,none'] if k in m), 0.) for t, m in res.items()}
+    return s
+    
+
+
+
 def run_bbh(model, tokenizer, limit=200) -> dict:
-    """"lighteval==0.9.2"""
+    """lighteval==0.9.2"""
     from lighteval.tasks.registry import Registry
     import shutil, numpy as np
     from pathlib import Path
