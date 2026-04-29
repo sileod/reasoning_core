@@ -58,7 +58,7 @@ parser.add_argument('--max_length', type=int, default=1024)
 parser.add_argument('--decay', type=float, default=0.01)
 parser.add_argument('--from_scratch', type=ast.literal_eval, default=True)
 parser.add_argument('--aux_version', type=str, default="rc12")
-parser.add_argument('--script_version', type=str, default="10")
+parser.add_argument('--script_version', type=str, default="11")
 parser.add_argument('--aux_token', type=str, default="")
 parser.add_argument('--iterable_mode', type=ast.literal_eval, default=True)
 parser.add_argument('--title', type=str, default=True)
@@ -373,6 +373,11 @@ if s2_main_ds:
 if "eval" not in completed:
     if opt_state["optimizer"] is not None:
         opt_state["optimizer"].eval()
+
+    if wandb.run is None:  # all stages skipped on resume
+        wandb.init(project="rc-sft", group=group_id, id=f"{run_hash}-eval",
+                   name=f"{run_name}/eval", config=args, resume="allow")
+                   
     wandb.log(run_harness(model, tokenizer))
     wandb.log(run_platinum(model, tokenizer))
     try: wandb.log(run_bbh(model, tokenizer))
