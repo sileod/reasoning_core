@@ -131,34 +131,36 @@ def run_harness(model, tokenizer, limit=200):
 
 
 
-def run_lighteval(model, tokenizer, tasks=["bigbench_hard|0"]) -> dict:
-    import shutil
+def run_bbh(model, tokenizer, limit=200) -> dict:
+    """"lighteval==0.9.2"""
+    from lighteval.tasks.registry import Registry
+    import shutil, numpy as np
     from pathlib import Path
-    from transformers import AutoModelForCausalLM, AutoTokenizer
     from lighteval.pipeline import Pipeline, PipelineParameters, ParallelismManager
     from lighteval.models.transformers.transformers_model import TransformersModelConfig
     from lighteval.logging.evaluation_tracker import EvaluationTracker
 
-    tmp_dir = Path.home() / "tmp" / "lighteval_tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    
-    try:
-        model.save_pretrained(tmp_dir)
-        tokenizer.save_pretrained(tmp_dir)
+    bbh = [t for t in Registry().task_registry if t.startswith("harness|bbh:")]
+    tasks = ",".join(f"{t}|3|0" for t in bbh)
 
-        pipeline = Pipeline(
-            tasks=",".join(tasks), 
-            pipeline_parameters=PipelineParameters(launcher_type=ParallelismManager.ACCELERATE),
-            evaluation_tracker=EvaluationTracker(output_dir=str(tmp_dir)),
-            model_config=TransformersModelConfig(model_name=str(tmp_dir))
+    tmp = Path.home() / "tmp" / "lighteval_tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    try:
+        model.save_pretrained(tmp); tokenizer.save_pretrained(tmp)
+        pipe = Pipeline(
+            tasks=tasks,
+            pipeline_parameters=PipelineParameters(
+                launcher_type=ParallelismManager.ACCELERATE, max_samples=limit),
+            evaluation_tracker=EvaluationTracker(output_dir=str(tmp)),
+            model_config=TransformersModelConfig(model_name=str(tmp)),
         )
-        
-        pipeline.evaluate()
-        raw_data = pipeline.get_results()
-        
-        return {
-            f"bbh|{k.split(':')[2]}/{'avg' if k.split(':')[1] == '_average' else k.split(':')[1]}": v["acc"]
-            for k, v in raw_data.get("results", {}).items() if k != "all"
+        pipe.evaluate()
+        results = pipe.get_results().get("results", {})
+        scores = {
+            f"bbh/{k.split(':')[1].split('|')[0]}": next(iter(v.values()))
+            for k, v in results.items() if ":" in k and k != "all"
         }
+        scores["bbh/Average"] = float(np.mean(list(scores.values())))
+        return scores
     finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        shutil.rmtree(tmp, ignore_errors=True)

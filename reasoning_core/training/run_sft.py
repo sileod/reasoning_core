@@ -36,7 +36,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, get_constant_sched
 from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
 from trl import SFTConfig, SFTTrainer
 from tabulate import tabulate
-from reasoning_core.downstream_eval import run_harness, run_platinum
+from reasoning_core.downstream_eval import run_harness, run_platinum, run_bbh
 
 disable_caching()
 logging.getLogger("trl.trainer.sft_trainer").setLevel(logging.ERROR)
@@ -375,6 +375,8 @@ if "eval" not in completed:
         opt_state["optimizer"].eval()
     wandb.log(run_harness(model, tokenizer))
     wandb.log(run_platinum(model, tokenizer))
+    try: wandb.log(run_bbh(model, tokenizer))
+    except Exception as e: print(e)
     if trainer is not None:
         trainer.evaluate(metric_key_prefix="final")
     wandb.finish()
