@@ -31,7 +31,7 @@ platinum = [
     "bbh_object_counting",
 ]
 
-harness_tasks = [
+harness_tasks = ['leaderboard_bbh',
     "cola", "sst2", "mnli", "qnli", "rte", "boolq", "copa", "cb",'commonsense_qa',
     "swag", "piqa", "openbookqa", "sciq", "triviaqa","arc_easy",'arc_challenge', "lambada_openai","lambada_standard",
     "tinyMMLU", "tinyHellaswag", "tinyWinogrande", "tinyArc", "tinyGSM8k", "winogrande",
@@ -129,43 +129,3 @@ def run_harness(model, tokenizer, limit=200):
     return s
     
 
-
-
-def run_bbh(model, tokenizer, limit=200) -> dict:
-    """lighteval==0.9.2"""
-    from lighteval.tasks.registry import Registry
-    import shutil, numpy as np
-    from pathlib import Path
-    from lighteval.pipeline import Pipeline, PipelineParameters, ParallelismManager
-    from lighteval.models.transformers.transformers_model import TransformersModelConfig
-    from lighteval.logging.evaluation_tracker import EvaluationTracker
-
-    bbh = [t for t in Registry().task_registry if t.startswith("harness|bbh:")]
-    tasks = ",".join(f"{t}|3|0" for t in bbh)
-
-    tmp = Path.home() / "tmp" / "lighteval_tmp"
-    tmp.mkdir(parents=True, exist_ok=True)
-    try:
-        model.save_pretrained(tmp); tokenizer.save_pretrained(tmp)
-        pipe = Pipeline(
-            tasks=tasks,
-            pipeline_parameters=PipelineParameters(
-                launcher_type=ParallelismManager.ACCELERATE, max_samples=limit),
-            evaluation_tracker=EvaluationTracker(output_dir=str(tmp)),
-            model_config=TransformersModelConfig(model_name=str(tmp)),
-        )
-        pipe.evaluate()
-        results = pipe.get_results().get("results", {})
-        scores = {}
-        for k, v in results.items():
-            parts = k.replace("|", ":").split(":")
-            if "bbh" in parts and len(parts) >= 3:
-                sub = parts[parts.index("bbh") + 1]
-                if sub and sub != "_average":
-                    scores[f"bbh/{sub}"] = next(iter(v.values()))
-        scores["bbh/Average"] = float(np.mean(list(scores.values())))
-
-        
-        return scores
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)

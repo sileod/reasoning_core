@@ -36,7 +36,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, get_constant_sched
 from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
 from trl import SFTConfig, SFTTrainer
 from tabulate import tabulate
-from reasoning_core.downstream_eval import run_harness, run_platinum, run_bbh
+from reasoning_core.downstream_eval import run_harness, run_platinum
 
 disable_caching()
 logging.getLogger("trl.trainer.sft_trainer").setLevel(logging.ERROR)
@@ -58,7 +58,7 @@ parser.add_argument('--max_length', type=int, default=1024)
 parser.add_argument('--decay', type=float, default=0.01)
 parser.add_argument('--from_scratch', type=ast.literal_eval, default=True)
 parser.add_argument('--aux_version', type=str, default="rc12")
-parser.add_argument('--script_version', type=str, default="11")
+parser.add_argument('--script_version', type=str, default="12")
 parser.add_argument('--aux_token', type=str, default="")
 parser.add_argument('--iterable_mode', type=ast.literal_eval, default=True)
 parser.add_argument('--title', type=str, default=True)
@@ -380,8 +380,7 @@ if "eval" not in completed:
                    
     wandb.log(run_harness(model, tokenizer))
     wandb.log(run_platinum(model, tokenizer))
-    try: wandb.log(run_bbh(model, tokenizer))
-    except Exception as e: print(e)
+
     if trainer is not None:
         trainer.evaluate(metric_key_prefix="final")
     wandb.finish()
