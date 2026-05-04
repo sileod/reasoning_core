@@ -1,4 +1,4 @@
-from reasoning_core.template import Problem, Task, edict, Config
+from reasoning_core.template import Problem, Task, DevTask, edict, Config
 from reasoning_core.utils import score_scalar
 from gramforge import init_grammar
 from dataclasses import dataclass
@@ -13,7 +13,7 @@ from sympy.parsing.sympy_parser import parse_expr, standard_transformations, imp
 
 getcontext().prec = 50
 
-def _grammar(symbolic=False):
+def _grammar(symbolic=False, division=True):
     g = init_grammar(['py'], name="arith", preprocess_template=lambda s:s)
     g('start(expr)',      '{0}')
     g('expr(expr)',       '({0})',              weight=1)
@@ -26,8 +26,10 @@ def _grammar(symbolic=False):
     g('expr(expr)',       'abs({0})',           weight=0.3)
     g('expr(expr)',       'round({0})',         weight=0.2)
     
-    if not symbolic: 
+    if division and not symbolic:
         g('expr(expr,expr)', '{0} / {1}')
+    if division:
+        g('expr(expr,expr)', '{0} // {1}')
         
     g('expr(expr)',       '({0})**2',           weight=0.5 if symbolic else 0.25)
     g('expr(atom)',       '{0}',                weight=8 if symbolic else 10)
@@ -50,6 +52,7 @@ class ArithmeticsConfig(Config):
     n_trials: int = 50_000
     trailing_zero_prob: float = 0.2
     trivial_prob = 0.01
+    bool_prob = 0.1
 
     def update(self, c):
         self.min_depth += c
@@ -74,19 +77,16 @@ def fill_num(expr, cfg=ArithmeticsConfig()):
         s_rep = f'{v:.{cfg.out_decimals}f}'
         return len(s_rep.replace('-', '').replace('.', '')) <= cfg.out_digits
 
+    has_division = '/' in expr
     for _ in range(cfg.n_trials):
         vals_str = []
-        has_division = '/' in expr
         for _ in range(n):
-            if random.random() < cfg.float_prob:
-                num = round(random.uniform(-12, 12), random.randint(1, cfg.in_decimals))
-                if has_division and num == 0: num = random.choice([-1, 1])
-                vals_str.append(str(num))
-            else:
-                num = random.randint(-15, 15)
-                if has_division and num == 0: num = random.choice([-1, 1])
-                vals_str.append(str(num))
-        if n > 1 and len(set(vals_str)) < 2: continue
+            r = random.random()
+            if r < cfg.bool_prob:         num = random.randint(0, 1)
+            elif r < cfg.bool_prob + cfg.float_prob: num = round(random.uniform(-12, 12), random.randint(1, cfg.in_decimals))
+            else:                         num = random.randint(-15, 15)
+            if has_division and num == 0: num = random.choice([-1, 1])
+            vals_str.append(str(num))
         
         it = iter(f"Decimal('{x}')" for x in vals_str)
         e_decimal = pat.sub(lambda _: next(it), expr)
@@ -107,8 +107,11 @@ class Arithmetics(Task):
         super().__init__(config=config)
 
     def generate(self):
-        x = gramforge.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.gramforge_algorithm)
-        final_expr, value = fill_num(x@'py', cfg=self.config)
+        while True:
+            x = gramforge.generate(g, depth=self.config.max_depth, min_depth=self.config.min_depth, mode=self.config.gramforge_algorithm)
+            expr = x@'py'
+            if expr.count('NUM') > 1 or random.random() < self.config.trivial_prob: break
+        final_expr, value = fill_num(expr, cfg=self.config)
         quantizer = Decimal('1e-' + str(self.config.out_decimals))
         ans_str = f"{value.quantize(quantizer):f}".rstrip('0').rstrip('.')
         meta = edict(expr=final_expr, height=x.height, cot=self.get_cot(final_expr))
@@ -122,8 +125,8 @@ class Arithmetics(Task):
 
     def get_cot(self, expr):
         ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul, 
-               ast.Div: operator.truediv, ast.Pow: operator.pow}
-        syms = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.Pow: '**'}
+               ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv, ast.Pow: operator.pow, ast.Mod: operator.mod}
+        syms = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/', ast.FloorDiv: '//', ast.Pow: '**', ast.Mod: '%'}
         funcs = {'max': max, 'min': min, 'abs': abs, 'round': lambda x: Fraction(round(float(x)))}
         steps = []
         
@@ -167,7 +170,7 @@ class SymbolicConfig(Config):
         self.max_coeff += 3 * c
 
 
-class SymbolicArithmetics(Task):
+class SymbolicArithmetics(DevTask):
     """Algebraic simplification via grammar-generated expressions."""
 
     def __init__(self, config=SymbolicConfig()):
@@ -211,7 +214,7 @@ class SymbolicArithmetics(Task):
     def prompt(self, meta):
         return (f"Simplify the following algebraic expression:\n"
                 f"{meta.expr}\n\n"
-                f"The answer is the simplified expression.")
+                f"The answer is the simplified python expression.")
 
     def score_answer(self, answer, entry):
         try:

@@ -416,7 +416,7 @@ class Rung(ABC):
         bif_data = writer.write_string()
 
         if 'nan' in cot: #case where the problem is tricky for concise Cot solving
-            cot = None
+            cot = ""
         
         metadata = {
             "target_var_values": target_vals,

@@ -5,7 +5,13 @@ import funcy as fc
 from tqdm.auto import tqdm
 import random, re, exrex
 import itertools
-from gramforge.solver_utils.tptp import split_clauses, run, to_tptp, extract_inferences_and_formulas
+from gramforge.solver_utils.tptp import split_clauses, run as _run, to_tptp, extract_inferences_and_formulas
+
+AXIOMS = "fof(anywhere_ax, axiom, ![X]:anywhere(X))."
+
+def run(expr, **kw):
+    return _run(AXIOMS + "\n" + expr, **kw)
+
 from gramforge.assets import fol_nli_verbalization
 
 import sys
@@ -127,6 +133,8 @@ def get_cot(text: str) -> str:
 
         if 'input' in meta:
             input_num = re.search(r'\d+', meta)
+            if input_num is None:
+                continue
             ctx = "assumption" if "hyp" in meta else f"input {input_num.group()}"
         else:
             ctx = f"{meta.split()[0]} {', '.join(parents)}"
@@ -197,7 +205,7 @@ class LogicNLI(Task):
                 continue
 
             if is_bloat(meta, label):
-                if random.random()<meta.bloat_skip_rate:
+                if random.random()<self.config.bloat_skip_rate:
                     continue
             
             meta.prem, meta.hyp = x.dict(), hyp.dict()
@@ -291,15 +299,17 @@ class LogicFormalization(Task):
 
     def generate(self):
         include_propositional = random.choice([True, False])
-        empty_room = random.choice([True, False])
+        empty_room = False
         G = fc.partial(FOL_grammar, names=self.names, adjs=self.adjectives,
                        empty_room=empty_room, include_propositional=include_propositional)
         x = generate_N_premises(self.config.n_formulas, G,
                                 mode=self.config.generation_algorithm)
         meta = edict(prem=x.dict(), verbalize_seed=random.randint(0, int(1e6)))
-        return Problem(meta, x@tptp)
+        answer = (x@tptp).replace('room(','in_the_room(')
+        return Problem(meta, answer)
 
     def prompt(self, meta):
+        meta = edict(meta)
         eng = verbalize_predicates(meta.prem.eng, seed=meta.verbalize_seed)
         mapping = predicate_mapping(meta.verbalize_seed)
         # only show symbols that actually appear; positive forms only (negations follow)
@@ -313,7 +323,7 @@ class LogicFormalization(Task):
             "Connectives: '&', '|', '~', '=>', '<=>'. "
             "Quantifiers: '![X]:...' (forall) and '?[X]:...' (exists). Equality: '='.\n"
             "Use the symbols from the glossary for verbalized predicates. "
-            "Names (mary, paul, ...), 'room', 'person', and adjectives (old, tall, ...) "
+            "Names (mary, paul, ...), 'in_the_room', 'person', and adjectives (old, tall, ...) "
             "appear as-is.\n"
             "The answer is the TPTP formula only (no fof(...) wrapper, no commentary)."
         )
@@ -322,7 +332,7 @@ class LogicFormalization(Task):
         answer = answer.strip()
         m = re.match(r'^fof\([^,]+,\s*[^,]+,\s*(.*)\)\s*\.\s*$', answer, re.DOTALL)
         if m: answer = m.group(1).strip()
-        gold = entry.metadata.prem.tptp
+        gold = entry.answer
         try:
             status = run(f"fof(eq, axiom, ~(({answer}) <=> ({gold}))).").status
         except Exception:

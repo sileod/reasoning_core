@@ -76,3 +76,4 @@ ROADMAP.md
 # Claude Code artifacts
 .claude/
 .test/
+data-gym-cache/

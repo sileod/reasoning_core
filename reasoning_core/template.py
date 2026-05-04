@@ -2,7 +2,9 @@ import wrapt
 import time
 import functools
 import pickle, base64
-from io import BytesIO
+import threading
+import subprocess
+import warnings
 from easydict import EasyDict as edict
 from collections import Counter
 from collections.abc import Mapping
@@ -29,28 +31,29 @@ from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 _REGISTRY = dict()
 
 
-def serialize(data):
-    def parquet_friendly(x):
-        try:
-            pd.DataFrame([x]).to_parquet(BytesIO(), index=False)
-            return True
-        except:
-            return False
+def _parquet_safe(x):
+    import pandas as pd
+    from io import BytesIO
+    try:
+        pd.DataFrame([x]).to_parquet(BytesIO(), index=False)
+        return True
+    except Exception:
+        return False
 
-    return data if parquet_friendly(data) else base64.b64encode(pickle.dumps(data)).decode()
+def serialize(data):
+    if _parquet_safe(data):
+        return data
+    return "b64:" + base64.b64encode(pickle.dumps(data)).decode()
 
 def deserialize(s):
-    def looks_base64(x):
-        try:
-            return base64.b64encode(base64.b64decode(x)) == x.encode()
-        except:
-            return False
-
-    return pickle.loads(base64.b64decode(s.encode())) if isinstance(s, str) and looks_base64(s) else s
+    if isinstance(s, str) and s.startswith("b64:"):
+        return pickle.loads(base64.b64decode(s[4:].encode()))
+    return s
 
 
 def seed():
     import random
+    import numpy as np
     random.seed()
     np.random.seed()
 
@@ -59,26 +62,38 @@ def seed():
 
 class TimeoutException(BaseException): pass
 
+_RETRYABLE = (TimeoutException, subprocess.SubprocessError)
+
 def timeout_retry(seconds=15, attempts=10):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            on_main = threading.current_thread() is threading.main_thread()
+            if not on_main:
+                warnings.warn(
+                    "timeout_retry: signal-based timeout unavailable off the main thread; "
+                    "call will run without a timeout guard.",
+                    stacklevel=3,
+                )
+
             def handler(signum, frame):
                 raise TimeoutException()
 
             for attempt in range(1, attempts + 1):
-                old_handler = signal.signal(signal.SIGALRM, handler)
-                signal.alarm(seconds)
+                if on_main:
+                    old_handler = signal.signal(signal.SIGALRM, handler)
+                    signal.alarm(seconds)
                 try:
                     result = func(*args, **kwargs)
-                    signal.alarm(0)
+                    if on_main:
+                        signal.alarm(0)
                     return result
-                except (TimeoutException, Exception) as e:
-                    signal.alarm(0) # Ensure alarm is off
+                except _RETRYABLE as e:
+                    if on_main:
+                        signal.alarm(0)
                     
                     # --- CRITICAL: Kill external subprocesses (vampire/udocker) ---
                     try:
-                        # Find all children spawned by this process and kill them
                         children = psutil.Process().children(recursive=True)
                         for child in children:
                             child.kill()
@@ -87,10 +102,11 @@ def timeout_retry(seconds=15, attempts=10):
                     # --------------------------------------------------------------
 
                     if attempt == attempts:
-                        raise e  # Re-raise the last exception if out of retries
+                        raise e
                     time.sleep(0.5)
                 finally:
-                    signal.signal(signal.SIGALRM, old_handler)
+                    if on_main:
+                        signal.signal(signal.SIGALRM, old_handler)
         return wrapper
     return decorator
 
@@ -117,8 +133,8 @@ class Problem(Mapping):
         
     @classmethod
     def from_dict(cls, d):
-        data = deserialize(d["data"])
-        return cls(data=data, answer=d.get("answer"), meta=d.get("meta"), task=d.get("task"), cot=d.get('cot'))
+        metadata = deserialize(d.get("metadata", d.get("data", {})))
+        return cls(metadata=metadata, answer=d.get("answer"), cot=d.get("cot"))
         
     def __repr__(self):
         s=""
@@ -145,6 +161,7 @@ def prepr_task_name(name):
     return underscore(name)
 
 
+@functools.lru_cache(maxsize=1)
 def _load_tokenizer():
     class _WhitespaceTokenizerFallback:
         """Minimal tokenizer fallback when tiktoken assets are unavailable."""
@@ -210,6 +227,11 @@ class Task(ProceduralDataset):
         assert set(score)!={1}, "The scoring function must return values other than 1 for other answers"
         assert {self.score_answer(y.answer,y)==1 for y in ys}=={True}, "The generated answer must be correct"
 
+        # Serialization round-trip smoke test
+        rt = copy.copy(x)
+        rt.metadata = deserialize(serialize(dict(x.metadata)))
+        assert self.score_answer(x.answer, rt) == 1, "score_answer must survive serialize/deserialize round-trip"
+        
         self.score_answer('reajrjrje9595!',x) # should not error out
         self.score_answer('',x) # should not error out
         self.score_answer('import fakemodule',x) # should not eval strings 
@@ -289,7 +311,6 @@ class Task(ProceduralDataset):
 
                 problem.metadata = edict(problem.metadata)
                 problem.metadata['_time']  = time.time() - t0
-                problem.metadata['_time']  = time.time() - t0
                 problem.metadata['_task']  = problem.task 
                 problem.metadata['_level'] = self.config.level
                 problem.metadata['_config'] = self.config.to_dict()
@@ -333,8 +354,6 @@ class Task(ProceduralDataset):
 
 
     def __getitem__(self, idx: int) -> dict:
-        if self.seed:
-            rng = random.Random(self.seed + idx)
         example=self.generate_example()
         example['metadata']['source_dataset'] = example.task
 
@@ -470,7 +489,7 @@ class Reward(wrapt.ObjectProxy):
 
     def __getattr__(self, name):
         if name == "_self_annotations":
-            return super().__getattr__(name)
+            raise AttributeError(name)
         if name in self._self_annotations:
             return self._self_annotations[name]
         return getattr(self.__wrapped__, name)

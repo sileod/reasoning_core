@@ -56,6 +56,7 @@ class GrammarConfig(Config):
 
     n_resampled_grammars: int=200
     prob_resampling_grammar: float=0.6
+    max_tokens:int =16
 
     min_k: int = 3
     max_k: int = 5
@@ -70,6 +71,7 @@ class GrammarConfig(Config):
         self.min_depth += c
         self.max_depth += c
         self.prob_resampling_grammar = max(0.0, self.prob_resampling_grammar - 0.1 * c)
+        self.max_tokens += 2*c
 
 def meta_grammar(config):
     R=init_grammar(['cfg'])
@@ -295,8 +297,8 @@ def sample_cfg(config=GrammarConfig, productive_only=False):
     for _ in range(1000):
         MG = meta_grammar(config).start()
         for _ in range(100):
-            x = gramforge_generate(MG, depth=config.max_depth, min_depth=config.min_depth, mode=config.gramforge_algorithm)
             try:
+                x = gramforge_generate(MG, depth=config.max_depth, min_depth=config.min_depth, mode=config.gramforge_algorithm)
                 g = CFG.fromstring(x@"cfg")
             except ValueError:
                 continue
@@ -363,7 +365,13 @@ def generate_parse(config=GrammarConfig):
             except ValueError: continue
 
             if random.random() < config.perturbation_rate:
-                tokens = perturb(tokens, config)
+                try:
+                    tokens = perturb(tokens, config)
+                except ValueError:
+                    continue
+            
+            if len(tokens) > config.max_tokens:
+                continue
 
             try:
                 meta.cot, meta.parses = make_cot(g, tokens)
@@ -407,7 +415,9 @@ class Parsing(Task):
         while True:
             meta = generate_parse(self.config)
             if meta.label != 'unambiguous': continue
-            meta.cot = meta.cot.split('\n',1)[1]  # Remove first line
+            _, _, tail = meta.cot.partition('\n')
+            if not tail: continue  # Skip if cot has no content after header
+            meta.cot = tail
 
             t = meta.parses[0] # Get the Tree object directly
 

@@ -73,7 +73,7 @@ def _load_wn():
 @dataclass
 class LexicalKnowledgeConfig(Config):
     n_words: int = 600
-    max_retries: int = 80
+    max_retries: int = 200
     n_distractors: int = 5
     
     def update(self, c=1):
@@ -105,6 +105,7 @@ class LexicalKnowledge(Task):
     def _ws(self, ss): return {w for s in ss if (w := self._w(s))}
 
     def _too_abstract(self, s, strict=False):
+        if s is None: return True
         if s.min_depth() < 6 or len(s.hyponyms()) > 100: return True
         banned_names = frozenset({
             'entity', 'abstraction', 'physical_entity', 'thing', 
@@ -376,7 +377,7 @@ class LexicalKnowledge(Task):
     def score_answer(self, answer: str, entry) -> float:
         if not answer: return 0.0
         answer = answer.strip()
-        gt, atype = entry.answer, entry.metadata.answer_type
+        gt, atype = entry.answer, entry.metadata['answer_type']
         gold_sids = set(entry.metadata.get('gold_synsets', []))
 
         if atype == 'bool':

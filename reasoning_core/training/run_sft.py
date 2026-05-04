@@ -1,7 +1,7 @@
 """
 for budget in 300_000_000 1_000_000_000; do   for r in 0.1 0.0 0.25 0.4 0.05; do     python run_sft.py --aux_ratio "$r" --token_budget "$budget";   done; done
 """
-
+# run_sft.py
 import os, tempfile
 from pathlib import Path
 
@@ -37,6 +37,7 @@ from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
 from trl import SFTConfig, SFTTrainer
 from tabulate import tabulate
 from reasoning_core.downstream_eval import run_harness, run_platinum
+import socket, threading, time, atexit
 
 disable_caching()
 logging.getLogger("trl.trainer.sft_trainer").setLevel(logging.ERROR)
@@ -129,6 +130,46 @@ run_name = f"{_run_name(run_hash)}-b{b}-r{args.aux_ratio}"
 ckpt_dir = Path("checkpoints") / run_hash
 ckpt_file = ckpt_dir / "run_state.json"
 ckpt = load_ckpt(ckpt_file)
+
+# --- 🔒 NFS-safe cross-machine lock ---
+import socket, threading, time, atexit
+
+def acquire_lock(lock_file: Path, stale_after: int = 300, heartbeat_every: int = 60):
+    """Cross-machine lock via O_EXCL create + heartbeat. Exits if another runner is active."""
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
+    stamp = lambda: f"{socket.gethostname()}:{os.getpid()}:{time.time()}"
+
+    def lock_age():
+        try: return time.time() - float(lock_file.read_text().rsplit(":", 1)[-1])
+        except (FileNotFoundError, ValueError): return float("inf")
+
+    def try_create():
+        try:
+            fd = os.open(str(lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            lock_file.write_text(stamp())
+            return True
+        except FileExistsError:
+            return False
+
+    if not try_create():
+        if lock_age() < stale_after:
+            print(f"🔒 Active elsewhere: {lock_file.read_text()}. Exiting."); exit(0)
+        lock_file.unlink(missing_ok=True)                 # stale → clear and retry
+        if not try_create():
+            print(f"🔒 Lost race: {lock_file.read_text()}. Exiting."); exit(0)
+
+    atexit.register(lambda: lock_file.unlink(missing_ok=True))
+
+    def heartbeat():
+        while True:
+            time.sleep(heartbeat_every)
+            try: lock_file.write_text(stamp())
+            except OSError: return
+    threading.Thread(target=heartbeat, daemon=True).start()
+
+acquire_lock(ckpt_dir / "run.lock")
+
 
 if ckpt and ckpt.get("hash") == run_hash:
     if ckpt.get("done"):

@@ -10,6 +10,6 @@ for t in list_tasks():
         print(f"{time.time() - t0:.5f}")
     except Exception as e:
         failed+=[t]
-        print(e)
+        print("EXCEPTION:", e)
 
 print(f'Done, failed: {failed}')

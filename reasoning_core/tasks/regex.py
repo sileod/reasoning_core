@@ -87,10 +87,10 @@ def regex_grammar(fsm_subset=False, alpha=None, words=None):
         R("char", c)
         R("rangechar", c)
 
-    for s in [r"\d", r"\w", r"\s", ".", r"\."]:
+    for s in [r"\d", r"\w", ".", r"\."]:
         R("predef", s, weight=1)
 
-    for s in [r"\D", r"\W", r"\S"]:
+    for s in [r"\D", r"\W"]:
         R("predef", s, weight=0.25)
 
     for s in [r"\+", r"\*", r"\?", r"\\", r"\(", r"\)", r"\[", r"\]"]:
@@ -100,21 +100,12 @@ def regex_grammar(fsm_subset=False, alpha=None, words=None):
 
 
 @shutup
-def safe_regex(r, max_tries=10, timeout_seconds=0.5):
+def safe_regex(r):
     try:
-        p = regex.compile(r)
-    except regex.error:
-        return False 
-    for _ in range(max_tries):
-        try:
-            s = exrex.getone(r, 5)
-            if s and s.isprintable() and p.fullmatch(s, timeout=timeout_seconds):
-                return True 
-        except TimeoutError:
-            return False
-        except Exception:
-            continue
-    return False
+        sample_instance(r, max_tries=10)
+        return True
+    except (ValueError, Exception):
+        return False
 
 def sample_regex(config, max_tries=100):
     max_depth = config.max_depth

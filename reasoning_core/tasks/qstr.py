@@ -320,16 +320,14 @@ class QualitativeReasoning(Task):
     def prompt(self, metadata):
         qi, qj = metadata.query
         lines = [
-            f"Qualitative reasoning over {metadata.topic}.",
             f"There are {metadata.n_entities} entities labeled 0 through {metadata.n_entities - 1}.",
             "You are given the following facts (read 'i rel j' as 'entity i is rel to entity j'):",
         ]
         lines += [f"  {i} {r} {j}" for i, j, r in metadata.revealed]
         lines += [
             "",
-            f"Question: what is {metadata.phrasing.format(i=qi, j=qj)}?",
+            f"What is {metadata.phrasing.format(i=qi, j=qj)}?",
             f"The answer is exactly one of: {', '.join(metadata.vocabulary)}.",
-            "Respond with only the relation name as the answer.",
         ]
         return "\n".join(lines)
         

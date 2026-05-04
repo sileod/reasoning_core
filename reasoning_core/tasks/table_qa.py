@@ -112,8 +112,8 @@ class TableQA(Task):
             queries.append(f"SELECT COUNT(DISTINCT {c}) FROM dataframe")
             queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} = '{val}'")
             if len(val) > 1:
-                queries.append(f"SELECT COUNT(*) FROM dataframe WHERE {c} LIKE '%{val[1:]}%'")
-        
+                queries.append(f"SELECT COUNT(*) FROM dataframe WHERE CAST({c} AS VARCHAR) LIKE '%{val[1:]}%'")
+
         return random.choice(queries) if queries else "SELECT COUNT(*) FROM dataframe"
     
     def generate(self):
@@ -213,8 +213,11 @@ class TableConversion(Task):
         )
 
     def prompt(self, m):
+        strip_to = lambda s: re.sub(r"^to_", "", s)
+        f1, f2 = strip_to(m['source_format']), strip_to(m['target_format'])
+
         return (
-            f"Convert the following table from {m['source_format']} to {m['target_format']}.\n\n"
+            f"Convert the following table from {f1} to {f2}.\n\n"
             f"{m['source_table']}\n\n"
             f"The answer is the converted table."
         )

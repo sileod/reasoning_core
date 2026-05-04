@@ -259,7 +259,7 @@ class ReferenceTracking(Task):
                     initial_placement=initial_placement,
                     moves=moves, resolved_moves=resolved_moves, 
                     final_placement=dict(placement),
-                    question=f"Question: Where is {desc} now? Answer with a box tag like x1.",
+                    question=f"Where is {desc} now? The answer is a box tag, like x1.",
                 ),
                 answer=placement[target],
             )

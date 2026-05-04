@@ -1,7 +1,7 @@
 # __init__.py
 
 
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 import importlib
 #import pkgutil
@@ -118,8 +118,11 @@ def get_task(k, *args, **kwargs):
     k=match_task_name(k)
     return DATASETS[k](*args, **kwargs)
 
+DEPRECATED = ['symbolic_arithmetics', 'graph_node_centrality']
+ignored = DEPRECATED + ['reasonining_gym']
+
 def list_tasks():
-    return [k for k in DATASETS.keys() if k!='reasoning_gym']
+    return [k for k in DATASETS.keys() if k not in ignored]
 
 
 def get_score_answer_fn(task_name, *args, **kwargs):
