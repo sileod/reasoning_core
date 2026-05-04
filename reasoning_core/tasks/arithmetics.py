@@ -66,40 +66,44 @@ def _add_trailing_zeros(s, prob=0.2):
     while random.random() < prob: s += '0'
     return s
 
+
 def fill_num(expr, cfg=ArithmeticsConfig()):
     pat = re.compile(r'\bNUM\b')
     n = len(pat.findall(expr))
-    def is_ok(v: Decimal):
-        v = v.normalize()
-        sign, digits, exponent = v.as_tuple()
-        num_decimal_places = -exponent if exponent < 0 else 0
-        if num_decimal_places > cfg.out_decimals: return False
-        s_rep = f'{v:.{cfg.out_decimals}f}'
-        return len(s_rep.replace('-', '').replace('.', '')) <= cfg.out_digits
+
+    def to_decimal(v):
+        f = Fraction(v)
+        d = f.denominator
+        while d % 2 == 0: d //= 2
+        while d % 5 == 0: d //= 5
+        if d != 1: return None                                # non-terminating decimal
+        dec = (Decimal(f.numerator) / Decimal(f.denominator)).normalize()
+        _, _, exp = dec.as_tuple()
+        if max(0, -exp) > cfg.out_decimals: return None
+        s = f'{dec:.{cfg.out_decimals}f}'
+        return dec if len(s.replace('-','').replace('.','')) <= cfg.out_digits else None
 
     has_division = '/' in expr
     for _ in range(cfg.n_trials):
         vals_str = []
         for _ in range(n):
             r = random.random()
-            if r < cfg.bool_prob:         num = random.randint(0, 1)
-            elif r < cfg.bool_prob + cfg.float_prob: num = round(random.uniform(-12, 12), random.randint(1, cfg.in_decimals))
-            else:                         num = random.randint(-15, 15)
+            if   r < cfg.bool_prob:                    num = random.randint(0, 1)
+            elif r < cfg.bool_prob + cfg.float_prob:   num = round(random.uniform(-12, 12), random.randint(1, cfg.in_decimals))
+            else:                                      num = random.randint(-15, 15)
             if has_division and num == 0: num = random.choice([-1, 1])
             vals_str.append(str(num))
-        
-        it = iter(f"Decimal('{x}')" for x in vals_str)
-        e_decimal = pat.sub(lambda _: next(it), expr)
+
+        it = iter(f"Fraction('{x}')" for x in vals_str)
         try:
-            v = eval(e_decimal, {"Decimal": Decimal, "max": max, "min": min, "abs": abs, 
-                                  "round": lambda x: x.to_integral_value(rounding=ROUND_HALF_UP)})
+            v = eval(pat.sub(lambda _: next(it), expr),
+                     {"Fraction": Fraction, "max": max, "min": min, "abs": abs, "round": round})
         except Exception: continue
-        
-        if is_ok(v):
-            # Add trailing zeros for generalization
-            vals_display = [_add_trailing_zeros(s, cfg.trailing_zero_prob) for s in vals_str]
-            it_str = iter(vals_display)
-            return pat.sub(lambda _: next(it_str), expr), v
+
+        dec = to_decimal(v)
+        if dec is not None:
+            it_str = iter(_add_trailing_zeros(s, cfg.trailing_zero_prob) for s in vals_str)
+            return pat.sub(lambda _: next(it_str), expr), dec
     raise RuntimeError('No assignment found; increase n_trials or widen pool.')
 
 class Arithmetics(Task):

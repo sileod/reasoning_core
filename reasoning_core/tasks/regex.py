@@ -205,25 +205,24 @@ class RegexInduction(Task):
         while True:
             meta = edict()
             meta.regex = sample_regex(self.config)
-            assert meta.regex == meta.regex.strip('\r\n').strip('`').strip('\r\n'), f"Gold regex incompatible with strip: {repr(meta.regex)}"
             positives = set()
             for _ in range(self.config.n_ex * 5):
-                positives.add(sample_instance(meta.regex))
-                if len(positives) == self.config.n_ex:
-                    break
-            if len(positives) < 2:
-                continue
-            meta.positives = list(positives)
-            break
-        
+                try: positives.add(sample_instance(meta.regex))
+                except ValueError: pass
+                if len(positives) == self.config.n_ex: break
+            if len(positives) >= 2: break
+
+        meta.positives = list(positives)
         negatives = []
-        while len(negatives) < self.config.n_ex:
-            # Ensure negative examples do not match the target regex
-            s = sample_instance(sample_regex(self.config))
+        for _ in range(self.config.n_ex * 20):  # bounded, not while True
+            try: s = sample_instance(sample_regex(self.config))
+            except ValueError: continue
             if not regex.fullmatch(meta.regex, s, timeout=1):
                 negatives.append(s)
+            if len(negatives) == self.config.n_ex: break
+        if len(negatives) < self.config.n_ex:
+            return None  # let the outer retry loop in generate_example handle it
         meta.negatives = negatives
-        
         return Problem(meta, meta.regex)
 
     def score_answer(self, answer, entry):

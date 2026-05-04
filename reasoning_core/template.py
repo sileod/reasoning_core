@@ -22,6 +22,8 @@ import signal
 from contextlib import contextmanager
 from inflection import underscore
 import tiktoken
+from appdirs import user_cache_dir
+import os
 import psutil
 from tqdm.auto import tqdm 
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
@@ -163,6 +165,10 @@ def prepr_task_name(name):
 
 @functools.lru_cache(maxsize=1)
 def _load_tokenizer():
+    cache_dir = user_cache_dir("reasoning_core")  # ~/.cache/reasoning_core on Linux
+    os.makedirs(cache_dir, exist_ok=True)
+    os.environ.setdefault("TIKTOKEN_CACHE_DIR", cache_dir)
+
     class _WhitespaceTokenizerFallback:
         """Minimal tokenizer fallback when tiktoken assets are unavailable."""
         def encode(self, text):
@@ -224,7 +230,7 @@ class Task(ProceduralDataset):
         ys=[self.generate_example() for _ in range(n_samples)]
         assert len({y.prompt for y in ys})!=1 or n_samples==1, "Examples should not be identical"
         score = [self.score_answer(y.answer, x) for y in ys]
-        assert set(score)!={1}, "The scoring function must return values other than 1 for other answers"
+        assert set(score)!={1}, "score_answer must return values other than 1 for other answers"
         assert {self.score_answer(y.answer,y)==1 for y in ys}=={True}, "The generated answer must be correct"
 
         # Serialization round-trip smoke test
