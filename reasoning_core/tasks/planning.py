@@ -6,7 +6,6 @@ from unified_planning.exceptions import UPException
 from unified_planning.io import PDDLReader, PDDLWriter
 from unified_planning.engines import PlanGenerationResult
 from pyparsing import ParseException
-import timeout_decorator
 import random
 import re
 import math
@@ -20,7 +19,6 @@ from itertools import permutations, chain
 import time
 from functools import wraps
 from traceback import format_exc
-from timeout_decorator.timeout_decorator import TimeoutError
 import warnings
 from easydict import EasyDict as edict
 from random import choice
