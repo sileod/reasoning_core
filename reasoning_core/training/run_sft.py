@@ -330,8 +330,12 @@ class ScheduleFreeModeCallback(TrainerCallback):
 _total_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
 _model_params = sum(p.numel() for p in model.parameters()) / 1e6
 
-target_memory_peak = 0.85
+available_memory_factor = max(1, min(16, round(
+    2 * (_model_params / 68) * (24 / _total_gb)
+)))
+
 observed_memory_peak = 0.60
+target_memory_peak = 0.85
 
 available_memory_factor = max(1, min(16, round(
     available_memory_factor * observed_memory_peak / target_memory_peak
