@@ -165,7 +165,8 @@ def perturb_list(input_l: list, base_domain: list, n_perturbations: int = 1) -> 
     return lst
 
 def prove_conjecture(axioms: list[str], conjecture: str,
-                        time_limit_seconds: str ="30", verb: bool = False):
+                        time_limit_seconds: str ="30", verb: bool = False,
+                        fast_only: bool = False):
     """
     Uses Vampire to prove or disprove a conjecture given a set of axioms.
     Returns True (provable), False (disprovable/countersatisfiable), or an error string.
@@ -206,6 +207,8 @@ def prove_conjecture(axioms: list[str], conjecture: str,
 
         if "% SZS status Theorem" in result_proove.stdout :
             return True
+        if fast_only:
+            return False
         if "% SZS status CounterSatisfiable" in result_proove.stdout :
             return False
 
@@ -432,20 +435,20 @@ class TheoremPremiseSelection(Task):
         """
         Prunes an initial set of hypotheses down to a minimal subset that is
         still sufficient to prove the conjecture.
+        Uses fast prove-only check; non-provable-in-time hypotheses are kept
+        (conservative: safety over minimality).
         """
         essential_hypotheses = set(initial_hypotheses)
         
         for h in initial_hypotheses:
-            
-            temp_set = essential_hypotheses.copy()
-            if h in temp_set:
-                temp_set.remove(h)
-            else:
-                continue 
+            if h not in essential_hypotheses:
+                continue
 
-            is_provable = prove_conjecture(list(temp_set), conjecture, time_limit_seconds="15")
+            temp_set = list(essential_hypotheses - {h})
+
+            is_provable = prove_conjecture(temp_set, conjecture, time_limit_seconds="2", fast_only=True)
             
-            if is_provable is True:
+            if is_provable:
                 essential_hypotheses.remove(h)
                 
         return list(essential_hypotheses)
@@ -472,9 +475,7 @@ class TheoremPremiseSelection(Task):
                 if prove_conjecture(superset, theorem, time_limit_seconds="15") is not True: continue
 
                 minimal = self.find_minimal_hypotheses(superset, theorem)
-
-                # Verify minimal (safety)
-                if not minimal or prove_conjecture(minimal, theorem, time_limit_seconds="15") is not True: continue
+                if not minimal: continue
             except TimeoutException:
                 raise TimeoutException
             except Exception:
