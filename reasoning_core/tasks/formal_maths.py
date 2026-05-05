@@ -321,15 +321,8 @@ class ConjectureEntailment(Task):
             self.all_formulas = [data['data'].clause_formula for _, data in self.graph.nodes(data=True)]
             self.interesting_thm = []
 
-            # Check if AGInT scores are available (non-zero means enrichment ran)
-            has_agint = any(
-                self.graph.nodes[i]['data'].interesting_score > 0
-                for i in self.graph.nodes()
-            )
-            score_threshold = self.config.min_interesting_score if has_agint else 0.0
-
-            for i in self.graph.nodes() :
-                if self.graph.nodes[i]['data'].interesting_score > score_threshold and self.graph.in_degree(i) > 1 :
+            for i in self.graph.nodes() : 
+                if self.graph.nodes[i]['data'].interesting_score > self.config.min_interesting_score and self.graph.in_degree(i) > 1 :
                     self.interesting_thm.append(i)
             if len(self.interesting_thm) >= 5 :
                 break
