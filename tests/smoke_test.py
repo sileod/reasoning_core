@@ -1,15 +1,15 @@
 from reasoning_core import list_tasks, get_task
 import time
 
-failed =[]
+failed = []
 for t in list_tasks():
-    t0=time.time()
-    print(t.ljust(30, '.'), end="")
+    t0 = time.time()
     try:
         get_task(t).validate()
-        print(f"{time.time() - t0:.5f}")
+        print(f"{t.ljust(30, '.')} {time.time() - t0:.5f}")
     except Exception as e:
-        failed+=[t]
-        print("EXCEPTION:", e)
+        print(f"{t.ljust(30, '.')} EXCEPTION: {e}")
+        failed.append(t)
 
-print(f'Done, failed: {failed}')
+if failed:
+    raise RuntimeError(f"Failed tasks: {failed}")

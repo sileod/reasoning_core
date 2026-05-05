@@ -39,8 +39,11 @@ def generate_random_table(config):
     return pd.DataFrame({n: [g() for _ in range(config.num_rows)] for n, g in cols})
 
 def format_float(x):
-    s = f"{x:.12f}".rstrip('0').rstrip('.')
-    return s if '.' in s else f"{s}.0"
+    try:
+        s = f"{float(x):.12f}".rstrip('0').rstrip('.')
+        return s if '.' in s else f"{s}.0"
+    except (ValueError, TypeError):
+        return x
 
 
 def get_renderers(dataframe):
@@ -49,7 +52,7 @@ def get_renderers(dataframe):
         'to_markdown': lambda index=False: dataframe.to_markdown(index=index, floatfmt='.12g', disable_numparse=True),
         'to_csv': lambda index=False: dataframe.to_csv(index=index, float_format=format_float),
         'to_html': lambda index=False: dataframe.to_html(index=index, float_format=format_float),
-        'to_latex': lambda index=False: dataframe.to_latex(index=index, float_format=format_float),
+        'to_latex': lambda index=False: (dataframe.style.hide(axis="index") if not index else dataframe.style).format(format_float).to_latex(hrules=True),
         'to_json': lambda index=False: dataframe.to_json(orient='records', date_format='iso', indent=4),
         'to_yaml': lambda index=False: yaml.dump(dataframe.to_dict(orient='records'), default_flow_style=False, sort_keys=False),
     }
