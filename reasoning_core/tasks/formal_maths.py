@@ -394,7 +394,7 @@ class SelectionConfig(Config):
         self.num_distractors += c
 
 
-class TheoremPremiseSelection(DevTask):
+class TheoremPremiseSelection(Task):
     """
     A task that generates problems where one must select the essential hypotheses
     required to prove a given conjecture from a larger pool of axioms.
