@@ -1,7 +1,7 @@
 import random
 import numpy as np
 import datetime
-from num2words import num2words
+import inflect
 from dataclasses import dataclass
 from reasoning_core.template import Task, Problem, Config
 import itertools
@@ -36,15 +36,16 @@ def create_intension(domain : list, length : int):
         i = np.random.randint(n-length)
         return domain[i:i+length]
 
+_inflect = inflect.engine()
+
 def make_domains(size, ordered=False):
-    
+
     NUM = [int(i) for i in range(1,size+1)]
-    NUM_EN = [num2words(i, lang='en').replace(',', '') for i in NUM]
-    NUM_FR = [num2words(i, lang='fr').replace(',', '') for i in NUM]
+    NUM_EN = [_inflect.number_to_words(i).replace(',', '') for i in NUM]
     start = (datetime.date(2020, 1, 1))
     DATES = [(start + datetime.timedelta(days=i)).strftime('%Y-%m-%d') for i in range(size)]
     DATES_EN = [(start + datetime.timedelta(days=i)).strftime('%B %d, %Y') for i in range(size)]
-    
+
     gen = itertools.chain.from_iterable((''.join(p) for p in itertools.product(string.ascii_lowercase, repeat=n)) for n in itertools.count(1))
     LETTERS = list(itertools.islice(gen, size))
 
