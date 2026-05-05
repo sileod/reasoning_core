@@ -30,7 +30,6 @@ dependencies = [
     "appdirs",
     "regex",
     "greenery",
-    "num2words",
     "tqdm",
     "timeoutcontext",
     "pandas",
