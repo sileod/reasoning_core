@@ -272,7 +272,10 @@ class Embeded_process:
 
     def __enter__(self): return self
     def __exit__(self, exc_type, exc_val, exc_tb): self.kill()
-    def __del__(self): self.kill()
+    def __del__(self):
+        if getattr(sys, "meta_path", None) is None:
+            return
+        self.kill()
 
 # ============================================================================
 # SESSION
