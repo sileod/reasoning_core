@@ -16,6 +16,8 @@ from ._sat_graph import generate_derivation_graph
 from reasoning_core.template import Task, DevTask, Problem, Config
 import ast
 from reasoning_core.template import TimeoutException
+from itertools import combinations
+from math import comb
 
 
 def extract_problem_from_graph(G: nx.DiGraph, node_id_str: str, max_length_proof: int):
@@ -165,7 +167,10 @@ def perturb_list(input_l: list, base_domain: list, n_perturbations: int = 1) -> 
     return lst
 
 def prove_conjecture(axioms: list[str], conjecture: str,
-                        time_limit_seconds: str ="30", verb: bool = False):
+                        time_limit_seconds: str ="30", verb: bool = False,
+                        disprove_first: bool = False,
+                        disprove_time_limit_seconds = None,
+                        log_errors: bool = True):
     """
     Uses Vampire to prove or disprove a conjecture given a set of axioms.
     Returns True (provable), False (disprovable/countersatisfiable), or an error string.
@@ -195,9 +200,22 @@ def prove_conjecture(axioms: list[str], conjecture: str,
             print("-------------------------------------------------")
 
 
-        vampire_command_proove = [ "-t", str(time_limit_seconds)]
+        prove_limit = str(time_limit_seconds)
+        disprove_limit = str(disprove_time_limit_seconds or time_limit_seconds)
+        vampire_command_proove = ["-t", prove_limit]
+        vampire_command_disproove = ["-t", disprove_limit, "-sa", "fmb"]
 
-        vampire_command_disproove = ["-t", str(time_limit_seconds),"-sa", "fmb"]
+        result_proove = None
+        result_disproove = None
+
+        if disprove_first:
+            result_disproove = get_prover_session().run_prover('vampire', vampire_command_disproove, temp_f.name)
+
+            if verb == True:
+                print(f"output disproove vampire :  {result_disproove.stdout} ")
+
+            if "Finite Model Found!" in result_disproove.stdout or "% SZS status CounterSatisfiable" in result_disproove.stdout:
+                return False
 
         result_proove = get_prover_session().run_prover('vampire',vampire_command_proove,temp_f.name)
 
@@ -209,7 +227,8 @@ def prove_conjecture(axioms: list[str], conjecture: str,
         if "% SZS status CounterSatisfiable" in result_proove.stdout :
             return False
 
-        result_disproove = get_prover_session().run_prover('vampire',vampire_command_disproove,temp_f.name)
+        if result_disproove is None:
+            result_disproove = get_prover_session().run_prover('vampire',vampire_command_disproove,temp_f.name)
     
         if verb == True:
             print(f"output disproove vampire :  {result_disproove.stdout} ")
@@ -218,10 +237,11 @@ def prove_conjecture(axioms: list[str], conjecture: str,
             return False
         if "% Time limit reached!" in result_proove.stdout and "% Time limit reached!" in result_disproove.stdout  :
             return f"ERROR : TIME LIMIT in both tentative to proove AND to disproove"
-        print(f"[prove_conjecture] vampire failed:"
-              f"\n  prove: rc={result_proove.returncode} stdout={result_proove.stdout[:200]!r} stderr={result_proove.stderr[:200]!r}"
-              f"\n  disprove: rc={result_disproove.returncode} stdout={result_disproove.stdout[:200]!r} stderr={result_disproove.stderr[:200]!r}",
-              file=sys.stderr)
+        if log_errors:
+            print(f"[prove_conjecture] vampire failed:"
+                  f"\n  prove: rc={result_proove.returncode} stdout={result_proove.stdout[:200]!r} stderr={result_proove.stderr[:200]!r}"
+                  f"\n  disprove: rc={result_disproove.returncode} stdout={result_disproove.stdout[:200]!r} stderr={result_disproove.stderr[:200]!r}",
+                  file=sys.stderr)
         return f"ERROR : {result_proove.stderr}{result_disproove.stderr}"
         
 
@@ -262,7 +282,11 @@ def get_random_tptp_axioms(
     chosen_key = random.choice(keys)
     content = data[chosen_key]
 
-    os.makedirs(cache_dir, exist_ok=True)
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        tempfile.TemporaryFile(dir=cache_dir).close()
+    except OSError:
+        cache_dir = tempfile.gettempdir()
 
     temp_file = tempfile.NamedTemporaryFile(
         mode='w+', 
@@ -407,6 +431,7 @@ class TheoremPremiseSelection(Task):
         initialize_prover_session()
 
     _initialize_graph = ConjectureEntailment._initialize_graph
+    max_pool_validation_checks = 512
 
     def _reprove_with_minimal(self, hypotheses: list) -> nx.DiGraph:
             """
@@ -443,12 +468,43 @@ class TheoremPremiseSelection(Task):
             else:
                 continue 
 
-            is_provable = prove_conjecture(list(temp_set), conjecture, time_limit_seconds="15")
+            is_provable = prove_conjecture(
+                list(temp_set),
+                conjecture,
+                time_limit_seconds="15",
+                disprove_first=True,
+                disprove_time_limit_seconds="2",
+            )
             
             if is_provable is True:
                 essential_hypotheses.remove(h)
                 
         return list(essential_hypotheses)
+
+    def _has_no_smaller_answer(self, pool: list[str], answer: list[str], theorem: str) -> bool:
+        pool_norm = [normalize_formula(h) for h in pool]
+        if len(pool_norm) != len(set(pool_norm)):
+            return False
+
+        n, k = len(pool), len(answer)
+        checks = 1 if k == 1 else comb(n, k - 1)
+        if checks > self.max_pool_validation_checks:
+            return False
+
+        # By monotonicity, any smaller proof extends to one with exactly k-1 premises.
+        candidate_indices = [()] if k == 1 else combinations(range(n), k - 1)
+        for idxs in candidate_indices:
+            result = prove_conjecture(
+                [pool[i] for i in idxs],
+                theorem,
+                time_limit_seconds="2",
+                disprove_first=True,
+                disprove_time_limit_seconds="2",
+                log_errors=False,
+            )
+            if result is not False:
+                return False
+        return True
 
     def generate(self):
         self._initialize_graph()
@@ -479,7 +535,17 @@ class TheoremPremiseSelection(Task):
                 raise TimeoutException
             except Exception:
                 continue
-            # 2. RE-PROVE for Clean CoT (Forward Derivation)
+            # 2. Create Distractors & Pool
+            distractor_pool = list(set(self.all_formulas) - set(minimal) - {theorem})
+            if len(distractor_pool) < self.config.num_distractors: continue
+
+            distractors = random.sample(distractor_pool, self.config.num_distractors)
+            pool = minimal + distractors
+            random.shuffle(pool)
+            if not self._has_no_smaller_answer(pool, minimal, theorem):
+                continue
+
+            # 3. RE-PROVE for Clean CoT (Forward Derivation)
             clean_graph = self._reprove_with_minimal(minimal)
             
             # Locate theorem node in new graph
@@ -491,15 +557,7 @@ class TheoremPremiseSelection(Task):
                     target_node = n
                     break
             
-            if not target_node: continue 
-
-            # 3. Create Distractors & Pool
-            distractor_pool = list(set(self.all_formulas) - set(minimal) - {theorem})
-            if len(distractor_pool) < self.config.num_distractors: continue 
-            
-            distractors = random.sample(distractor_pool, self.config.num_distractors)
-            pool = minimal + distractors
-            random.shuffle(pool)
+            if not target_node: continue
 
             # 4. Generate CoT
             # Map ONLY minimal premises to their pool indices.
