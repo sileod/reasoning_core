@@ -20,7 +20,6 @@ dependencies = [
     "rapidfuzz",
     "unified-planning[pyperplan]",
     "tarski",
-    "verifiers",
     "tiktoken",
     "networkx",
     "z3-solver",
@@ -33,7 +32,6 @@ dependencies = [
     "greenery",
     "num2words",
     "tqdm",
-    "timeout_decorator",
     "timeoutcontext",
     "pandas",
     "pyyaml",
@@ -53,11 +51,13 @@ dependencies = [
     "pyparsing",
     "whatthepatch",
     "lazy_object_proxy",
-    "udocker"
+    "udocker",
+    "wrapt",
+    "psutil"
 ]
 
 [project.optional-dependencies]
-prime = ["prime"]
+prime = ["prime", "verifiers"]
 reasoning_gym = ["reasoning_gym"]
 
 [tool.setuptools.packages.find]
