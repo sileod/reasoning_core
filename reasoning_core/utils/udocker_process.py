@@ -181,6 +181,12 @@ class Embeded_process:
 
             os.makedirs(self.tmpfs_host, exist_ok=True)
 
+            # If all required provers are available natively, skip container setup
+            if all(p in self.native_paths for p in self.provers):
+                log("All provers available natively, skipping container setup.")
+                self.is_setup = True
+                return
+
             if USE_APPTAINER:
                 # 1. Get/Build on NFS
                 nfs_sif = _ensure_apptainer_image_persistence(self.docker_image)
@@ -252,8 +258,16 @@ class Embeded_process:
             if os.path.exists(host_f): os.remove(host_f)
 
     def run_agint(self, input_string, timeout=30):
+        agint_native = shutil.which("AGInTRater")
+        if agint_native:
+            return _run_subprocess_safe([agint_native, "-c"], input=input_string, capture_output=True, text=True, timeout=timeout).stdout
+
+        if not USE_APPTAINER and not shutil.which("udocker"):
+            log("AGInTRater not available (no container runtime), skipping enrichment.")
+            return ""
+
         if not self.is_setup: self.setup()
-        
+
         if USE_APPTAINER:
             cmd = [APPTAINER_BIN, "exec", "--no-home", "--contain", self.sif_path, "AGInTRater", "-c"]
         else:
