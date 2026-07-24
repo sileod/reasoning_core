@@ -540,11 +540,26 @@ def _last_num(s):
     m = _NUM_RE.findall(s)
     return m[-1].replace(",", "") if m else None
 
+def _tok_f1(pred, gold):
+    """SQuAD/DROP-style token-overlap F1: lowercase, drop articles+punctuation, whitespace-tokenize, bag-F1."""
+    def _norm(s):
+        s = _re.sub(r"\b(a|an|the)\b", " ", s.lower())
+        return _re.sub(r"[^a-z0-9 ]", " ", s).split()
+    p, g = _norm(pred), _norm(gold)
+    if not p or not g: return float(p == g)                    # both empty → 1.0; one empty → 0.0
+    from collections import Counter
+    common = sum((Counter(p) & Counter(g)).values())
+    if not common: return 0.0
+    prec, rec = common / len(p), common / len(g)
+    return 2 * prec * rec / (prec + rec)
+
 @torch.no_grad()
 def eval_gen_em(examples, max_new=GEN_EM_MAXNEW):
+    """Greedy free-gen → (EM, token-F1, n). Numeric gold (GSM8K, many DROP): EM on final number, F1==EM.
+    Span gold (DROP): normalized first-line EM + SQuAD token-F1 (F1 is the metric that matters for DROP)."""
     import re
     norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
-    model.eval(); correct = total = 0
+    model.eval(); correct = f1sum = 0.0; total = 0
     pad = tok.pad_token_id if tok.pad_token_id is not None else tok.eos_token_id
     for prompt, answer in examples[:GEN_EM_N]:
         gold = answer.replace(EOS, "").strip()
@@ -556,10 +571,13 @@ def eval_gen_em(examples, max_new=GEN_EM_MAXNEW):
         if gnum is not None:                                   # numeric gold → compare final numbers
             onum = _last_num(out)
             ok = onum is not None and abs(float(onum) - float(gnum)) < 1e-6
+            f1 = float(ok)                                     # numeric: F1 == EM
         else:                                                  # span gold → normalized first-line match
-            ok = norm(out.split("\n")[0]) == norm(gold)
-        correct += int(ok); total += 1
-    return (correct / total, total) if total else (None, 0)
+            first = out.split("\n")[0]
+            ok = norm(first) == norm(gold)
+            f1 = _tok_f1(first, gold)                          # span: SQuAD token-F1
+        correct += int(ok); f1sum += f1; total += 1
+    return (correct / total, f1sum / total, total) if total else (None, None, 0)
 
 def eval_acc_all():
     """{leg}_acc dict: BBH (gen exact-match) + each MCQ EXTRA leg with choices (cloze choice-scoring)."""
@@ -582,9 +600,10 @@ def eval_acc_all():
         if _m and any(_m):
             acc, _, _ = eval_mcq_acc(_ex, _m)             # (MMLU cloze-NLL already logged via eval_qa; ignore here)
             if acc is not None: d[f"{_nm}_acc"] = acc
-        elif _nm in _GEN_EM_LEGS:                          # free-gen: numeric-aware greedy exact-match (nll logged via eval_qa)
-            em, _ = eval_gen_em(_ex)
+        elif _nm in _GEN_EM_LEGS:                          # free-gen: greedy EM + token-F1 (nll logged via eval_qa)
+            em, f1, _ = eval_gen_em(_ex)
             if em is not None: d[f"{_nm}_em"] = em
+            if f1 is not None: d[f"{_nm}_f1"] = f1
     model.train()
     return d
 
