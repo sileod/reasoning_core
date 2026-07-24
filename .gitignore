@@ -113,3 +113,4 @@ paper_exports/
 
 # local sync utility (references private storage paths)
 sync_results.sh
+task_diagnostics/
