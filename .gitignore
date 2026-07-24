@@ -110,3 +110,6 @@ task_diagnostics/*.json
 
 # unpublished paper results/tables — keep OFF the public repo
 paper_exports/
+
+# local sync utility (references private storage paths)
+sync_results.sh
