@@ -98,6 +98,8 @@ def run_one(name, cache, model, run_tag, main, seed, steps, mix, extra_env, shar
         env.setdefault("EVAL_MMLU_OTHER_CLOZE", "1")  # 47-subject general-knowledge retention guardrail
         env.setdefault("EVAL_FOLIO", "1")             # LOGIC: first-order-logic NL entailment, cloze
         env.setdefault("EVAL_FLAN", "1")              # instruction-following capability leg
+        env.setdefault("EVAL_MMLU_MATH_MACRO_CLOZE", "1")  # TRUE math macro (5 subj) — plain mmlu_math_cloze=hs_math only
+        env.setdefault("EVAL_MMLU_MATH_MACRO", "1")
         for _s in MMLU_SUBJECTS:                       # per-subject MMLU math/logic, BOTH cloze + letter
             env.setdefault(f"EVAL_MMLU_{_s.upper()}", "1")
             env.setdefault(f"EVAL_MMLU_{_s.upper()}_CLOZE", "1")

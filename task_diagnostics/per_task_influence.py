@@ -385,6 +385,10 @@ _EXTRA_SPEC = [   # (name, default_jsonl, cap)
     ("mmlu_high_school_mathematics","data_cache/mmlu_high_school_mathematics_eval.jsonl",400),
     ("mmlu_high_school_statistics", "data_cache/mmlu_high_school_statistics_eval.jsonl", 400),
     ("mmlu_formal_logic",           "data_cache/mmlu_formal_logic_eval.jsonl",           400),
+    # TRUE MMLU-math macro (balanced over the 5 math subjects) — the honest "MMLU-math" (the plain
+    # mmlu_math_cloze/mmlu_math legs above are high_school_mathematics ONLY). gate EVAL_MMLU_MATH_MACRO[_CLOZE]=1.
+    ("mmlu_math_macro_cloze",       "data_cache/mmlu_math_macro_cloze_eval.jsonl",       500),
+    ("mmlu_math_macro",             "data_cache/mmlu_math_macro_eval.jsonl",             500),
     ("folio",            "data_cache/folio_eval.jsonl",            203),   # LOGIC: first-order-logic NL entailment (True/False/Uncertain), cloze — gate EVAL_FOLIO=1
     # Free-gen capability legs (build_gsm8k_drop.py): short gold answer → answer-NLL (*_nll) AND numeric-aware
     # free-gen exact-match (*_em, under EVAL_ACC). Default ON in the collection driver. gate EVAL_GSM8K/EVAL_DROP=1.
