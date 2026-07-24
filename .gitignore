@@ -107,3 +107,6 @@ data-gym-cache/
 
 # task_diagnostics: keep the RESULTS markdown in git, not the regenerable raw json
 task_diagnostics/*.json
+
+# unpublished paper results/tables — keep OFF the public repo
+paper_exports/
