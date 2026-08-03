@@ -25,7 +25,7 @@ from reasoning_core.training.optimizers import (
 from reasoning_core.training.paths import RUNS_HOME, home_path
 
 
-ENGINE_VERSION = 2
+ENGINE_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,7 @@ class ArmSpec:
     experiment_id: str
     arm_id: str
     model: str = ""
+    model_revision: str | None = None
     optimizer: str = "prodigy"
     learning_rate: float = 1.0
     weight_decay: float = 0.01
@@ -59,8 +60,10 @@ class ArmSpec:
     aux_prompt_prefix: str = ""
     main_source: str = "synthetic"
     main_config: str | None = None
+    main_revision: str | None = None
     aux_source: str | None = None
     aux_config: str | None = None
+    aux_revision: str | None = None
     aux_task: str | None = None
     aux_fraction: float = 0.0
     target_aux_token_fraction: float | None = None
@@ -77,7 +80,11 @@ class ArmSpec:
     def __post_init__(self):
         missing = [name for name in ("initialization_id", "main_data_id")
                    if not getattr(self, name)]
-        if self.aux_source is not None and not self.aux_data_id:
+        uses_aux = (
+            self.aux_source is not None or self.aux_fraction > 0
+            or self.target_aux_token_fraction is not None
+        )
+        if uses_aux and not self.aux_data_id:
             missing.append("aux_data_id")
         if missing:
             raise ValueError(f"ArmSpec requires immutable {', '.join(missing)}")

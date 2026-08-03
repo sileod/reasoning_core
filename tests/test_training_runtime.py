@@ -13,10 +13,11 @@ from reasoning_core.training.arm import ArmSpec, _evaluate_model, optimizer_eval
 from reasoning_core.training.data import format_row
 from reasoning_core.training.data import (
     StreamSpec, content_id, fraction_for_token_share, load_stream, mix_streams,
-    ratio_to_fraction, replay_after, steps_for_token_budget,
+    ratio_to_fraction, replay_after, source_id, steps_for_token_budget,
 )
 from reasoning_core.training.evals import (
-    EvalExample, eval_id, evaluate_mcq, evaluate_qa_nll, load_eval_suite, load_qa_jsonl,
+    EvalExample, eval_id, evaluate_lm_nll, evaluate_mcq, evaluate_qa_nll, load_eval_suite,
+    load_qa_jsonl,
 )
 from reasoning_core.training.influence import ArmPlan, run_influence
 
@@ -207,6 +208,35 @@ def test_local_content_id_changes_with_file_and_directory_contents(tmp_path):
     assert content_id(directory) != first
 
 
+def test_source_id_binds_remote_sources_to_exact_commits(tmp_path):
+    local = tmp_path / "data.jsonl"
+    local.write_text("row\n")
+    assert source_id(local) == content_id(local)
+    with pytest.raises(ValueError, match="does not match"):
+        source_id(local, supplied="sha256:stale")
+    revision = "a" * 40
+    assert source_id("org/data", revision=revision) == f"hf:org/data@{revision}"
+    with pytest.raises(ValueError, match="40-character"):
+        source_id("org/data", revision="main")
+
+
+def test_remote_stream_passes_its_pinned_revision(monkeypatch):
+    import reasoning_core.training.data as data_module
+
+    captured = {}
+    monkeypatch.setattr(
+        data_module, "load_dataset",
+        lambda *args, **kwargs: captured.update(args=args, kwargs=kwargs) or "stream",
+    )
+    with pytest.raises(ValueError, match="40-character"):
+        data_module._raw_stream(StreamSpec("org/data", "text_v1"))
+    revision = "b" * 40
+    assert data_module._raw_stream(
+        StreamSpec("org/data", "text_v1", revision=revision)
+    ) == "stream"
+    assert captured["kwargs"]["revision"] == revision
+
+
 def test_local_stream_can_filter_task_column(tmp_path):
     path = tmp_path / "aux.jsonl"
     path.write_text(
@@ -263,6 +293,32 @@ def test_qa_nll_matches_production_weighting_and_restores_mode():
     assert result["nll"] == pytest.approx((3 * 2 + 3 * 1) / 3)
     assert result["tokens"] == 3
     assert model.training
+
+
+def test_qa_nll_rejects_an_all_skipped_suite():
+    class Tokenizer:
+        def __call__(self, text, add_special_tokens=False):
+            return SimpleNamespace(input_ids=list(range(len(text.split()))))
+
+    class Model:
+        training = True
+
+        def parameters(self):
+            yield __import__("torch").zeros(1)
+
+        def eval(self):
+            self.training = False
+
+        def train(self, mode=True):
+            self.training = mode
+
+    with pytest.raises(RuntimeError, match="no answer tokens"):
+        evaluate_qa_nll(
+            Model(), Tokenizer(), [("too many prompt tokens", "and answer tokens")],
+            max_length=1,
+        )
+    with pytest.raises(RuntimeError, match="no tokens"):
+        evaluate_lm_nll(Model(), Tokenizer(), ["one"], max_length=1)
 
 
 def test_mcq_choice_scoring_and_margin_contract():
@@ -347,6 +403,9 @@ def test_arm_requires_immutable_input_ids():
     with pytest.raises(ValueError, match="aux_data_id"):
         ArmSpec("experiment", "treatment", initialization_id="init", main_data_id="main",
                 aux_source="aux.jsonl")
+    with pytest.raises(ValueError, match="aux_data_id"):
+        ArmSpec("experiment", "treatment", initialization_id="init", main_data_id="main",
+                aux_fraction=0.2)
 
 
 def test_paired_influence_uses_one_arm_runner_and_resets_weights(monkeypatch):
@@ -387,3 +446,28 @@ def test_paired_influence_rejects_duplicate_arm_ids():
             SimpleNamespace(), None, {}, ArmPlan(spec, lambda: "main"),
             (ArmPlan(spec, lambda: "mixed"),), metric_names=("nll",),
         )
+
+
+def test_paired_influence_clones_a_shallow_torch_state_dict(monkeypatch):
+    import torch
+    import reasoning_core.training.influence as influence_module
+
+    model = torch.nn.Linear(1, 1, bias=False)
+    with torch.no_grad():
+        model.weight.zero_()
+    starts = []
+
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+        starts.append(model.weight.item())
+        with torch.no_grad():
+            model.weight.add_(1)
+        return None, {"nll": model.weight.item()}
+
+    monkeypatch.setattr(influence_module, "run_arm", fake_run_arm)
+    base = ArmSpec("exp", "base", initialization_id="init", main_data_id="main")
+    treatment = ArmSpec("exp", "treatment", initialization_id="init", main_data_id="main")
+    run_influence(
+        model, None, model.state_dict(), ArmPlan(base, lambda: None),
+        (ArmPlan(treatment, lambda: None),), metric_names=("nll",),
+    )
+    assert starts == [0, 0]

@@ -15,7 +15,7 @@ pip install 'reasoning-core[training]'
 
 An influence experiment is a baseline `ArmPlan` plus one or more treatment
 plans. Dataset factories are called independently, and the same supplied model
-state is restored before every arm:
+state is cloned once and restored before every arm:
 
 ```python
 from reasoning_core.training.arm import ArmSpec
@@ -44,8 +44,9 @@ print(result.deltas)
 record engine, package, dependency, initialization, data, and evaluation IDs.
 Arm construction rejects missing initialization and data IDs. Use
 `data.content_id()` for local files/directories and provide pinned revision IDs
-for remote inputs. External callbacks likewise require matching version IDs in
-`ArmSpec.callback_ids`.
+for remote inputs. `data.source_id()` accepts only exact 40-character Hub commits,
+which callers must also pass as the model/dataset loader revision. External
+callbacks likewise require matching version IDs in `ArmSpec.callback_ids`.
 
 Ordering is never implicit: every `mix_streams()` call must choose a
 `shuffle_buffer`. Use `0` to reproduce the legacy influence protocol. Enabling a

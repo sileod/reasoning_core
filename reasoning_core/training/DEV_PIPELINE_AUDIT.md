@@ -72,6 +72,12 @@ the parity items below pass; it should receive correctness fixes only.
   files and directory trees can be identified with `data.content_id()`.
 - External shared evaluation runs before an arm becomes complete and, for
   schedule-free optimizers, while averaged evaluation weights are active.
+- Paired orchestration clones even a shallow PyTorch `state_dict()` before the
+  first arm, so baseline training cannot mutate the treatment initialization.
+- Remote model and dataset loaders receive the exact 40-character commit stored
+  in the arm spec; local inputs remain content-hashed.
+- QA/LM suites that score zero tokens fail instead of emitting a valid-looking
+  zero NLL.
 
 ## Still required before migration
 

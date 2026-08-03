@@ -2,6 +2,7 @@
 
 import gc
 import hashlib
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,7 @@ class StreamSpec:
     cycle: bool = False
     prompt_prefix: str = ""
     task: str | None = None
+    revision: str | None = None
 
     def __post_init__(self):
         if self.formatter not in FORMATTERS:
@@ -130,6 +132,22 @@ def content_id(source):
     return f"sha256:{digest.hexdigest()}"
 
 
+def source_id(source, supplied=None, revision=None):
+    """Identify a local source by content or bind a Hub source to an exact commit."""
+
+    path = Path(source).expanduser()
+    if path.exists():
+        if revision:
+            raise ValueError(f"Local source {source!r} does not accept a revision")
+        actual = content_id(path)
+        if supplied and supplied != actual:
+            raise ValueError(f"Local source ID does not match {source!r}")
+        return actual
+    if not revision or not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise ValueError(f"Remote source {source!r} requires a 40-character commit revision")
+    return supplied or f"hf:{source}@{revision}"
+
+
 def replay_after(stream_factory, consumed):
     return stream_factory().skip(consumed)
 
@@ -152,4 +170,7 @@ def _raw_stream(spec):
             raise ValueError(f"Local stream must be JSONL/JSON/Parquet, got {path}")
         loader = "parquet" if suffix == ".parquet" else "json"
         return load_dataset(loader, data_files=str(path), split=spec.split, streaming=True)
-    return load_dataset(spec.source, spec.config, split=spec.split, streaming=True)
+    source_id(spec.source, revision=spec.revision)
+    return load_dataset(
+        spec.source, spec.config, split=spec.split, streaming=True, revision=spec.revision,
+    )

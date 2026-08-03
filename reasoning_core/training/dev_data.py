@@ -12,5 +12,6 @@ from reasoning_core.training.data import (  # noqa: F401
     ratio_to_fraction,
     replay_after,
     settle_remote_streams,
+    source_id,
     steps_for_token_budget,
 )

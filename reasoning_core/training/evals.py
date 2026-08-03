@@ -93,8 +93,10 @@ def evaluate_qa_nll(model, tokenizer, examples, max_length):
             total_loss += loss * tokens
             total_tokens += tokens
             per_example.append(loss)
+    if not total_tokens:
+        raise RuntimeError("QA evaluation scored no answer tokens")
     return {
-        "nll": total_loss / max(total_tokens, 1),
+        "nll": total_loss / total_tokens,
         "tokens": total_tokens,
         "examples": len(examples),
         "scored_examples": sum(value is not None for value in per_example),
@@ -119,8 +121,10 @@ def evaluate_lm_nll(model, tokenizer, texts, max_length):
             total_loss += loss * tokens
             total_tokens += tokens
             per_example.append(loss)
+    if not total_tokens:
+        raise RuntimeError("LM evaluation scored no tokens")
     return {
-        "nll": total_loss / max(total_tokens, 1),
+        "nll": total_loss / total_tokens,
         "tokens": total_tokens,
         "examples": len(texts),
         "scored_examples": sum(value is not None for value in per_example),

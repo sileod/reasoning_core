@@ -41,6 +41,10 @@ def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metr
     metric_names = tuple(metric_names)
     if not metric_names:
         raise ValueError("metric_names must name at least one scientific outcome")
+    initial_state = {
+        name: value.detach().cpu().clone() if hasattr(value, "detach") else value
+        for name, value in initial_state.items()
+    }
     results = {}
     for plan in plans:
         model.load_state_dict(initial_state)
