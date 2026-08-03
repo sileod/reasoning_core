@@ -9,13 +9,16 @@ from reasoning_core.training.checkpointing import (
     prepare_checkpoint_dir,
 )
 from reasoning_core.training.paths import HOME, home_path
-from reasoning_core.training.dev_data import format_row
-from reasoning_core.training.dev_data import (
-    StreamSpec, load_stream, mix_streams, ratio_to_fraction, replay_after,
-    steps_for_token_budget,
+from reasoning_core.training.arm import ArmSpec, optimizer_eval_mode
+from reasoning_core.training.data import format_row
+from reasoning_core.training.data import (
+    StreamSpec, fraction_for_token_share, load_stream, mix_streams, ratio_to_fraction,
+    replay_after, steps_for_token_budget,
 )
-from reasoning_core.training.dev_engine import optimizer_eval_mode
-from reasoning_core.training.dev_evals import eval_id, evaluate_qa_nll, load_qa_jsonl
+from reasoning_core.training.evals import (
+    EvalExample, eval_id, evaluate_mcq, evaluate_qa_nll, load_eval_suite, load_qa_jsonl,
+)
+from reasoning_core.training.influence import ArmPlan, run_influence
 
 
 def test_write_paths_must_stay_under_home(tmp_path):
@@ -138,6 +141,8 @@ def test_local_and_mixed_streams_replay_exactly(tmp_path):
 def test_token_budget_matches_run_sft_iterable_formula():
     assert steps_for_token_budget(1_000, 0.2, 100, 2) == 6
     assert ratio_to_fraction(0.2) == pytest.approx(1 / 6)
+    assert fraction_for_token_share(0.2, 100, 200) == pytest.approx(1 / 9)
+    assert fraction_for_token_share(0.2, 100, 100) == pytest.approx(0.2)
 
 
 def test_influence_mix_is_an_absolute_fraction(monkeypatch):
@@ -147,7 +152,7 @@ def test_influence_mix_is_an_absolute_fraction(monkeypatch):
         captured["probabilities"] = probabilities
         return parts[0]
 
-    monkeypatch.setattr("reasoning_core.training.dev_data.interleave_datasets", fake_interleave)
+    monkeypatch.setattr("reasoning_core.training.data.interleave_datasets", fake_interleave)
     stream = SimpleNamespace(shuffle=lambda **kwargs: None)
     mix_streams(stream, stream, aux_fraction=0.2, shuffle_buffer=0)
     assert captured["probabilities"] == [0.8, 0.2]
@@ -193,7 +198,12 @@ def test_frozen_qa_eval_contract_and_content_id(tmp_path):
         '{"prompt":"Question?","answer":"Answer"}\n'
         '{"prompt":"","answer":"ignored"}\n'
     )
-    assert load_qa_jsonl(path, "</s>") == [("Question?\n", "Answer</s>")]
+    assert load_qa_jsonl(path, "</s>") == [
+        ("Question?\n", "Answer</s>"), ("", "ignored</s>"),
+    ]
+    suite = load_eval_suite(path, "</s>", name="empty_prompt")
+    assert suite.examples[1].prompt == ""
+    assert suite.identifier.startswith("empty_prompt/eval@v1:")
     assert eval_id("logic", path).startswith("logic/answer_nll@v1:")
     assert eval_id("logic", path, 1) != eval_id("logic", path, 2)
 
@@ -225,3 +235,70 @@ def test_qa_nll_matches_production_weighting_and_restores_mode():
     assert result["nll"] == pytest.approx((3 * 2 + 3 * 1) / 3)
     assert result["tokens"] == 3
     assert model.training
+
+
+def test_mcq_choice_scoring_and_margin_contract():
+    class Tokenizer:
+        def __call__(self, text, add_special_tokens=False):
+            return SimpleNamespace(input_ids=list(range(len(text.split()))))
+
+    class Model:
+        training = True
+
+        def parameters(self):
+            yield __import__("torch").zeros(1)
+
+        def eval(self):
+            self.training = False
+
+        def train(self, mode=True):
+            self.training = mode
+
+        def __call__(self, input_ids, labels):
+            return SimpleNamespace(loss=SimpleNamespace(item=lambda: float(input_ids.shape[1])))
+
+    model = Model()
+    result = evaluate_mcq(
+        model, Tokenizer(),
+        [EvalExample("prompt", "short", ("short", "two tokens"), 0)],
+        max_length=8,
+    )
+    assert result["accuracy"] == 1
+    assert result["gold_nll"] == 2
+    assert result["margin"] == 1
+    assert model.training
+
+
+def test_arm_identity_changes_with_behavioral_inputs():
+    base = ArmSpec("experiment", "baseline", initialization_id="init-a")
+    same = ArmSpec("experiment", "baseline", initialization_id="init-a")
+    changed_init = ArmSpec("experiment", "baseline", initialization_id="init-b")
+    changed_eval = ArmSpec("experiment", "baseline", initialization_id="init-a",
+                           eval_ids=("logic/v2",))
+    assert base.spec_id == same.spec_id
+    assert base.run_dir == same.run_dir
+    assert len({base.spec_id, changed_init.spec_id, changed_eval.spec_id}) == 3
+
+
+def test_paired_influence_uses_one_arm_runner_and_resets_weights(monkeypatch):
+    seen = []
+
+    class Model:
+        def load_state_dict(self, state):
+            seen.append(("reset", state["weight"]))
+
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+        seen.append((spec.arm_id, dataset))
+        return None, {"nll": 2.0 if spec.arm_id == "baseline" else 1.5}
+
+    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    result = run_influence(
+        Model(), None, {"weight": 7},
+        ArmPlan(ArmSpec("exp", "baseline"), lambda: "main"),
+        (ArmPlan(ArmSpec("exp", "treatment"), lambda: "mixed"),),
+    )
+    assert seen == [
+        ("reset", 7), ("baseline", "main"),
+        ("reset", 7), ("treatment", "mixed"),
+    ]
+    assert result.deltas == {"treatment": {"nll": -0.5}}

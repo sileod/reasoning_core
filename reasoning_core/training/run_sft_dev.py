@@ -15,11 +15,11 @@ import torch
 from datasets import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from reasoning_core.training.dev_data import (
+from reasoning_core.training.data import (
     FORMATTERS, StreamSpec, format_row, load_stream, mix_streams, ratio_to_fraction,
     settle_remote_streams, steps_for_token_budget,
 )
-from reasoning_core.training.dev_engine import ArmSpec, record_event, train_arm
+from reasoning_core.training.arm import ArmSpec, record_event, run_arm
 
 
 def main():
@@ -65,7 +65,9 @@ def main():
             prompt_prefix=args.aux_prefix,
         ), tokenizer, max_length=args.max_length)
                if args.aux_source else None)
-        dataset = mix_streams(main, aux, ratio_to_fraction(args.aux_ratio))
+        dataset = mix_streams(
+            main, aux, ratio_to_fraction(args.aux_ratio), shuffle_buffer=100,
+        )
     else:
         dataset = eval_dataset = Dataset.from_list(rows)
     steps = args.steps
@@ -87,8 +89,10 @@ def main():
         main_source=args.main_source or "synthetic", main_config=args.main_config,
         aux_source=args.aux_source, aux_config=args.aux_config,
         aux_fraction=ratio_to_fraction(args.aux_ratio) if args.aux_source else 0,
+        shuffle_buffer=100,
+        initialization_id=f"hf:{args.model}", eval_ids=("dev/main_nll@v1",),
     )
-    _, metrics = train_arm(model, tokenizer, dataset, spec, eval_dataset=eval_dataset)
+    _, metrics = run_arm(model, tokenizer, dataset, spec, eval_dataset=eval_dataset)
     if metrics:
         record_event(spec, "stage_complete", metrics)
         print(metrics)

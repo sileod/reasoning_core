@@ -1,7 +1,8 @@
-# Shared pipeline dev audit
+# Public arm migration audit
 
-Production `run_sft.py` and influence scripts remain unchanged. The dev runner
-must prove each item below before any migration.
+`reasoning_core.training.arm.run_arm` is the canonical public runner. The
+private production influence monolith remains the frozen legacy oracle until
+the parity items below pass; it should receive correctness fixes only.
 
 ## Preserved and tested
 
@@ -55,6 +56,15 @@ must prove each item below before any migration.
   two-stream iterable matched uninterrupted AdamC parameters exactly and
   Prodigy within `5.96e-08` maximum absolute difference.
 - Local metrics and experiment events are canonical; no W&B dependency exists.
+- Arm directories are content-addressed by the complete serialized `ArmSpec`.
+  Running, interrupted, and completed states all validate that spec before reuse.
+- Provenance records the engine and package versions, dependency versions, and
+  caller-supplied initialization, data, and evaluation identifiers.
+- Stream ordering is explicit at every caller: legacy influence uses no
+  post-interleave shuffle, while shuffled protocols must name their buffer size.
+- Empty-prompt suites such as BLiMP are preserved by the public JSONL loader.
+- Paired experiments restore the same supplied initialization and delegate every
+  baseline and treatment to the same `run_arm()` implementation.
 
 ## Still required before migration
 

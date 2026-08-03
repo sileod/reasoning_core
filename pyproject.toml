@@ -60,6 +60,7 @@ dependencies = [
 [project.optional-dependencies]
 prime = ["prime", "verifiers"]
 reasoning_gym = ["reasoning_gym"]
+training = ["torch", "transformers", "datasets", "trl"]
 
 [tool.setuptools.packages.find]
 include = ["reasoning_core*"]

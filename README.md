@@ -6,7 +6,7 @@ Reasoning Core generates verifiable textual tasks across first-order logic, form
 
 More than **10B tokens** of pre-generated data are available in the 🤗 [Reasoning Core dataset collection](https://huggingface.co/collections/reasoning-core/datasets).
 
-Tasks target compact, canonical answers and expose task-native scorers—clean targets for supervised fine-tuning (SFT), with deterministic rewards for RL and evaluation. Task development is principled, data-driven, and agent-friendly: [task diagnostics](task_diagnostics/README.md) provide reproducible audits of transfer, solvability, and shortcut resistance so every task can earn its place.
+Tasks target compact, canonical answers and expose task-native scorers—clean targets for supervised fine-tuning (SFT), with deterministic rewards for RL and evaluation. The public [training and influence API](reasoning_core/training/README.md) provides reproducible paired baseline/treatment experiments.
 
 ## Quickstart
 
@@ -56,9 +56,8 @@ Browse all [50 task examples](GALLERY.md).
 ## Task authoring guidelines
 
 A task authoring guide describes the interface and guidelines.  
-The task diagnostics describes fast bust robust task influence measurement for task validation.  
 [TASK_AUTHORING_GUIDE](https://github.com/sileod/reasoning-core/blob/main/TASK_AUTHORING_GUIDE.md)
-[TASK_DIAGNOSTICS](https://github.com/sileod/reasoning-core/blob/main/task_diagnostics/README.md)
+[TRAINING_AND_INFLUENCE](reasoning_core/training/README.md)
 
 ## Ecosystem and integrations
 
