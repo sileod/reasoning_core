@@ -3,6 +3,7 @@
 from reasoning_core.training.data import (  # noqa: F401
     FORMATTERS,
     StreamSpec,
+    content_id,
     format_row,
     formatted_length,
     fraction_for_token_share,

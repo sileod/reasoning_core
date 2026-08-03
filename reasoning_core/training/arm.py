@@ -3,7 +3,7 @@
 import hashlib
 import json
 import os
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -25,7 +25,7 @@ from reasoning_core.training.optimizers import (
 from reasoning_core.training.paths import RUNS_HOME, home_path
 
 
-ENGINE_VERSION = 1
+ENGINE_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -72,10 +72,24 @@ class ArmSpec:
     main_data_id: str = ""
     aux_data_id: str = ""
     eval_ids: tuple[str, ...] = ()
+    callback_ids: tuple[str, ...] = ()
+
+    def __post_init__(self):
+        missing = [name for name in ("initialization_id", "main_data_id")
+                   if not getattr(self, name)]
+        if self.aux_source is not None and not self.aux_data_id:
+            missing.append("aux_data_id")
+        if missing:
+            raise ValueError(f"ArmSpec requires immutable {', '.join(missing)}")
 
     @property
     def spec_id(self):
-        payload = {"engine_version": ENGINE_VERSION, "spec": asdict(self)}
+        payload = {
+            "engine_version": ENGINE_VERSION,
+            "package_version": __version__,
+            "dependencies": _dependency_versions(),
+            "spec": asdict(self),
+        }
         return hashlib.sha256(_canonical_json(payload).encode()).hexdigest()[:16]
 
     @property
@@ -91,6 +105,11 @@ def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), ev
     makes changed specs new runs; the status check also refuses corrupted or
     manually moved state before considering a checkpoint resumable.
     """
+
+    if len(callbacks) != len(spec.callback_ids):
+        raise ValueError("Every external callback requires a matching ArmSpec.callback_ids entry")
+    if evaluate is not None and not spec.eval_ids:
+        raise ValueError("External evaluation requires a versioned ArmSpec.eval_ids entry")
 
     run_dir = spec.run_dir
     prepare_checkpoint_dir(run_dir)
@@ -168,7 +187,7 @@ def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), ev
     if eval_dataset is not None:
         metrics.update(trainer.evaluate())
     if evaluate is not None:
-        metrics.update(evaluate(model))
+        metrics.update(_evaluate_model(model, evaluate, trainer.optimizer, schedule_free))
     _write_json(status_path, {
         "state": "complete", "spec": serialized_spec,
         "provenance": provenance, "metrics": metrics,
@@ -226,6 +245,12 @@ def optimizer_eval_mode(optimizer):
         (optimizer.train if was_training else optimizer.eval)()
 
 
+def _evaluate_model(model, evaluate, optimizer, schedule_free):
+    context = optimizer_eval_mode(optimizer) if schedule_free else nullcontext()
+    with context:
+        return evaluate(model)
+
+
 def safe_name(value):
     return "".join(char if char.isalnum() or char in "._-" else "_" for char in value)
 
@@ -235,12 +260,6 @@ def _canonical_json(value):
 
 
 def _provenance(spec):
-    dependencies = {}
-    for package in ("torch", "transformers", "trl", "datasets"):
-        try:
-            dependencies[package] = version(package)
-        except PackageNotFoundError:
-            pass
     return {
         "engine": "reasoning_core.training.arm",
         "engine_version": ENGINE_VERSION,
@@ -250,8 +269,19 @@ def _provenance(spec):
         "main_data_id": spec.main_data_id,
         "aux_data_id": spec.aux_data_id,
         "eval_ids": list(spec.eval_ids),
-        "dependencies": dependencies,
+        "callback_ids": list(spec.callback_ids),
+        "dependencies": _dependency_versions(),
     }
+
+
+def _dependency_versions():
+    dependencies = {}
+    for package in ("torch", "transformers", "trl", "datasets"):
+        try:
+            dependencies[package] = version(package)
+        except PackageNotFoundError:
+            pass
+    return dependencies
 
 
 def _write_json(path, value):

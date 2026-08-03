@@ -9,11 +9,11 @@ from reasoning_core.training.checkpointing import (
     prepare_checkpoint_dir,
 )
 from reasoning_core.training.paths import HOME, home_path
-from reasoning_core.training.arm import ArmSpec, optimizer_eval_mode
+from reasoning_core.training.arm import ArmSpec, _evaluate_model, optimizer_eval_mode
 from reasoning_core.training.data import format_row
 from reasoning_core.training.data import (
-    StreamSpec, fraction_for_token_share, load_stream, mix_streams, ratio_to_fraction,
-    replay_after, steps_for_token_budget,
+    StreamSpec, content_id, fraction_for_token_share, load_stream, mix_streams,
+    ratio_to_fraction, replay_after, steps_for_token_budget,
 )
 from reasoning_core.training.evals import (
     EvalExample, eval_id, evaluate_mcq, evaluate_qa_nll, load_eval_suite, load_qa_jsonl,
@@ -114,6 +114,20 @@ def test_optimizer_eval_mode_restores_prior_mode():
     assert calls == ["eval", "body", "train"]
 
 
+def test_external_evaluation_uses_schedule_free_weights():
+    calls = []
+    inner = SimpleNamespace(param_groups=[{"train_mode": True}])
+    optimizer = SimpleNamespace(
+        optimizer=inner,
+        eval=lambda: calls.append("eval"),
+        train=lambda: calls.append("train"),
+    )
+    result = _evaluate_model(None, lambda model: calls.append("score") or {"nll": 1.0},
+                             optimizer, schedule_free=True)
+    assert result == {"nll": 1.0}
+    assert calls == ["eval", "score", "train"]
+
+
 def test_local_and_mixed_streams_replay_exactly(tmp_path):
     main_path, aux_path = tmp_path / "main.jsonl", tmp_path / "aux.jsonl"
     main_path.write_text("".join(
@@ -177,6 +191,20 @@ def test_exact_token_filter_rejects_overlong_aux(tmp_path):
         Tokenizer(), max_length=100, max_tokens=4,
     ))
     assert [row["_source_index"] for row in rows] == [0]
+
+
+def test_local_content_id_changes_with_file_and_directory_contents(tmp_path):
+    path = tmp_path / "data.jsonl"
+    path.write_text('{"value":1}\n')
+    first = content_id(path)
+    path.write_text('{"value":2}\n')
+    assert content_id(path) != first
+    directory = tmp_path / "parts"
+    directory.mkdir()
+    (directory / "part.jsonl").write_text("one\n")
+    first = content_id(directory)
+    (directory / "part.jsonl").write_text("two\n")
+    assert content_id(directory) != first
 
 
 def test_local_stream_can_filter_task_column(tmp_path):
@@ -269,15 +297,56 @@ def test_mcq_choice_scoring_and_margin_contract():
     assert model.training
 
 
+def test_mcq_overlong_gold_matches_legacy_accuracy_denominator():
+    class Tokenizer:
+        def __call__(self, text, add_special_tokens=False):
+            return SimpleNamespace(input_ids=list(range(len(text.split()))))
+
+    class Model:
+        training = True
+
+        def parameters(self):
+            yield __import__("torch").zeros(1)
+
+        def eval(self):
+            self.training = False
+
+        def train(self, mode=True):
+            self.training = mode
+
+        def __call__(self, input_ids, labels):
+            return SimpleNamespace(loss=SimpleNamespace(item=lambda: float(input_ids.shape[1])))
+
+    result = evaluate_mcq(
+        Model(), Tokenizer(),
+        [EvalExample("prompt", "gold is long", ("gold is long", "short"), 0)],
+        max_length=3,
+    )
+    assert result["accuracy"] == 0
+    assert result["scored_examples"] == 1
+    assert result["gold_nll"] is None
+    assert result["margin"] is None
+
+
 def test_arm_identity_changes_with_behavioral_inputs():
-    base = ArmSpec("experiment", "baseline", initialization_id="init-a")
-    same = ArmSpec("experiment", "baseline", initialization_id="init-a")
-    changed_init = ArmSpec("experiment", "baseline", initialization_id="init-b")
+    base = ArmSpec("experiment", "baseline", initialization_id="init-a", main_data_id="main-a")
+    same = ArmSpec("experiment", "baseline", initialization_id="init-a", main_data_id="main-a")
+    changed_init = ArmSpec("experiment", "baseline", initialization_id="init-b",
+                           main_data_id="main-a")
     changed_eval = ArmSpec("experiment", "baseline", initialization_id="init-a",
+                           main_data_id="main-a",
                            eval_ids=("logic/v2",))
     assert base.spec_id == same.spec_id
     assert base.run_dir == same.run_dir
     assert len({base.spec_id, changed_init.spec_id, changed_eval.spec_id}) == 3
+
+
+def test_arm_requires_immutable_input_ids():
+    with pytest.raises(ValueError, match="initialization_id, main_data_id"):
+        ArmSpec("experiment", "baseline")
+    with pytest.raises(ValueError, match="aux_data_id"):
+        ArmSpec("experiment", "treatment", initialization_id="init", main_data_id="main",
+                aux_source="aux.jsonl")
 
 
 def test_paired_influence_uses_one_arm_runner_and_resets_weights(monkeypatch):
@@ -289,16 +358,32 @@ def test_paired_influence_uses_one_arm_runner_and_resets_weights(monkeypatch):
 
     def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
         seen.append((spec.arm_id, dataset))
-        return None, {"nll": 2.0 if spec.arm_id == "baseline" else 1.5}
+        return None, {
+            "nll": 2.0 if spec.arm_id == "baseline" else 1.5,
+            "global_step": 10,
+            "eval_runtime": 1.0 if spec.arm_id == "baseline" else 2.0,
+        }
 
     monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
     result = run_influence(
         Model(), None, {"weight": 7},
-        ArmPlan(ArmSpec("exp", "baseline"), lambda: "main"),
-        (ArmPlan(ArmSpec("exp", "treatment"), lambda: "mixed"),),
+        ArmPlan(ArmSpec("exp", "baseline", initialization_id="init", main_data_id="main"),
+                lambda: "main"),
+        (ArmPlan(ArmSpec("exp", "treatment", initialization_id="init", main_data_id="main"),
+                 lambda: "mixed"),),
+        metric_names=("nll",),
     )
     assert seen == [
         ("reset", 7), ("baseline", "main"),
         ("reset", 7), ("treatment", "mixed"),
     ]
     assert result.deltas == {"treatment": {"nll": -0.5}}
+
+
+def test_paired_influence_rejects_duplicate_arm_ids():
+    spec = ArmSpec("exp", "same", initialization_id="init", main_data_id="main")
+    with pytest.raises(ValueError, match="unique"):
+        run_influence(
+            SimpleNamespace(), None, {}, ArmPlan(spec, lambda: "main"),
+            (ArmPlan(spec, lambda: "mixed"),), metric_names=("nll",),
+        )

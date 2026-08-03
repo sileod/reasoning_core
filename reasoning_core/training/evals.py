@@ -147,16 +147,22 @@ def evaluate_mcq(model, tokenizer, examples, max_length):
                 for choice in example.choices
             ]
             gold = example.answer_index
-            if gold >= len(scores) or scores[gold] == float("inf"):
+            if not -len(scores) <= gold < len(scores) or all(
+                score == float("inf") for score in scores
+            ):
                 per_example.append(None)
                 continue
             prediction = min(range(len(scores)), key=scores.__getitem__)
             distractors = [score for index, score in enumerate(scores)
                            if index != gold and score != float("inf")]
-            margin = min(distractors) - scores[gold] if distractors else None
+            margin = (
+                min(distractors) - scores[gold]
+                if distractors and scores[gold] != float("inf") else None
+            )
             correct += prediction == gold
             total += 1
-            gold_nlls.append(scores[gold])
+            if scores[gold] != float("inf"):
+                gold_nlls.append(scores[gold])
             if margin is not None:
                 margins.append(margin)
             per_example.append({"prediction": prediction, "gold_nll": scores[gold],

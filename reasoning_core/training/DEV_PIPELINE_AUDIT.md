@@ -65,6 +65,13 @@ the parity items below pass; it should receive correctness fixes only.
 - Empty-prompt suites such as BLiMP are preserved by the public JSONL loader.
 - Paired experiments restore the same supplied initialization and delegate every
   baseline and treatment to the same `run_arm()` implementation.
+- A 300-step AdamW parity cell on `logic_nli` matched legacy train losses within
+  `5.7e-5` and influence delta within `0.61%`; the first 1,000 formatted rows
+  matched exactly.
+- Arm construction requires immutable initialization/main/auxiliary IDs. Local
+  files and directory trees can be identified with `data.content_id()`.
+- External shared evaluation runs before an arm becomes complete and, for
+  schedule-free optimizers, while averaged evaluation weights are active.
 
 ## Still required before migration
 
@@ -81,8 +88,6 @@ the parity items below pass; it should receive correctness fixes only.
   W&B mirroring.
 - Extend the first versioned frozen QA-NLL evaluator to every existing
   MMLU/BBH/Platinum/LM leg and named suites.
-- A production-vs-dev real influence comparison using the same initialization,
-  data, AdamW configuration, packing/filtering, and one shared NLL evaluator.
 - Durable initialization artifact and hash for paired influence arms.
 - Baseline compatibility key covering model initialization, data revisions,
   optimizer settings, batching, packing, masking, length, seed, and budget.

@@ -16,8 +16,8 @@ from datasets import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from reasoning_core.training.data import (
-    FORMATTERS, StreamSpec, format_row, load_stream, mix_streams, ratio_to_fraction,
-    settle_remote_streams, steps_for_token_budget,
+    FORMATTERS, StreamSpec, content_id, format_row, load_stream, mix_streams,
+    ratio_to_fraction, settle_remote_streams, steps_for_token_budget,
 )
 from reasoning_core.training.arm import ArmSpec, record_event, run_arm
 
@@ -33,10 +33,14 @@ def main():
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--checkpoint-every-minutes", type=float, default=60)
     parser.add_argument("--experiment-id", default="run-sft-dev")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--initialization-id")
     parser.add_argument("--main-source")
+    parser.add_argument("--main-data-id")
     parser.add_argument("--main-config")
     parser.add_argument("--main-format", choices=FORMATTERS, default="sft_qa_v1")
     parser.add_argument("--aux-source")
+    parser.add_argument("--aux-data-id")
     parser.add_argument("--aux-config")
     parser.add_argument("--aux-format", choices=FORMATTERS, default="sft_qa_v1")
     parser.add_argument("--main-prefix", default="")
@@ -44,6 +48,20 @@ def main():
     parser.add_argument("--aux-ratio", type=float, default=0.2)
     parser.add_argument("--eval-examples", type=int, default=16)
     args = parser.parse_args()
+
+    def source_id(source, supplied, synthetic=None):
+        if supplied:
+            return supplied
+        if source:
+            try:
+                return content_id(source)
+            except ValueError as error:
+                parser.error(str(error))
+        return synthetic
+
+    initialization_id = source_id(args.model, args.initialization_id)
+    main_data_id = source_id(args.main_source, args.main_data_id, "synthetic:arithmetic-v1")
+    aux_data_id = source_id(args.aux_source, args.aux_data_id) if args.aux_source else ""
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token is None:
@@ -66,7 +84,7 @@ def main():
         ), tokenizer, max_length=args.max_length)
                if args.aux_source else None)
         dataset = mix_streams(
-            main, aux, ratio_to_fraction(args.aux_ratio), shuffle_buffer=100,
+            main, aux, ratio_to_fraction(args.aux_ratio), seed=args.seed, shuffle_buffer=100,
         )
     else:
         dataset = eval_dataset = Dataset.from_list(rows)
@@ -89,8 +107,9 @@ def main():
         main_source=args.main_source or "synthetic", main_config=args.main_config,
         aux_source=args.aux_source, aux_config=args.aux_config,
         aux_fraction=ratio_to_fraction(args.aux_ratio) if args.aux_source else 0,
-        shuffle_buffer=100,
-        initialization_id=f"hf:{args.model}", eval_ids=("dev/main_nll@v1",),
+        shuffle_buffer=100, seed=args.seed, initialization_id=initialization_id,
+        main_data_id=main_data_id, aux_data_id=aux_data_id,
+        eval_ids=("dev/main_nll@v1",),
     )
     _, metrics = run_arm(model, tokenizer, dataset, spec, eval_dataset=eval_dataset)
     if metrics:

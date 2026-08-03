@@ -21,19 +21,31 @@ state is restored before every arm:
 from reasoning_core.training.arm import ArmSpec
 from reasoning_core.training.influence import ArmPlan, run_influence
 
-baseline = ArmPlan(ArmSpec("study", "baseline", initialization_id="sha256:..."), main_data)
+baseline = ArmPlan(ArmSpec(
+    "study", "baseline", initialization_id="sha256:...", main_data_id="sha256:...",
+    eval_ids=("heldout/answer_nll@v1:...",),
+), main_data)
 treatment = ArmPlan(
-    ArmSpec("study", "task-x", aux_fraction=0.2, initialization_id="sha256:..."),
+    ArmSpec(
+        "study", "task-x", initialization_id="sha256:...", main_data_id="sha256:...",
+        aux_source="task-x", aux_data_id="sha256:...", aux_fraction=0.2,
+        eval_ids=("heldout/answer_nll@v1:...",),
+    ),
     mixed_data,
 )
-result = run_influence(model, tokenizer, initial_state, baseline, (treatment,), evaluate=evaluate)
+result = run_influence(
+    model, tokenizer, initial_state, baseline, (treatment,),
+    metric_names=("nll",), evaluate=evaluate,
+)
 print(result.deltas)
 ```
 
 `ArmSpec.spec_id` covers the engine version and complete serialized spec. Status files additionally
 record engine, package, dependency, initialization, data, and evaluation IDs.
-Callers should provide immutable content or revision IDs for inputs that cannot
-be inferred from streaming objects.
+Arm construction rejects missing initialization and data IDs. Use
+`data.content_id()` for local files/directories and provide pinned revision IDs
+for remote inputs. External callbacks likewise require matching version IDs in
+`ArmSpec.callback_ids`.
 
 Ordering is never implicit: every `mix_streams()` call must choose a
 `shuffle_buffer`. Use `0` to reproduce the legacy influence protocol. Enabling a

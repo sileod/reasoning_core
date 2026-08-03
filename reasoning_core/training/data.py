@@ -1,6 +1,7 @@
 """Versioned local and Hugging Face stream recipes."""
 
 import gc
+import hashlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -109,6 +110,24 @@ def formatted_length(row, tokenizer):
     prompt = tokenizer(row["prompt"], add_special_tokens=True)["input_ids"]
     completion = tokenizer(row["completion"], add_special_tokens=False)["input_ids"]
     return len(prompt) + len(completion)
+
+
+def content_id(source):
+    """Return a stable SHA-256 ID for a local file or directory tree."""
+
+    root = Path(source).expanduser()
+    if not root.exists():
+        raise ValueError(f"Remote source {source!r} needs an explicit immutable revision ID")
+    digest = hashlib.sha256()
+    files = [root] if root.is_file() else sorted(path for path in root.rglob("*") if path.is_file())
+    for path in files:
+        relative = path.name if root.is_file() else path.relative_to(root).as_posix()
+        digest.update(relative.encode())
+        digest.update(b"\0")
+        with path.open("rb") as file:
+            for chunk in iter(lambda: file.read(1024 * 1024), b""):
+                digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def replay_after(stream_factory, consumed):
