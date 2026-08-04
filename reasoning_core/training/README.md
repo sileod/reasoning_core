@@ -48,6 +48,12 @@ for remote inputs. `data.source_id()` accepts only exact 40-character Hub commit
 which callers must also pass as the model/dataset loader revision. External
 callbacks likewise require matching version IDs in `ArmSpec.callback_ids`.
 
+Benchmark batteries are ordered data, not runner logic. Build any battery from
+`EvalLeg` objects or `load_battery_manifest()`; `paper_battery()` is only the
+shipped 11-leg default. MCQ legs emit paired `<name>_nll`,
+`<name>_mc_cloze_acc`, and margin metrics from one scoring pass. Record
+`battery.identifier` in `ArmSpec.eval_ids`.
+
 Ordering is never implicit: every `mix_streams()` call must choose a
 `shuffle_buffer`. Use `0` to reproduce the legacy influence protocol. Enabling a
 positive deterministic shuffle is a protocol change and produces a different

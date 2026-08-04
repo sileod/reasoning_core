@@ -1,0 +1,17 @@
+{
+  "name": "influence-paper",
+  "max_length": 512,
+  "legs": [
+    {"name": "drop", "path": "drop_eval.jsonl", "kind": "qa_nll", "output_key": "drop_nll", "limit": 300},
+    {"name": "gsm8k", "path": "gsm8k_eval.jsonl", "kind": "qa_nll", "output_key": "gsm8k_nll", "limit": 300},
+    {"name": "logiqa", "path": "logiqa_eval.jsonl", "kind": "mcq", "output_key": "logiqa_nll", "limit": 500},
+    {"name": "arc_easy", "path": "arc_easy_eval.jsonl", "kind": "mcq", "output_key": "arc_easy_nll", "limit": 500},
+    {"name": "arc_challenge", "path": "arc_challenge_eval.jsonl", "kind": "mcq", "output_key": "arc_challenge_nll", "limit": 500},
+    {"name": "blimp", "path": "blimp_eval.jsonl", "kind": "mcq", "output_key": "blimp_nll", "limit": 1000},
+    {"name": "folio", "path": "folio_eval.jsonl", "kind": "mcq", "output_key": "folio_nll", "limit": 203},
+    {"name": "mmlu_other_cloze", "path": "mmlu_other_cloze_eval.jsonl", "kind": "mcq", "output_key": "mmlu_other_cloze_nll", "limit": 1175},
+    {"name": "mmlu_math_macro", "path": "mmlu_math_macro_cloze_eval.jsonl", "kind": "mcq", "output_key": "mmlu_math_macro_nll", "limit": 500},
+    {"name": "bbh_test", "path": "bbh_test_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_test_nll", "limit": 220},
+    {"name": "bbh_open", "path": "bbh_open_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_open_nll", "limit": 160}
+  ]
+}

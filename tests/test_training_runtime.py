@@ -1,7 +1,11 @@
+import json
 from types import SimpleNamespace
 
 import pytest
 
+from reasoning_core.training.battery import (
+    EvalBattery, EvalLeg, evaluate_battery, load_battery_manifest, paper_battery,
+)
 from reasoning_core.training.checkpointing import (
     COMPLETE_MARKER,
     ResumableCheckpointCallback,
@@ -264,6 +268,68 @@ def test_frozen_qa_eval_contract_and_content_id(tmp_path):
     assert suite.identifier.startswith("empty_prompt/eval@v1:")
     assert eval_id("logic", path).startswith("logic/answer_nll@v1:")
     assert eval_id("logic", path, 1) != eval_id("logic", path, 2)
+
+
+def test_paper_battery_is_ordered_data_not_engine_logic(tmp_path):
+    battery = paper_battery(tmp_path)
+    assert [leg.name for leg in battery.legs] == [
+        "drop", "gsm8k", "logiqa", "arc_easy", "arc_challenge", "blimp",
+        "folio", "mmlu_other_cloze", "mmlu_math_macro", "bbh_test", "bbh_open",
+    ]
+    assert [leg.kind for leg in battery.legs].count("mcq") == 7
+
+    manifest = tmp_path / "custom.json"
+    manifest.write_text(json.dumps({
+        "name": "custom", "max_length": 99,
+        "legs": [{
+            "name": "new_leg", "path": "new.jsonl", "kind": "qa_nll",
+            "output_key": "new_nll", "limit": 7,
+        }],
+    }))
+    custom = load_battery_manifest(manifest)
+    assert custom.max_length == 99
+    assert custom.legs == (
+        EvalLeg("new_leg", str(tmp_path / "new.jsonl"), "qa_nll", "new_nll", 7),
+    )
+
+
+def test_battery_mcq_pairs_nll_and_accuracy_in_one_result(tmp_path):
+    path = tmp_path / "mcq.jsonl"
+    path.write_text(
+        '{"prompt":"question","answer":"short","choices":["short","two tokens"],'
+        '"answer_idx":0}\n'
+    )
+
+    class Tokenizer:
+        def __call__(self, text, add_special_tokens=False):
+            return SimpleNamespace(input_ids=list(range(len(text.split()))))
+
+    class Model:
+        training = True
+
+        def parameters(self):
+            yield __import__("torch").zeros(1)
+
+        def eval(self):
+            self.training = False
+
+        def train(self, mode=True):
+            self.training = mode
+
+        def __call__(self, input_ids, labels):
+            return SimpleNamespace(loss=SimpleNamespace(item=lambda: float(input_ids.shape[1])))
+
+    result = evaluate_battery(
+        Model(), Tokenizer(),
+        EvalBattery("pair", (EvalLeg("logic", str(path), "mcq", "logic_nll"),), 8),
+        "</s>",
+    )
+    assert result.metrics == {
+        "logic_nll": 2.0,
+        "logic_mc_cloze_acc": 1.0,
+        "logic_mc_cloze_margin": 1.0,
+    }
+    assert result.legs["logic"]["scored_examples"] == 1
 
 
 def test_qa_nll_matches_production_weighting_and_restores_mode():
