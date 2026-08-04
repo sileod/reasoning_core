@@ -80,8 +80,8 @@ the parity items below pass; it should receive correctness fixes only.
   zero NLL.
 - The ordered 21-leg paper battery is data-driven and accepts arbitrary custom
   manifests. MC-cloze NLL, accuracy, and margin share one scoring pass.
-- The automated no-training gate in `task_diagnostics.eval_parity` runs the
-  frozen legacy primitives in a separate process. On the pinned 5M checkpoint,
+- An internal no-training gate runs the frozen legacy primitives in a separate
+  process. On the pinned 5M checkpoint,
   all 43 metrics and every leg's example/token counts matched exactly across all
   21 legs, including 1,000 empty-prompt BLiMP examples and BBH dev/test/open.
 

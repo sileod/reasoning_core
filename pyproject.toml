@@ -77,9 +77,13 @@ exclude = [
     "/reasoning_core/**/__pycache__",
     "/reasoning_core/**/.ipynb_checkpoints",
     "/reasoning_core/.mountpoints/**",
+    "/reasoning_core/checkpoints/**",
     "/reasoning_core/generated_data/**",
     "/reasoning_core/index/**",
+    "/reasoning_core/openenv/**/.pytest_cache/**",
+    "/reasoning_core/openenv/**/.venv/**",
     "/reasoning_core/score_cache/**",
+    "/reasoning_core/wandb/**",
 ]
 
 [tool.hatch.build.targets.wheel]
