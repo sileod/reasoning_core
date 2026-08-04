@@ -33,6 +33,17 @@ class EvalLeg:
             raise ValueError(f"Unknown evaluation kind {self.kind!r}; choose from {KINDS}")
 
     @property
+    def metric_keys(self):
+        if self.kind != "mcq":
+            return (self.output_key,)
+        stem = self.output_key.removesuffix("_nll")
+        return (
+            self.output_key,
+            self.accuracy_key or f"{stem}_mc_cloze_acc",
+            self.margin_key or f"{stem}_mc_cloze_margin",
+        )
+
+    @property
     def identifier(self):
         config = json.dumps({
             "kind": self.kind, "output_key": self.output_key, "limit": self.limit,
@@ -53,6 +64,9 @@ class EvalBattery:
         names = [leg.name for leg in self.legs]
         if len(names) != len(set(names)):
             raise ValueError("Evaluation leg names must be unique")
+        keys = [key for leg in self.legs for key in leg.metric_keys]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Evaluation metric keys must be unique")
 
     @property
     def identifier(self):
@@ -127,12 +141,11 @@ def load_battery_manifest(path, data_dir=None, max_length=None):
 
 
 def _add_mcq_metrics(metrics, leg, result):
-    stem = leg.output_key.removesuffix("_nll")
-    metrics[leg.output_key] = _required(leg, result, "gold_nll")
-    accuracy_key = leg.accuracy_key or f"{stem}_mc_cloze_acc"
+    nll_key, accuracy_key, margin_key = leg.metric_keys
+    metrics[nll_key] = _required(leg, result, "gold_nll")
     metrics[accuracy_key] = _required(leg, result, "accuracy")
     if result["margin"] is not None:
-        metrics[leg.margin_key or f"{stem}_mc_cloze_margin"] = result["margin"]
+        metrics[margin_key] = result["margin"]
 
 
 def _required(leg, result, key):

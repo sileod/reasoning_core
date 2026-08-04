@@ -10,7 +10,7 @@ from reasoning_core import score_answer
 from reasoning_core.template import Entry
 
 
-REWARD_VERSION = 1
+REWARD_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -31,7 +31,7 @@ def reward_id(rows, spec, max_length):
         "version": REWARD_VERSION,
         "spec": asdict(spec),
         "max_length": max_length,
-        "rows": list(rows),
+        "rows": [_row_dict(row) for row in rows],
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return f"task_reward@v{REWARD_VERSION}:{hashlib.sha256(encoded.encode()).hexdigest()[:12]}"
@@ -41,7 +41,7 @@ def reward_id(rows, spec, max_length):
 def free_gen_reward(model, tokenizer, rows, spec, max_length):
     """Greedily generate answers and score them with each task's native scorer."""
 
-    rows = list(rows)
+    rows = [_row_dict(row) for row in rows]
     if spec.mode not in ("", "all"):
         matching = [row for row in rows if (row.get("mode") or "") == spec.mode]
         if len(matching) >= 5:
@@ -134,7 +134,9 @@ def _native_score(row, prediction):
     if row.get("task"):
         metadata.setdefault("_task", row["task"])
     try:
-        return float(score_answer(prediction, Entry(metadata=metadata, answer=row["answer"])))
+        entry = Entry(metadata=metadata, answer=row["answer"])
+        entry.prompt = row["prompt"]
+        return float(score_answer(prediction, entry))
     except Exception:
         return None
 
@@ -142,6 +144,10 @@ def _native_score(row, prediction):
 def _token_ids(tokenizer, text):
     encoded = tokenizer(text, add_special_tokens=False)
     return encoded.input_ids if hasattr(encoded, "input_ids") else encoded["input_ids"]
+
+
+def _row_dict(row):
+    return row.to_dict() if hasattr(row, "to_dict") else dict(row)
 
 
 def _metadata(row):

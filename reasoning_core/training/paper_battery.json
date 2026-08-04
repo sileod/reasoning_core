@@ -14,6 +14,8 @@
     {"name": "bbh_dev", "path": "bbh_dev_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_dev_nll", "limit": 240},
     {"name": "bbh_dev_cloze", "path": "bbh_dev_eval.jsonl", "kind": "mcq", "output_key": "bbh_dev_cloze_nll", "accuracy_key": "bbh_dev_mc_cloze_acc", "margin_key": "bbh_dev_mc_cloze_margin", "limit": 240},
     {"name": "bbh_test", "path": "bbh_test_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_test_nll", "limit": 220},
-    {"name": "bbh_open", "path": "bbh_open_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_open_nll", "limit": 160}
+    {"name": "bbh_test_cloze", "path": "bbh_test_eval.jsonl", "kind": "mcq", "output_key": "bbh_test_cloze_nll", "accuracy_key": "bbh_test_mc_cloze_acc", "margin_key": "bbh_test_mc_cloze_margin", "limit": 220},
+    {"name": "bbh_open", "path": "bbh_open_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_open_nll", "limit": 160},
+    {"name": "bbh_test_open", "path": "bbh_test_open_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_test_open_nll", "limit": 200}
   ]
 }

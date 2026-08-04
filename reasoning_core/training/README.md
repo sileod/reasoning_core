@@ -51,7 +51,8 @@ callbacks likewise require matching version IDs in `ArmSpec.callback_ids`.
 Benchmark batteries are ordered data, not runner logic. Build any battery from
 `EvalLeg` objects or `load_battery_manifest()`; `paper_battery()` is only the
 shipped paper default. Its BBH dev and BBH dev-cloze entries share frozen examples
-but remain separate, reorderable legs. MCQ legs emit paired `<name>_nll`,
+but remain separate, reorderable legs; the held-out test split likewise has raw,
+cloze, and options-omitted legs. MCQ legs emit paired `<name>_nll`,
 `<name>_mc_cloze_acc`, and margin metrics from one scoring pass. Record
 `battery.identifier` in `ArmSpec.eval_ids`.
 

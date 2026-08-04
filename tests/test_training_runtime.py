@@ -278,11 +278,15 @@ def test_paper_battery_is_ordered_data_not_engine_logic(tmp_path):
     assert [leg.name for leg in battery.legs] == [
         "drop", "gsm8k", "logiqa", "arc_easy", "arc_challenge", "blimp",
         "folio", "mmlu_other_cloze", "mmlu_math_macro", "bbh_dev",
-        "bbh_dev_cloze", "bbh_test", "bbh_open",
+        "bbh_dev_cloze", "bbh_test", "bbh_test_cloze", "bbh_open",
+        "bbh_test_open",
     ]
-    assert [leg.kind for leg in battery.legs].count("mcq") == 8
-    assert battery.legs[-4].path == battery.legs[-3].path
-    assert battery.legs[-3].accuracy_key == "bbh_dev_mc_cloze_acc"
+    assert [leg.kind for leg in battery.legs].count("mcq") == 9
+    legs = {leg.name: leg for leg in battery.legs}
+    assert legs["bbh_dev"].path == legs["bbh_dev_cloze"].path
+    assert legs["bbh_test"].path == legs["bbh_test_cloze"].path
+    assert legs["bbh_dev_cloze"].accuracy_key == "bbh_dev_mc_cloze_acc"
+    assert legs["bbh_test_cloze"].accuracy_key == "bbh_test_mc_cloze_acc"
 
     manifest = tmp_path / "custom.json"
     manifest.write_text(json.dumps({
@@ -297,6 +301,14 @@ def test_paper_battery_is_ordered_data_not_engine_logic(tmp_path):
     assert custom.legs == (
         EvalLeg("new_leg", str(tmp_path / "new.jsonl"), "qa_nll", "new_nll", 7),
     )
+
+
+def test_battery_rejects_metric_key_collisions():
+    with pytest.raises(ValueError, match="metric keys"):
+        EvalBattery("bad", (
+            EvalLeg("first", "a.jsonl", "qa_nll", "same"),
+            EvalLeg("second", "b.jsonl", "qa_nll", "same"),
+        ))
 
 
 def test_battery_mcq_pairs_nll_and_accuracy_in_one_result(tmp_path):
@@ -576,12 +588,14 @@ def test_free_gen_reward_is_configured_and_content_addressed(monkeypatch):
     ] + [{"prompt": "ignored", "answer": "wrong", "mode": "verify", "task": "x"}]
     monkeypatch.setattr(
         "reasoning_core.training.intrinsic_rewards.score_answer",
-        lambda prediction, entry: 0.5,
+        lambda prediction, entry: 0.5 if entry.prompt.startswith("p") else 0.0,
     )
     spec = FreeGenRewardSpec(mode="instruct", n_eval=3, max_tokens=9)
     result = free_gen_reward(Model(), Tokenizer(), rows, spec, max_length=20)
     assert result == {"reward": 0.5, "reward_examples": 3}
     assert reward_id(rows, spec, 20) != reward_id(rows[:-1], spec, 20)
+    row_object = SimpleNamespace(to_dict=lambda: rows[0])
+    assert reward_id([row_object], spec, 20) == reward_id([rows[0]], spec, 20)
 
 
 def test_paired_influence_rejects_duplicate_arm_ids():
