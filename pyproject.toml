@@ -92,11 +92,13 @@ packages = ["reasoning_core"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/GALLERY.md",
+    "/INFLUENCE_RESULTS.md",
     "/LICENSE",
     "/README.md",
     "/TASK_AUTHORING_GUIDE.md",
     "/pyproject.toml",
     "/reasoning_core",
+    "/skills",
     "/tests",
 ]
 
