@@ -69,3 +69,21 @@ def test_generated_entry_is_json_serializable_and_self_scoring(tmp_path):
     json.dumps(dict(entry.metadata))
     assert task.score_answer(entry.answer, entry) == 1.0
     assert "Initial terms:" not in task.render_prompt(entry.metadata)
+
+
+def test_scoring_accepts_equivalent_rhs_and_optional_equation_prefix():
+    task = SequentialInduction(SequenceConfig(recurrence_depth=0, canonical_max_cost=7))
+    entry = type("Entry", (), {
+        "answer": "-16 * n + 28",
+        "metadata": {"degree of recursion": 0, "canonical max cost": 7},
+    })()
+
+    assert task.score_answer("28 - 16*n", entry) == 1.0
+    assert task.score_answer("U[n] = 28 - 16*n", entry) == 1.0
+    assert task.score_answer("28 - 15*n", entry) == 0.0
+
+    coefficient_entry = type("Entry", (), {
+        "answer": "-486 * n",
+        "metadata": {"degree of recursion": 0, "canonical max cost": 7},
+    })()
+    assert task.score_answer("-486n", coefficient_entry) == 1.0

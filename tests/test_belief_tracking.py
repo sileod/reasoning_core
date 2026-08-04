@@ -153,6 +153,15 @@ def test_matching_quote_baseline_distinguishes_delivery():
     assert baselines["quote:last_matching_including_failed"] == "tin"
 
 
+def test_container_scoring_accepts_harmless_wrappers_only():
+    task = BeliefTracking()
+    entry = type("Entry", (), {"answer": "crate"})()
+
+    assert task.score_answer("<crate>", entry) == 1.0
+    assert task.score_answer("the crate.", entry) == 1.0
+    assert task.score_answer("bowl", entry) == 0.0
+
+
 def test_outsider_can_see_a_conversation_without_hearing_content():
     visible = EventSpec(
         kind="report", actor="Bob", target="Carol", policy="honest",

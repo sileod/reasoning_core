@@ -149,4 +149,6 @@ class StringTransduction(Task):
         return prompt
 
     def score_answer(self, answer, entry):
-        return float(str(answer).strip() == str(entry.answer).strip())
+        from rapidfuzz.distance import Levenshtein
+        pred, gold = str(answer).strip(), str(entry.answer).strip()
+        return Levenshtein.normalized_similarity(pred, gold) if pred else 0.0

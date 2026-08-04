@@ -1,4 +1,5 @@
 import wrapt
+import json
 import time
 import functools
 import ast
@@ -415,6 +416,9 @@ class Task(ProceduralDataset):
         rt = copy.copy(x)
         rt.metadata = deserialize(serialize(dict(x.metadata)))
         assert self.score_answer(x.answer, rt) == 1, "score_answer must survive serialize/deserialize round-trip"
+        from reasoning_core import score_answer as dispatch_score
+        wire = edict({**x.to_dict(), "metadata": json.dumps(dict(x.metadata), default=str)})
+        assert dispatch_score(x.answer, wire) == 1, "score_answer must survive JSON metadata dispatch"
         
         self.score_answer('reajrjrje9595!',x) # should not error out
         self.score_answer('',x) # should not error out

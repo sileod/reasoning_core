@@ -6,13 +6,12 @@ __version__ = "0.4.0"
 import importlib
 #import pkgutil
 import ast
-import copy
 from itertools import islice, cycle
 from math import ceil
 import json
 from tqdm.auto import tqdm
 import os
-from .template import _REGISTRY, prepr_task_name
+from .template import _REGISTRY, edict, prepr_task_name
 from . import tasks
 from .zero_shot_eval import evaluate_model
 
@@ -155,8 +154,8 @@ def get_score_answer_fn(task_name, *args, **kwargs):
     
 
 def score_answer(answer, entry):
-    if type(entry.metadata)==str:
-        entry=copy.deepcopy(entry)
+    if isinstance(entry.metadata, str):
+        entry = edict(dict(entry))
         entry.metadata = json.loads(entry.metadata)
     task_name = entry.get('metadata', {}).get('_task', None) or entry.get('task', None) or entry.get('metadata', {}).get('task', None)
 

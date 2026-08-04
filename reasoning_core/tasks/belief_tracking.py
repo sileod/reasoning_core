@@ -1542,6 +1542,10 @@ class BeliefTracking(Task):
 
     def score_answer(self, answer, entry):
         normalized = str(answer).strip().lower().strip(" \t\n\r.,;:!?\"'")
+        while len(normalized) >= 2 and (normalized[0], normalized[-1]) in {
+            ("<", ">"), ("[", "]"), ("(", ")"), ("`", "`")
+        }:
+            normalized = normalized[1:-1].strip()
         if normalized.startswith("the "):
             normalized = normalized[4:]
         return float(normalized == str(entry.answer).lower())

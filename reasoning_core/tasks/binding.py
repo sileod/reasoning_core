@@ -451,7 +451,16 @@ class LambdaReduction(Task):
         except Exception:
             return 0.0
         ref = _parse_lam(entry.answer)
-        return float(_debruijn(got) == _debruijn(ref))
+        if _debruijn(got) == _debruijn(ref):
+            return 1.0
+        trace = _safe_normalize_trace(
+            got,
+            max_steps=max(500, int(entry.metadata.get("beta_steps", 0)) * 4),
+            max_size=max(2000, len(str(answer)) * 20),
+        )
+        if trace is not None and _debruijn(trace[-1]) == _debruijn(ref):
+            return 0.8
+        return 0.0
 
 
 def lambda_reduction_shortcut_report(train, test, predictions=None):

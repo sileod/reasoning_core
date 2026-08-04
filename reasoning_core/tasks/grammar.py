@@ -1073,15 +1073,12 @@ class ConstrainedContinuation(Task):
         )
 
     def score_answer(self, answer, entry):
+        from rapidfuzz.distance import Levenshtein
         if not answer:
             return 0.0
 
         pred, gold = str(answer).split(), entry["answer"].split()
-        if pred == gold:
-            return 1.0
-        if len(pred) != len(gold):
-            return 0.0
-        return sum(a == b for a, b in zip(pred, gold)) / len(gold)
+        return Levenshtein.normalized_similarity(pred, gold)
 
 
 # --- Stress continuation: valid_next(G, prefix) with delayed recursive state ---

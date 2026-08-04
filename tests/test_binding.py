@@ -1,5 +1,6 @@
 import pytest
 
+from reasoning_core.template import Entry, edict
 from reasoning_core.tasks.binding import (
     LambdaReduction,
     RewriteSystem,
@@ -68,3 +69,12 @@ def test_unification_entailment_uses_capitalized_boolean_answers():
     assert entry.answer in {"Yes", "No"}
     assert "Answer Yes" in entry.prompt and "answer No" in entry.prompt
     assert task.score_answer(entry.answer.lower(), entry) == 1
+
+
+def test_lambda_scoring_partially_rewards_beta_equivalent_non_normal_form():
+    task = LambdaReduction()
+    entry = Entry(metadata=edict(beta_steps=1), answer="a")
+
+    assert task.score_answer("a", entry) == 1.0
+    assert task.score_answer(r"((\x.x) a)", entry) == 0.8
+    assert task.score_answer("b", entry) == 0.0

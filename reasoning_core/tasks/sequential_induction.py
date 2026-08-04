@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 from collections import Counter
 from dataclasses import dataclass
 from functools import lru_cache
@@ -100,7 +101,8 @@ def eval_poly(poly, values):
 def _sympify_formula(formula):
     n = sp.Symbol("n", integer=True, nonnegative=True)
     U = sp.IndexedBase("U")
-    return sp.sympify(formula, locals={"n": n, "U": U})
+    text = re.sub(r"(?<=\d)(?=n\b|U\s*\[)", "*", str(formula))
+    return sp.sympify(text, locals={"n": n, "U": U})
 
 
 def formula_degree(expr):
@@ -618,9 +620,16 @@ class SequentialInduction(Task):
 
     def score_answer(self, answer, entry):
         degree = entry.metadata["degree of recursion"]
-        max_cost = entry.metadata.get("canonical max cost", self.config.canonical_max_cost)
+        max_cost = entry.metadata.get(
+            "canonical max cost",
+            entry.metadata.get("_config", {}).get(
+                "canonical_max_cost", SequenceConfig.canonical_max_cost
+            ),
+        )
         try:
-            predicted_poly = parse_formula(answer, degree)
+            text = str(answer).strip()
+            assignment = re.fullmatch(r"U\s*\[\s*n\s*\]\s*=\s*(.+)", text, re.DOTALL)
+            predicted_poly = parse_formula(assignment.group(1) if assignment else text, degree)
             expected_poly = parse_formula(entry.answer, degree)
             return float(
                 predicted_poly == expected_poly

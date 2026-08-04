@@ -516,10 +516,124 @@ class ProgramSynthesis(Task):
         )
 
     def score_answer(self, answer, entry) -> float:
-        if answer.strip() == entry.answer.strip():
-            return 1.0
+        import ast
+        from reasoning_core.tasks.code_program_synthesis import (
+            SAFE_BUILTINS, _extract_return_expr, _valid_value, _validate_candidate,
+        )
         expr = _extract_return_expr(answer)
-        return 1.0 if expr == entry.metadata.solution_expr else 0.0
+        if expr is None:
+            return 0.0
+        try:
+            tree = ast.parse(expr, mode="eval")
+            target_tree = ast.parse(entry.metadata["solution_expr"], mode="eval")
+        except SyntaxError:
+            return 0.0
+        if ast.dump(tree, include_attributes=False) == ast.dump(target_tree, include_attributes=False):
+            return 1.0
+        try:
+            _, used_ops = _validate_candidate(tree.body)
+        except ValueError:
+            return 0.0
+        valid_dsl = used_ops <= set(entry.metadata["prompt_ops"])
+
+        pairs = list(entry.metadata["io_pairs"]) + list(entry.metadata.get("holdout", ()))
+        if not pairs:
+            return 0.0
+        code = compile(tree, "<stringfrag-v1-answer>", "eval")
+        hits = 0
+        for inp, expected in pairs:
+            try:
+                got = eval(code, {"__builtins__": SAFE_BUILTINS}, {"s": inp})
+            except Exception:
+                continue
+            hits += got == expected and _valid_value("str", got)
+        return (0.9 if valid_dsl else 0.45) * hits / len(pairs)
+
+
+def _validate_candidate(node: ast.AST) -> tuple[str, set[str]]:
+    """Type-check the public DSL and return its sort and used operators."""
+    if isinstance(node, ast.Name) and node.id == "s":
+        return "str", set()
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, str) and len(node.value) <= MAX_STR_LEN:
+            marker = set() if node.value in {"", " ", "-", "_"} else {"literal_outside"}
+            return "str", marker
+        if type(node.value) is int and MIN_INT <= node.value <= MAX_INT:
+            marker = set() if node.value in {0, 1, 2, 3} else {"literal_outside"}
+            return "int", marker
+        raise ValueError("literal outside StringFrag-v1")
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub)):
+        left_sort, left_ops = _validate_candidate(node.left)
+        right_sort, right_ops = _validate_candidate(node.right)
+        if isinstance(node.op, ast.Add) and left_sort == right_sort == "str":
+            return "str", left_ops | right_ops | {"concat"}
+        if left_sort == right_sort == "int":
+            op = "add" if isinstance(node.op, ast.Add) else "sub"
+            return "int", left_ops | right_ops | {op}
+        raise ValueError("ill-typed binary operation")
+
+    if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Name) and node.func.id == "len" and len(node.args) == 1:
+            sort, ops = _validate_candidate(node.args[0])
+            if sort == "str" and not node.keywords:
+                return "int", ops | {"len"}
+        if isinstance(node.func, ast.Attribute):
+            base_sort, ops = _validate_candidate(node.func.value)
+            args = [_validate_candidate(arg) for arg in node.args]
+            if base_sort == "str" and not node.keywords:
+                if node.func.attr == "find" and len(args) == 1 and args[0][0] == "str":
+                    return "int", ops | args[0][1] | {"find"}
+                if (node.func.attr == "replace" and len(args) == 3
+                        and [sort for sort, _ in args] == ["str", "str", "int"]
+                        and isinstance(node.args[2], ast.Constant) and node.args[2].value == 1):
+                    return "str", ops | set().union(*(item[1] for item in args)) | {"replace1"}
+        raise ValueError("call outside StringFrag-v1")
+
+    if isinstance(node, ast.Compare) and len(node.ops) == len(node.comparators) == 1:
+        left_sort, left_ops = _validate_candidate(node.left)
+        right_sort, right_ops = _validate_candidate(node.comparators[0])
+        op = node.ops[0]
+        if isinstance(op, ast.In) and left_sort == right_sort == "str":
+            return "bool", left_ops | right_ops | {"contains"}
+        if isinstance(op, ast.Eq) and left_sort == right_sort == "str":
+            return "bool", left_ops | right_ops | {"eq_str"}
+        if isinstance(op, ast.Lt) and left_sort == right_sort == "int":
+            return "bool", left_ops | right_ops | {"lt"}
+        raise ValueError("comparison outside StringFrag-v1")
+
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        sort, ops = _validate_candidate(node.operand)
+        if sort == "bool":
+            return "bool", ops | {"not"}
+        raise ValueError("ill-typed not")
+
+    if isinstance(node, ast.IfExp):
+        test_sort, test_ops = _validate_candidate(node.test)
+        body_sort, body_ops = _validate_candidate(node.body)
+        else_sort, else_ops = _validate_candidate(node.orelse)
+        if test_sort == "bool" and body_sort == else_sort == "str":
+            return "str", test_ops | body_ops | else_ops | {"ite"}
+        raise ValueError("ill-typed conditional")
+
+    if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Slice):
+        value_sort, value_ops = _validate_candidate(node.value)
+        sl = node.slice
+        if sl.lower is None or sl.upper is None or sl.step is not None:
+            raise ValueError("slice outside StringFrag-v1")
+        start_sort, start_ops = _validate_candidate(sl.lower)
+        lower = ast.dump(sl.lower, include_attributes=False)
+        if isinstance(sl.upper, ast.BinOp) and isinstance(sl.upper.op, ast.Add):
+            upper_start = ast.dump(sl.upper.left, include_attributes=False)
+            length_sort, length_ops = _validate_candidate(sl.upper.right)
+            if value_sort == "str" and start_sort == length_sort == "int" and upper_start == lower:
+                return "str", value_ops | start_ops | length_ops | {"substr"}
+        upper_sort, upper_ops = _validate_candidate(sl.upper)
+        if value_sort == "str" and start_sort == upper_sort == "int":
+            return "str", value_ops | start_ops | upper_ops | {"substr", "slice_syntax_outside"}
+        raise ValueError("ill-typed slice")
+
+    raise ValueError("syntax outside StringFrag-v1")
 
 
 def _extract_return_expr(answer: str) -> str | None:
