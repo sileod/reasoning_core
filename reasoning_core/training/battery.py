@@ -27,6 +27,7 @@ class EvalLeg:
     max_new_tokens: int = 64
     accuracy_key: str | None = None
     margin_key: str | None = None
+    max_chars: int | None = None
 
     def __post_init__(self):
         if self.kind not in KINDS:
@@ -49,6 +50,7 @@ class EvalLeg:
             "kind": self.kind, "output_key": self.output_key, "limit": self.limit,
             "max_new_tokens": self.max_new_tokens,
             "accuracy_key": self.accuracy_key, "margin_key": self.margin_key,
+            "max_chars": self.max_chars,
         }, sort_keys=True, separators=(",", ":")).encode()
         digest = hashlib.sha256(Path(self.path).expanduser().read_bytes() + config).hexdigest()[:12]
         return f"{self.name}/{self.kind}@v1:{digest}"
@@ -90,7 +92,7 @@ def evaluate_battery(model, tokenizer, battery, eos_token):
     metrics, details = {}, {}
     for leg in battery.legs:
         if leg.kind == "lm_nll":
-            texts = _load_texts(leg.path, leg.limit)
+            texts = _load_texts(leg.path, leg.limit, leg.max_chars)
             result = evaluate_lm_nll(model, tokenizer, texts, battery.max_length)
             metrics[leg.output_key] = result["nll"]
         else:
@@ -156,13 +158,14 @@ def _required(leg, result, key):
     return value
 
 
-def _load_texts(path, limit):
+def _load_texts(path, limit, max_chars=None):
     texts = []
     with Path(path).expanduser().open() as file:
         for line in file:
             row = json.loads(line)
             if row.get("text") is not None:
-                texts.append(str(row["text"]))
+                text = str(row["text"])
+                texts.append(text[:max_chars] if max_chars else text)
             if limit and len(texts) >= limit:
                 break
     return texts

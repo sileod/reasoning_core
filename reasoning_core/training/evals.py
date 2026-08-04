@@ -173,6 +173,7 @@ def evaluate_mcq(model, tokenizer, examples, max_length):
                                 "margin": margin})
     return {
         "accuracy": correct / total if total else None,
+        "examples": len(examples),
         "scored_examples": total,
         "gold_nll": sum(gold_nlls) / len(gold_nlls) if gold_nlls else None,
         "margin": sum(margins) / len(margins) if margins else None,

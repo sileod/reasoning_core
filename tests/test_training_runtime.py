@@ -323,6 +323,7 @@ def test_paper_battery_is_ordered_data_not_engine_logic(tmp_path):
     ]
     assert [leg.kind for leg in battery.legs].count("mcq") == 11
     legs = {leg.name: leg for leg in battery.legs}
+    assert legs["fw"].max_chars == 1500
     assert legs["bbh_dev"].path == legs["bbh_dev_cloze"].path
     assert legs["bbh_test"].path == legs["bbh_test_cloze"].path
     assert legs["bbh_dev_cloze"].accuracy_key == "bbh_dev_mc_cloze_acc"
@@ -391,6 +392,7 @@ def test_battery_mcq_pairs_nll_and_accuracy_in_one_result(tmp_path):
         "logic_margin": 1.0,
     }
     assert result.legs["logic"]["scored_examples"] == 1
+    assert result.legs["logic"]["examples"] == 1
 
 
 def test_qa_nll_matches_production_weighting_and_restores_mode():

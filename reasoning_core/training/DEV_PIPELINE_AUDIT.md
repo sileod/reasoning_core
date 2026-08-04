@@ -78,11 +78,12 @@ the parity items below pass; it should receive correctness fixes only.
   in the arm spec; local inputs remain content-hashed.
 - QA/LM suites that score zero tokens fail instead of emitting a valid-looking
   zero NLL.
-- The ordered 11-leg paper battery is data-driven and accepts arbitrary custom
+- The ordered 21-leg paper battery is data-driven and accepts arbitrary custom
   manifests. MC-cloze NLL, accuracy, and margin share one scoring pass.
-- A no-training gate on the pinned 5M checkpoint matched literal legacy scoring
-  exactly on all 11 legs, including 1,000 empty-prompt BLiMP examples and both
-  BBH test/open forms.
+- The automated no-training gate in `task_diagnostics.eval_parity` runs the
+  frozen legacy primitives in a separate process. On the pinned 5M checkpoint,
+  all 43 metrics and every leg's example/token counts matched exactly across all
+  21 legs, including 1,000 empty-prompt BLiMP examples and BBH dev/test/open.
 
 ## Still required before migration
 
