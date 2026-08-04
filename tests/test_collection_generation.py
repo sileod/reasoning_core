@@ -22,6 +22,14 @@ def test_collection_row_uses_individual_task_and_collection_metadata():
     assert score_answer(example.answer, example) == 1
 
 
+def test_procedural_warmup_reports_uncapped_effective_level():
+    example = get_task("procedural_warmup").generate_example(level=3, max_tokens=0, task="reverse")
+
+    assert example.metadata._level == 3
+    assert example.metadata.effective_level == 3
+    assert example.metadata.max_level is None
+
+
 def test_generation_worker_writes_individual_collection_task(tmp_path):
     success, message = run_task("procedural_warmup", 0, 0, tmp_path, 1, 0)
     row = json.loads((tmp_path / "procedural_warmup-0.jsonl").read_text().splitlines()[0])

@@ -1,5 +1,7 @@
 from reasoning_core.template import Task, Entry, Config
+from contextlib import chdir
 from dataclasses import dataclass
+from tempfile import TemporaryDirectory
 try:
     import reasoning_gym
 except ImportError:
@@ -54,17 +56,26 @@ class Reasoning_Gym(Task):
 
         if d in reasoning_gym.factory.CURRICULA:
             cl = reasoning_gym.factory.CURRICULA[d]()
-            cl.set_global_level(int(self.config.rg_level))
+            native_max_level = max(len(attr.levels) - 1 for attr in cl.attributes.values())
+            cl.set_global_level(min(int(self.config.rg_level), native_max_level))
             c = cl.generate_configuration()
+            max_level = max(0, native_max_level - 1)
+            effective_level = min(max(0, int(self.config.rg_level) - 1), max_level)
         else:
             c = c_cls()
-            self.config.level = 0
+            effective_level = max_level = 0
 
-        entry = t(c)[0]
+        if d == "codeio":
+            with TemporaryDirectory() as tmp, chdir(tmp):
+                entry = t(c)[0]
+        else:
+            entry = t(c)[0]
         meta = entry['metadata'] | {
             "task_name": f"RG.{d}",
             "source_collection": "reasoning_gym",
             "source_task": d,
+            "effective_level": effective_level,
+            "max_level": max_level,
             "_question": entry['question'],
         }
         return Entry(json.loads(json.dumps(meta, default=str)), str(entry['answer']))

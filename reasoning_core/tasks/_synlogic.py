@@ -43,6 +43,10 @@ _GENERATE_LANGUAGE = {
     "space_reasoning": {"en": "en", "zh": "cn"},
     "space_reasoning_tree": {"en": "en", "zh": "cn"},
 }
+_DIFFICULTY_MAX = {
+    "sudoku": 4,
+    "web_of_lies": 5,
+}
 
 
 @contextmanager
@@ -161,9 +165,10 @@ def usable_games():
 class SynlogicConfig(Config):
     task: str = "mixed"           # A discovered game name, or "mixed" to sample discovered games.
     language: str = "en"          # "en", "zh", or "mixed" where supported by SynLogic.
+    difficulty: int = 1
 
     def apply_difficulty(self, level):
-        pass                      # SynLogic fixes difficulty per game; level is provenance only.
+        self.difficulty = min(5, self.difficulty + level)
 
 
 class Synlogic(Task):
@@ -188,9 +193,12 @@ class Synlogic(Task):
 
     def _generate_kwargs(self, name):
         language = _norm_language(self.config.language)
+        kwargs = {}
         if language != "mixed" and name in _GENERATE_LANGUAGE:
-            return {"language": _GENERATE_LANGUAGE[name][language]}
-        return {}
+            kwargs["language"] = _GENERATE_LANGUAGE[name][language]
+        if name in _DIFFICULTY_MAX:
+            kwargs["difficulty"] = min(self.config.difficulty, _DIFFICULTY_MAX[name])
+        return kwargs
 
     def _accepts_language(self, name):
         return name in _INIT_LANGUAGE or name in _GENERATE_LANGUAGE
@@ -224,10 +232,14 @@ class Synlogic(Task):
 
         if _USABLE is not None and name not in _USABLE:
             _USABLE.append(name)
+        max_level = _DIFFICULTY_MAX.get(name, 1) - 1
+        effective_level = min(self.config.difficulty - 1, max_level)
         meta = dict(d.metadata or {}) | {
             "task_name": f"synlogic.{name}",
             "source_collection": "synlogic",
             "source_task": name,
+            "effective_level": effective_level,
+            "max_level": max_level,
             "difficulty": d.difficulty,
             "_question": d.question,
         }

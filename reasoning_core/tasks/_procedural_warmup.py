@@ -383,6 +383,8 @@ class ProceduralWarmup(Task):
             "task_name": f"procedural_warmup.{task}",
             "source_collection": "procedural_warmup",
             "source_task": task,
+            "effective_level": c.level,
+            "max_level": None,
             "_question": question,
             "seq": seq,
             "k": c.k,
