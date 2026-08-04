@@ -1,4 +1,0 @@
-interface:
-  display_name: "Evaluate Task Influence"
-  short_description: "Measure whether a task improves held-out transfer"
-  default_prompt: "Use $evaluate-task-influence to evaluate a new reasoning task against a shared baseline."

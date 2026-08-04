@@ -74,7 +74,7 @@ The former `dev_*` modules remain compatibility imports. New code should import
 the canonical modules above.
 
 For a new or changed task, follow the repository's
-[`$evaluate-task-influence` skill](../../skills/evaluate-task-influence/SKILL.md).
+[task influence guide](../../task_influence/README.md).
 It keeps the baseline fixed and limits task-specific changes to the auxiliary
 stream/filter, its content ID, and the treatment arm ID. Historical measurements
-are published in [`INFLUENCE_RESULTS.md`](../../INFLUENCE_RESULTS.md).
+are published in [`RESULTS.md`](../../task_influence/RESULTS.md).

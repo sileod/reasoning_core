@@ -6,7 +6,7 @@ Reasoning Core generates verifiable textual tasks across first-order logic, form
 
 More than **10B tokens** of pre-generated data are available in the 🤗 [Reasoning Core dataset collection](https://huggingface.co/collections/reasoning-core/datasets).
 
-Tasks target compact, canonical answers and expose task-native scorers—clean targets for supervised fine-tuning (SFT), with deterministic rewards for RL and evaluation. The public [training and influence API](reasoning_core/training/README.md) provides reproducible paired baseline/treatment experiments. Use the [`$evaluate-task-influence` skill](skills/evaluate-task-influence/SKILL.md) to measure a new or changed task, and compare it with the [reference influence results](INFLUENCE_RESULTS.md).
+Tasks target compact, canonical answers and expose task-native scorers—clean targets for supervised fine-tuning (SFT), with deterministic rewards for RL and evaluation. The public [training and influence API](reasoning_core/training/README.md) provides reproducible paired baseline/treatment experiments. Follow the [task influence guide](task_influence/README.md) to measure a new or changed task, and compare it with the [reference results](task_influence/RESULTS.md).
 
 ## Quickstart
 
@@ -58,7 +58,7 @@ Browse all [50 task examples](GALLERY.md).
 A task authoring guide describes the interface and guidelines.  
 [TASK_AUTHORING_GUIDE](https://github.com/sileod/reasoning-core/blob/main/TASK_AUTHORING_GUIDE.md)
 [TRAINING_AND_INFLUENCE](reasoning_core/training/README.md)
-[INFLUENCE_RESULTS](INFLUENCE_RESULTS.md)
+[TASK_INFLUENCE](task_influence/README.md)
 
 ## Ecosystem and integrations
 
