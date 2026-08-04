@@ -65,6 +65,8 @@ class ArmSpec:
     aux_config: str | None = None
     aux_revision: str | None = None
     aux_task: str | None = None
+    aux_mode: str | None = None
+    aux_max_level: int | None = None
     aux_fraction: float = 0.0
     target_aux_token_fraction: float | None = None
     shuffle_buffer: int = 0

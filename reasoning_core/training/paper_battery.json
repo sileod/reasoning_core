@@ -2,6 +2,12 @@
   "name": "influence-paper",
   "max_length": 512,
   "legs": [
+    {"name": "dolci", "path": "dolci_eval.jsonl", "kind": "qa_nll", "output_key": "dolci_nll", "limit": 200},
+    {"name": "fw", "path": "fw_eval.jsonl", "kind": "lm_nll", "output_key": "fw_nll", "limit": 200},
+    {"name": "flan", "path": "flan_eval.jsonl", "kind": "qa_nll", "output_key": "flan_nll", "limit": 200},
+    {"name": "mbpp", "path": "mbpp_eval.jsonl", "kind": "qa_nll", "output_key": "mbpp_nll", "limit": 257},
+    {"name": "mmlu_math_cloze", "path": "mmlu_math_cloze_eval.jsonl", "kind": "mcq", "output_key": "mmlu_math_cloze_nll", "accuracy_key": "mmlu_math_mc_cloze_acc", "margin_key": "mmlu_math_mc_cloze_margin", "limit": 270},
+    {"name": "mmlu_logic_cloze", "path": "mmlu_logic_cloze_eval.jsonl", "kind": "mcq", "output_key": "mmlu_logic_cloze_nll", "accuracy_key": "mmlu_logic_mc_cloze_acc", "margin_key": "mmlu_logic_mc_cloze_margin", "limit": 126},
     {"name": "drop", "path": "drop_eval.jsonl", "kind": "qa_nll", "output_key": "drop_nll", "limit": 300},
     {"name": "gsm8k", "path": "gsm8k_eval.jsonl", "kind": "qa_nll", "output_key": "gsm8k_nll", "limit": 300},
     {"name": "logiqa", "path": "logiqa_eval.jsonl", "kind": "mcq", "output_key": "logiqa_nll", "limit": 500},

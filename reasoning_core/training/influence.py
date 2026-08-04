@@ -11,6 +11,7 @@ from reasoning_core.training.arm import ArmSpec, run_arm
 class ArmPlan:
     spec: ArmSpec
     dataset: Callable[[], object]
+    evaluate_endpoint: Callable[[object], dict] | None = None
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class InfluenceResult:
 
 
 def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metric_names,
-                  evaluate=None, evaluate_endpoints=None):
+                  evaluate=None, evaluate_endpoints=None, evaluate_initial=None):
     """Run one baseline and any number of treatments from identical weights."""
 
     plans = (baseline, *treatments)
@@ -47,25 +48,24 @@ def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metr
         for name, value in initial_state.items()
     }
     initial = {}
-    if evaluate_endpoints is not None:
+    initial_evaluator = evaluate_initial or evaluate_endpoints
+    if initial_evaluator is not None:
         model.load_state_dict(initial_state)
-        initial = evaluate_endpoints(model)
+        initial = initial_evaluator(model)
 
-    def evaluate_final(current_model):
-        metrics = evaluate(current_model) if evaluate is not None else {}
-        endpoint_metrics = (
-            evaluate_endpoints(current_model) if evaluate_endpoints is not None else {}
-        )
-        overlap = metrics.keys() & endpoint_metrics.keys()
-        if overlap:
-            raise ValueError(f"Duplicate evaluation metrics: {', '.join(sorted(overlap))}")
-        return {**metrics, **endpoint_metrics}
-
-    arm_evaluate = (
-        evaluate_final if evaluate is not None or evaluate_endpoints is not None else None
-    )
     results = {}
     for plan in plans:
+        endpoint = plan.evaluate_endpoint or evaluate_endpoints
+
+        def evaluate_final(current_model, endpoint=endpoint):
+            metrics = evaluate(current_model) if evaluate is not None else {}
+            endpoint_metrics = endpoint(current_model) if endpoint is not None else {}
+            overlap = metrics.keys() & endpoint_metrics.keys()
+            if overlap:
+                raise ValueError(f"Duplicate evaluation metrics: {', '.join(sorted(overlap))}")
+            return {**metrics, **endpoint_metrics}
+
+        arm_evaluate = evaluate_final if evaluate is not None or endpoint is not None else None
         model.load_state_dict(initial_state)
         _, metrics = run_arm(
             model, tokenizer, plan.dataset(), plan.spec,

@@ -58,7 +58,12 @@ cloze, and options-omitted legs. MCQ legs emit paired `<name>_nll`,
 
 `FreeGenRewardSpec` in `intrinsic_rewards.py` configures native task reward without
 environment variables. Pass a small reward evaluator as `evaluate_endpoints` to
-`run_influence()` to record the shared initial reward and each arm's final reward.
+`run_influence()` to record the shared initial reward and each arm's final reward,
+or attach it to one treatment with `ArmPlan.evaluate_endpoint`.
+
+`StreamSpec` reads local JSON/JSONL/Parquet (including Parquet directories) or a
+streaming Hub dataset. Remote models and datasets require exact commit revisions;
+local inputs are identified by their content hashes.
 
 Ordering is never implicit: every `mix_streams()` call must choose a
 `shuffle_buffer`. Use `0` to reproduce the legacy influence protocol. Enabling a

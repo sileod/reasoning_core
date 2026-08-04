@@ -10,7 +10,7 @@ from pathlib import Path
 from datasets import interleave_datasets, load_dataset
 
 
-FORMATTERS = ("sft_qa_v1", "influence_legacy_v1", "text_v1")
+FORMATTERS = ("sft_qa_v1", "influence_legacy_v1", "influence_auto_v1", "text_v1")
 
 
 @dataclass(frozen=True)
@@ -22,6 +22,8 @@ class StreamSpec:
     cycle: bool = False
     prompt_prefix: str = ""
     task: str | None = None
+    mode: str | None = None
+    max_level: int | None = None
     revision: str | None = None
 
     def __post_init__(self):
@@ -30,8 +32,11 @@ class StreamSpec:
 
 
 def format_row(row, eos_token, formatter, prompt_prefix=""):
-    if formatter == "text_v1":
-        return {"prompt": "", "completion": row["text"] + eos_token}
+    if formatter == "text_v1" or (
+        formatter == "influence_auto_v1" and row.get("text") is not None
+    ):
+        text = row["text"][:1200] if formatter == "influence_auto_v1" else row["text"]
+        return {"prompt": "", "completion": text + eos_token}
     prompt, answer = row["prompt"], row["answer"]
     if formatter == "sft_qa_v1":
         return {
@@ -46,8 +51,12 @@ def load_stream(spec, tokenizer, max_length=None, chars_per_token=4.0, max_token
 
     max_chars = max_length * chars_per_token if max_length and max_tokens is None else None
     raw = _raw_stream(spec)
-    if spec.task:
-        raw = raw.filter(lambda row: row.get("task") == spec.task)
+    if spec.task or spec.mode or spec.max_level is not None:
+        raw = raw.filter(lambda row: (
+            (not spec.task or row.get("task") == spec.task)
+            and (not spec.mode or row.get("mode") == spec.mode)
+            and (spec.max_level is None or int(row.get("level") or 0) <= spec.max_level)
+        ))
 
     def format_example(row, index):
         return {
@@ -152,7 +161,9 @@ def replay_after(stream_factory, consumed):
     return stream_factory().skip(consumed)
 
 
-def settle_remote_streams(seconds=1):
+def settle_remote_streams(seconds=10):
+    """Let asynchronous Hub/Arrow readers finish before interpreter shutdown."""
+
     gc.collect()
     time.sleep(seconds)
 

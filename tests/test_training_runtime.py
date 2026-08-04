@@ -103,6 +103,14 @@ def test_versioned_formatters_preserve_both_contracts():
         "prompt": "1 + 1?\n",
         "completion": "2</s>",
     }
+    assert format_row(row, "</s>", "influence_auto_v1") == {
+        "prompt": "1 + 1?\n",
+        "completion": "2</s>",
+    }
+    assert format_row({"text": "x" * 1300}, "</s>", "influence_auto_v1") == {
+        "prompt": "",
+        "completion": "x" * 1200 + "</s>",
+    }
     assert format_row(row, "</s>", "sft_qa_v1", "<SPECIAL>\n") == {
         "prompt": "<SPECIAL>\nQ: 1 + 1?\nA:",
         "completion": " 2</s>",
@@ -257,6 +265,37 @@ def test_local_stream_can_filter_task_column(tmp_path):
     assert [row["prompt"] for row in rows] == ["p\n"]
 
 
+def test_local_stream_can_filter_mode_and_level(tmp_path):
+    path = tmp_path / "aux.jsonl"
+    path.write_text(
+        '{"task":"logic","mode":"instruct","level":1,"prompt":"keep","answer":"a"}\n'
+        '{"task":"logic","mode":"verify","level":1,"prompt":"mode","answer":"b"}\n'
+        '{"task":"logic","mode":"instruct","level":3,"prompt":"level","answer":"c"}\n'
+    )
+    tokenizer = SimpleNamespace(eos_token="</s>")
+    rows = list(load_stream(
+        StreamSpec(str(path), "influence_legacy_v1", task="logic",
+                   mode="instruct", max_level=2),
+        tokenizer,
+    ))
+    assert [row["prompt"] for row in rows] == ["keep\n"]
+
+
+def test_mixed_local_stream_dispatches_by_non_null_content(tmp_path):
+    path = tmp_path / "mixed.jsonl"
+    path.write_text(
+        '{"prompt":"question","answer":"answer"}\n'
+        '{"text":"document"}\n'
+    )
+    tokenizer = SimpleNamespace(eos_token="</s>")
+    rows = list(load_stream(
+        StreamSpec(str(path), "influence_auto_v1"), tokenizer,
+    ))
+    assert [(row["prompt"], row["completion"]) for row in rows] == [
+        ("question\n", "answer</s>"), ("", "document</s>"),
+    ]
+
+
 def test_frozen_qa_eval_contract_and_content_id(tmp_path):
     path = tmp_path / "eval.jsonl"
     path.write_text(
@@ -276,12 +315,13 @@ def test_frozen_qa_eval_contract_and_content_id(tmp_path):
 def test_paper_battery_is_ordered_data_not_engine_logic(tmp_path):
     battery = paper_battery(tmp_path)
     assert [leg.name for leg in battery.legs] == [
+        "dolci", "fw", "flan", "mbpp", "mmlu_math_cloze", "mmlu_logic_cloze",
         "drop", "gsm8k", "logiqa", "arc_easy", "arc_challenge", "blimp",
         "folio", "mmlu_other_cloze", "mmlu_math_macro", "bbh_dev",
         "bbh_dev_cloze", "bbh_test", "bbh_test_cloze", "bbh_open",
         "bbh_test_open",
     ]
-    assert [leg.kind for leg in battery.legs].count("mcq") == 9
+    assert [leg.kind for leg in battery.legs].count("mcq") == 11
     legs = {leg.name: leg for leg in battery.legs}
     assert legs["bbh_dev"].path == legs["bbh_dev_cloze"].path
     assert legs["bbh_test"].path == legs["bbh_test_cloze"].path
@@ -551,6 +591,38 @@ def test_influence_evaluates_shared_initial_and_each_arm_endpoint(monkeypatch):
     assert result.initial == {"reward": 0}
     assert result.baseline["reward"] == 1
     assert result.treatments["treatment"]["reward"] == 2
+
+
+def test_influence_can_evaluate_reward_only_on_treatment(monkeypatch):
+    calls = []
+
+    class Model:
+        weight = 0
+
+        def load_state_dict(self, state):
+            self.weight = state["weight"]
+
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+        model.weight += dataset
+        metrics = {"nll": float(model.weight)}
+        if evaluate:
+            metrics.update(evaluate(model))
+        calls.append((spec.arm_id, tuple(metrics)))
+        return None, metrics
+
+    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    base = ArmSpec("exp", "base", initialization_id="init", main_data_id="main",
+                   eval_ids=("battery",))
+    treatment = ArmSpec("exp", "task", initialization_id="init", main_data_id="main",
+                        aux_fraction=0.2, aux_data_id="aux", eval_ids=("battery", "reward"))
+    reward = lambda model: {"reward": float(model.weight)}
+    result = run_influence(
+        Model(), None, {"weight": 0}, ArmPlan(base, lambda: 1),
+        (ArmPlan(treatment, lambda: 2, evaluate_endpoint=reward),),
+        metric_names=("nll",), evaluate_initial=reward,
+    )
+    assert calls == [("base", ("nll",)), ("task", ("nll", "reward"))]
+    assert result.initial == {"reward": 0.0}
 
 
 def test_free_gen_reward_is_configured_and_content_addressed(monkeypatch):
