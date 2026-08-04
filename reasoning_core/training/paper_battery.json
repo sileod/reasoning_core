@@ -11,6 +11,8 @@
     {"name": "folio", "path": "folio_eval.jsonl", "kind": "mcq", "output_key": "folio_nll", "limit": 203},
     {"name": "mmlu_other_cloze", "path": "mmlu_other_cloze_eval.jsonl", "kind": "mcq", "output_key": "mmlu_other_cloze_nll", "limit": 1175},
     {"name": "mmlu_math_macro", "path": "mmlu_math_macro_cloze_eval.jsonl", "kind": "mcq", "output_key": "mmlu_math_macro_nll", "limit": 500},
+    {"name": "bbh_dev", "path": "bbh_dev_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_dev_nll", "limit": 240},
+    {"name": "bbh_dev_cloze", "path": "bbh_dev_eval.jsonl", "kind": "mcq", "output_key": "bbh_dev_cloze_nll", "accuracy_key": "bbh_dev_mc_cloze_acc", "margin_key": "bbh_dev_mc_cloze_margin", "limit": 240},
     {"name": "bbh_test", "path": "bbh_test_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_test_nll", "limit": 220},
     {"name": "bbh_open", "path": "bbh_open_eval.jsonl", "kind": "qa_nll", "output_key": "bbh_open_nll", "limit": 160}
   ]

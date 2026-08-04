@@ -1,12 +1,79 @@
+import hashlib
 import json
 from collections import defaultdict
+from dataclasses import asdict, dataclass
 
 import torch
-import wandb
 from datasets import load_dataset
 
 from reasoning_core import score_answer
 from reasoning_core.template import Entry
+
+
+REWARD_VERSION = 1
+
+
+@dataclass(frozen=True)
+class FreeGenRewardSpec:
+    """Small, explicit protocol for task-native free-generation reward."""
+
+    mode: str = "instruct"
+    n_eval: int = 25
+    max_tokens: int = 256
+
+    def __post_init__(self):
+        if self.n_eval < 1 or self.max_tokens < 1:
+            raise ValueError("n_eval and max_tokens must be positive")
+
+
+def reward_id(rows, spec, max_length):
+    payload = {
+        "version": REWARD_VERSION,
+        "spec": asdict(spec),
+        "max_length": max_length,
+        "rows": list(rows),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return f"task_reward@v{REWARD_VERSION}:{hashlib.sha256(encoded.encode()).hexdigest()[:12]}"
+
+
+@torch.no_grad()
+def free_gen_reward(model, tokenizer, rows, spec, max_length):
+    """Greedily generate answers and score them with each task's native scorer."""
+
+    rows = list(rows)
+    if spec.mode not in ("", "all"):
+        matching = [row for row in rows if (row.get("mode") or "") == spec.mode]
+        if len(matching) >= 5:
+            rows = matching
+
+    was_training = model.training
+    model.eval()
+    scores = []
+    try:
+        for row in rows[:spec.n_eval]:
+            prompt_ids = _token_ids(tokenizer, f"{row['prompt']}\n")
+            answer_ids = _token_ids(tokenizer, f"{row['answer']}{tokenizer.eos_token}")
+            if not answer_ids or len(prompt_ids) >= max_length:
+                continue
+            cap = min(len(answer_ids) + 8, spec.max_tokens, max_length - len(prompt_ids))
+            inputs = torch.tensor([prompt_ids], device=next(model.parameters()).device)
+            output = model.generate(
+                inputs, max_new_tokens=cap, do_sample=False,
+                pad_token_id=tokenizer.eos_token_id, eos_token_id=tokenizer.eos_token_id,
+            )
+            prediction = tokenizer.decode(
+                output[0, len(prompt_ids):], skip_special_tokens=True,
+            )
+            score = _native_score(row, prediction)
+            if score is not None:
+                scores.append(score)
+    finally:
+        model.train(was_training)
+    return {
+        "reward": sum(scores) / len(scores) if scores else None,
+        "reward_examples": len(scores),
+    }
 
 
 def load_intrinsic_eval_split(path, skip=100_000, max_groups=200, max_examples_per_group=8, max_scanned=50_000):
@@ -31,9 +98,12 @@ def load_intrinsic_eval_split(path, skip=100_000, max_groups=200, max_examples_p
 
 
 def log_intrinsic_task_rewards(model, tokenizer, splits, sink, global_step=None, max_steps=None, max_new_tokens=64):
+    import wandb
+
     metrics, by_task = {}, defaultdict(list)
     for group, rows in splits.items():
-        vals = [_reward(model, tokenizer, row, max_new_tokens) for row in rows]
+        vals = [value for row in rows
+                if (value := _reward(model, tokenizer, row, max_new_tokens)) is not None]
         if vals:
             task = group.rsplit(".", 1)[0]
             metrics[f"intrinsic_reward_tl/{group}"] = sum(vals) / len(vals)
@@ -54,7 +124,24 @@ def _reward(model, tokenizer, row, max_new_tokens):
     with torch.inference_mode():
         out = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False, pad_token_id=tokenizer.eos_token_id)
     pred = tokenizer.decode(out[0, inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
-    return float(score_answer(pred, Entry(metadata=row["metadata"], answer=row["answer"])))
+    return _native_score(row, pred)
+
+
+def _native_score(row, prediction):
+    if " ".join(str(prediction).split()) == " ".join(str(row["answer"]).split()):
+        return 1.0
+    metadata = _metadata(row)
+    if row.get("task"):
+        metadata.setdefault("_task", row["task"])
+    try:
+        return float(score_answer(prediction, Entry(metadata=metadata, answer=row["answer"])))
+    except Exception:
+        return None
+
+
+def _token_ids(tokenizer, text):
+    encoded = tokenizer(text, add_special_tokens=False)
+    return encoded.input_ids if hasattr(encoded, "input_ids") else encoded["input_ids"]
 
 
 def _metadata(row):

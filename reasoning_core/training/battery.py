@@ -25,6 +25,8 @@ class EvalLeg:
     output_key: str
     limit: int | None = None
     max_new_tokens: int = 64
+    accuracy_key: str | None = None
+    margin_key: str | None = None
 
     def __post_init__(self):
         if self.kind not in KINDS:
@@ -35,6 +37,7 @@ class EvalLeg:
         config = json.dumps({
             "kind": self.kind, "output_key": self.output_key, "limit": self.limit,
             "max_new_tokens": self.max_new_tokens,
+            "accuracy_key": self.accuracy_key, "margin_key": self.margin_key,
         }, sort_keys=True, separators=(",", ":")).encode()
         digest = hashlib.sha256(Path(self.path).expanduser().read_bytes() + config).hexdigest()[:12]
         return f"{self.name}/{self.kind}@v1:{digest}"
@@ -89,7 +92,7 @@ def evaluate_battery(model, tokenizer, battery, eos_token):
                 result = evaluate_mcq(
                     model, tokenizer, suite.examples, battery.max_length,
                 )
-                _add_mcq_metrics(metrics, leg.output_key, result)
+                _add_mcq_metrics(metrics, leg, result)
             else:
                 result = evaluate_generation(
                     model, tokenizer, suite.examples, battery.max_length,
@@ -123,12 +126,13 @@ def load_battery_manifest(path, data_dir=None, max_length=None):
     )
 
 
-def _add_mcq_metrics(metrics, output_key, result):
-    stem = output_key.removesuffix("_nll")
-    metrics[output_key] = _required(output_key, result, "gold_nll")
-    metrics[f"{stem}_mc_cloze_acc"] = _required(output_key, result, "accuracy")
+def _add_mcq_metrics(metrics, leg, result):
+    stem = leg.output_key.removesuffix("_nll")
+    metrics[leg.output_key] = _required(leg, result, "gold_nll")
+    accuracy_key = leg.accuracy_key or f"{stem}_mc_cloze_acc"
+    metrics[accuracy_key] = _required(leg, result, "accuracy")
     if result["margin"] is not None:
-        metrics[f"{stem}_mc_cloze_margin"] = result["margin"]
+        metrics[leg.margin_key or f"{stem}_mc_cloze_margin"] = result["margin"]
 
 
 def _required(leg, result, key):

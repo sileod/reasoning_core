@@ -24,6 +24,9 @@ from reasoning_core.training.evals import (
     load_qa_jsonl,
 )
 from reasoning_core.training.influence import ArmPlan, run_influence
+from reasoning_core.training.intrinsic_rewards import (
+    FreeGenRewardSpec, free_gen_reward, reward_id,
+)
 
 
 def test_write_paths_must_stay_under_home(tmp_path):
@@ -274,9 +277,12 @@ def test_paper_battery_is_ordered_data_not_engine_logic(tmp_path):
     battery = paper_battery(tmp_path)
     assert [leg.name for leg in battery.legs] == [
         "drop", "gsm8k", "logiqa", "arc_easy", "arc_challenge", "blimp",
-        "folio", "mmlu_other_cloze", "mmlu_math_macro", "bbh_test", "bbh_open",
+        "folio", "mmlu_other_cloze", "mmlu_math_macro", "bbh_dev",
+        "bbh_dev_cloze", "bbh_test", "bbh_open",
     ]
-    assert [leg.kind for leg in battery.legs].count("mcq") == 7
+    assert [leg.kind for leg in battery.legs].count("mcq") == 8
+    assert battery.legs[-4].path == battery.legs[-3].path
+    assert battery.legs[-3].accuracy_key == "bbh_dev_mc_cloze_acc"
 
     manifest = tmp_path / "custom.json"
     manifest.write_text(json.dumps({
@@ -321,13 +327,16 @@ def test_battery_mcq_pairs_nll_and_accuracy_in_one_result(tmp_path):
 
     result = evaluate_battery(
         Model(), Tokenizer(),
-        EvalBattery("pair", (EvalLeg("logic", str(path), "mcq", "logic_nll"),), 8),
+        EvalBattery("pair", (EvalLeg(
+            "logic", str(path), "mcq", "logic_nll",
+            accuracy_key="logic_acc", margin_key="logic_margin",
+        ),), 8),
         "</s>",
     )
     assert result.metrics == {
         "logic_nll": 2.0,
-        "logic_mc_cloze_acc": 1.0,
-        "logic_mc_cloze_margin": 1.0,
+        "logic_acc": 1.0,
+        "logic_margin": 1.0,
     }
     assert result.legs["logic"]["scored_examples"] == 1
 
@@ -503,6 +512,76 @@ def test_paired_influence_uses_one_arm_runner_and_resets_weights(monkeypatch):
         ("reset", 7), ("treatment", "mixed"),
     ]
     assert result.deltas == {"treatment": {"nll": -0.5}}
+    assert result.initial == {}
+
+
+def test_influence_evaluates_shared_initial_and_each_arm_endpoint(monkeypatch):
+    class Model:
+        weight = 0
+
+        def load_state_dict(self, state):
+            self.weight = state["weight"]
+
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+        model.weight += dataset
+        return None, {"reward": evaluate(model)["reward"]}
+
+    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    spec = lambda arm: ArmSpec(
+        "exp", arm, initialization_id="init", main_data_id="main",
+        eval_ids=("reward/v1",),
+    )
+    result = run_influence(
+        Model(), None, {"weight": 0}, ArmPlan(spec("base"), lambda: 1),
+        (ArmPlan(spec("treatment"), lambda: 2),), metric_names=("reward",),
+        evaluate_endpoints=lambda model: {"reward": model.weight},
+    )
+    assert result.initial == {"reward": 0}
+    assert result.baseline["reward"] == 1
+    assert result.treatments["treatment"]["reward"] == 2
+
+
+def test_free_gen_reward_is_configured_and_content_addressed(monkeypatch):
+    import torch
+
+    class Tokenizer:
+        eos_token = "<eos>"
+        eos_token_id = 0
+
+        def __call__(self, text, add_special_tokens=False):
+            words = text.replace("<eos>", " <eos>").split()
+            return SimpleNamespace(input_ids=list(range(1, len(words) + 1)))
+
+        def decode(self, tokens, skip_special_tokens=True):
+            return "equivalent"
+
+    class Model:
+        training = True
+
+        def parameters(self):
+            yield torch.zeros(1)
+
+        def eval(self):
+            self.training = False
+
+        def train(self, mode=True):
+            self.training = mode
+
+        def generate(self, inputs, **kwargs):
+            return torch.cat((inputs, torch.tensor([[1]], device=inputs.device)), dim=1)
+
+    rows = [
+        {"prompt": f"p{i}", "answer": "correct", "mode": "instruct", "task": "x"}
+        for i in range(5)
+    ] + [{"prompt": "ignored", "answer": "wrong", "mode": "verify", "task": "x"}]
+    monkeypatch.setattr(
+        "reasoning_core.training.intrinsic_rewards.score_answer",
+        lambda prediction, entry: 0.5,
+    )
+    spec = FreeGenRewardSpec(mode="instruct", n_eval=3, max_tokens=9)
+    result = free_gen_reward(Model(), Tokenizer(), rows, spec, max_length=20)
+    assert result == {"reward": 0.5, "reward_examples": 3}
+    assert reward_id(rows, spec, 20) != reward_id(rows[:-1], spec, 20)
 
 
 def test_paired_influence_rejects_duplicate_arm_ids():

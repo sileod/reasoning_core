@@ -1,7 +1,7 @@
 """Paired influence experiments built from the canonical arm runner."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Real
 
 from reasoning_core.training.arm import ArmSpec, run_arm
@@ -18,6 +18,7 @@ class InfluenceResult:
     baseline: dict
     treatments: dict[str, dict]
     metric_names: tuple[str, ...]
+    initial: dict = field(default_factory=dict)
 
     @property
     def deltas(self):
@@ -31,7 +32,7 @@ class InfluenceResult:
 
 
 def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metric_names,
-                  evaluate=None):
+                  evaluate=None, evaluate_endpoints=None):
     """Run one baseline and any number of treatments from identical weights."""
 
     plans = (baseline, *treatments)
@@ -45,11 +46,30 @@ def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metr
         name: value.detach().cpu().clone() if hasattr(value, "detach") else value
         for name, value in initial_state.items()
     }
+    initial = {}
+    if evaluate_endpoints is not None:
+        model.load_state_dict(initial_state)
+        initial = evaluate_endpoints(model)
+
+    def evaluate_final(current_model):
+        metrics = evaluate(current_model) if evaluate is not None else {}
+        endpoint_metrics = (
+            evaluate_endpoints(current_model) if evaluate_endpoints is not None else {}
+        )
+        overlap = metrics.keys() & endpoint_metrics.keys()
+        if overlap:
+            raise ValueError(f"Duplicate evaluation metrics: {', '.join(sorted(overlap))}")
+        return {**metrics, **endpoint_metrics}
+
+    arm_evaluate = (
+        evaluate_final if evaluate is not None or evaluate_endpoints is not None else None
+    )
     results = {}
     for plan in plans:
         model.load_state_dict(initial_state)
         _, metrics = run_arm(
-            model, tokenizer, plan.dataset(), plan.spec, evaluate=evaluate,
+            model, tokenizer, plan.dataset(), plan.spec,
+            evaluate=arm_evaluate,
         )
         if metrics is None:
             raise RuntimeError(f"Arm {plan.spec.arm_id!r} was interrupted")
@@ -62,4 +82,4 @@ def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metr
             )
         results[plan.spec.arm_id] = metrics
     baseline_metrics = results.pop(baseline.spec.arm_id)
-    return InfluenceResult(baseline_metrics, results, metric_names)
+    return InfluenceResult(baseline_metrics, results, metric_names, initial)
