@@ -43,7 +43,7 @@ def one_step_trace(pack, fact, rule):
         domain_pack=pack,
     )
     res = chase(theory)
-    target = rule.head
+    target = next(atom for atom in res.closure if atom not in theory.facts)
     trace = canonical_trace(theory, res, {fact: 0, rule: 1}, target)
     assert trace.unique
     return trace.answer
