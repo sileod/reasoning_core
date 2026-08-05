@@ -17,7 +17,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e . pytest
+      - run: python -m pip install -e . pytest pyggp
       - name: Compile
         run: python -m compileall -q reasoning_core/tasks/logic_derivation.py tests/test_logic_derivation.py
       - name: Focused and logic regression tests
