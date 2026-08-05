@@ -192,6 +192,8 @@ def test_logic_derivation_registers_generates_and_scores():
 
     assert ex.answer
     assert "=>" in ex.answer
+    assert "p(x)" not in ex.prompt
+    assert "Write conclusions" not in ex.prompt
     assert ex.metadata.target
     assert ex.metadata.proof_depth >= 2
     assert ex.metadata.proof_steps >= ex.metadata.proof_depth
