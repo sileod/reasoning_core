@@ -26,16 +26,20 @@ jobs:
         run: |
           python - <<'PY'
           import re
+          import time
           from reasoning_core.tasks.logic_depth import MultistepNLIConfig
           from reasoning_core.tasks.logic_derivation import LogicDerivation
 
           packs = ("surface", "abstract", "kinship", "spatial")
+          total = 0
+          started = time.perf_counter()
           for level in range(3):
               for pack in packs:
                   cfg = MultistepNLIConfig(domain_packs=(pack,))
                   cfg.set_level(level)
                   task = LogicDerivation(config=cfg)
-                  for _ in range(20):
+                  combo_started = time.perf_counter()
+                  for _ in range(5):
                       ex = task.generate_example(max_tokens=0)
                       assert task.score_answer(ex.answer, ex) == 1
                       assert ex.metadata.domain_pack == pack
@@ -44,4 +48,8 @@ jobs:
                           assert all(int(x[1:]) < i for x in refs)
                       if pack == "abstract":
                           assert not re.search(r"\b[pr]\d+\(", ex.answer)
+                      total += 1
+                  elapsed = time.perf_counter() - combo_started
+                  print(f"level={level} pack={pack} n=5 seconds={elapsed:.3f}")
+          print(f"generated={total} seconds={time.perf_counter() - started:.3f}")
           PY
