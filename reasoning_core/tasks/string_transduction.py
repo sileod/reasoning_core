@@ -22,7 +22,7 @@ class StringTransductionConfig(Config):
 
     def apply_difficulty(self, level):
         self.length = sround(self.length + 2 * level)
-        self.n_ops = sround(self.n_ops + level)
+        self.n_ops = sround(min(8, self.n_ops + level))
         self.alphabet_size = sround(min(8, self.alphabet_size + level // 2))
         self.edit_ops = sround(self.edit_ops + level)
 
