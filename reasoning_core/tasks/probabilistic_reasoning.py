@@ -150,27 +150,95 @@ def evidence_grammar():
     R("start(expr)", "{0}", "{0}")
     for atom in "abcdef":
         R("atom", atom, atom)
-    R("pos(atom)", "{0}", "factor {0}", weight=3)
-    R("pos(pos,pos)", "({0},{1})", "({0} and {1})", weight=1.2)
-    R("pos(pos,pos)", "({0};{1})", "({0} or {1})")
-    R("expr(pos)", "{0}", "{0}")
-    R(
-        "expr(pos,atom)",
-        "({0},\\+{1})",
-        "({0} holds and factor {1} is false)",
-        weight=0.8,
-    )
+    R("expr(atom)", "{0}", "factor {0}", weight=3)
+    R("expr(atom)", "\\+{0}", "factor {0} is false", weight=1.2)
+    R("expr(expr)", "\\+({0})", "not ({0})", weight=0.7)
+    R("expr(expr,expr)", "({0},{1})", "({0} and {1})", weight=1.2)
+    R("expr(expr,expr)", "({0};{1})", "({0} or {1})")
+    R("expr(expr,expr,expr)", "(({0},{1});(\\+({0}),{2}))",
+      "(if {0}, then {1}; otherwise {2})", weight=0.35)
     return R
+
+
+def boolean_value(formula, values):
+    """Evaluate the small ProbLog Boolean grammar with Prolog precedence."""
+    tokens = re.findall(r"\\\+|[a-f]|[(),;]", formula)
+    if "".join(tokens) != re.sub(r"\s+", "", formula):
+        raise ValueError("unsupported Boolean formula")
+    pos = 0
+
+    def factor():
+        nonlocal pos
+        token = tokens[pos]
+        if token == r"\+":
+            pos += 1
+            return not factor()
+        if token == "(":
+            pos += 1
+            value = disjunction()
+            if tokens[pos] != ")":
+                raise ValueError("unbalanced Boolean formula")
+            pos += 1
+            return value
+        pos += 1
+        return bool(values[token])
+
+    def conjunction():
+        nonlocal pos
+        value = factor()
+        while pos < len(tokens) and tokens[pos] == ",":
+            pos += 1
+            other = factor()
+            value = value and other
+        return value
+
+    def disjunction():
+        nonlocal pos
+        value = conjunction()
+        while pos < len(tokens) and tokens[pos] == ";":
+            pos += 1
+            other = conjunction()
+            value = value or other
+        return value
+
+    result = disjunction()
+    if pos != len(tokens):
+        raise ValueError("trailing Boolean formula tokens")
+    return result
+
+
+def influential_atoms(formula, atoms):
+    influential = []
+    for atom in atoms:
+        others = [x for x in atoms if x != atom]
+        for bits in product([False, True], repeat=len(others)):
+            values = dict(zip(others, bits))
+            values[atom] = False
+            low = boolean_value(formula, values)
+            values[atom] = True
+            if low != boolean_value(formula, values):
+                influential.append(atom)
+                break
+    return influential
 
 
 def evidence_instance(node, config=None):
     formula, text = node @ problog, node @ eng
-    atoms = re.findall(r"\b[a-f]\b", formula)
-    if len(atoms) != len(set(atoms)) or len(atoms) < 2:
+    references = re.findall(r"\b[a-f]\b", formula)
+    atoms = sorted(set(references))
+    if len(atoms) < 2:
         return None
     if config and not config.min_atoms <= len(atoms) <= config.max_atoms:
         return None
-    probs = dict(zip(atoms, random.choices([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9], k=len(atoms))))
+    influential = influential_atoms(formula, atoms)
+    shared = sum(references.count(atom) > 1 for atom in atoms)
+    if config and (len(references) < config.min_references
+                   or len(influential) < config.min_influential_atoms
+                   or shared < config.min_shared_atoms):
+        return None
+    probability_grid = ([0.3, 0.4, 0.6, 0.7] if config and config.max_margin < 0.3
+                        else [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9])
+    probs = dict(zip(atoms, random.choices(probability_grid, k=len(atoms))))
     src = "\n".join(
         [f"{p}::{a}." for a, p in probs.items()]
         + [f"observed :- {formula}.", "evidence(observed,true)."]
@@ -180,7 +248,8 @@ def evidence_instance(node, config=None):
         + [f"The observation holds exactly when {text}.", "We observe it.",
            "Which hidden fact values form the most probable complete explanation?"]
     )
-    return src, english
+    return src, english, edict(reference_count=len(references), shared_atom_count=shared,
+                               influential_atoms=influential, probabilities=probs)
 
 def outcome_grammar(max_count=8, target=None):
     R = init_grammar([problog, eng], preprocess_template=lambda s: s)
@@ -246,9 +315,13 @@ class MostProbableEvidenceConfig(Config):
     depth: int = 5
     min_atoms: int = 2
     max_atoms: int = 3
-    max_attempts: int = 100
+    max_attempts: int = 200
     min_margin: float = 0.03
     max_margin: float = 1.01
+    min_references: int = 3
+    min_influential_atoms: int = 2
+    min_shared_atoms: int = 0
+    min_evidence_flips: int = 1
 
     def apply_difficulty(self, level):
         self.depth = sround(self.depth + level)
@@ -256,6 +329,10 @@ class MostProbableEvidenceConfig(Config):
         self.min_atoms = sround(min(4, self.min_atoms + level / 2))
         self.min_margin = max(0.005, self.min_margin * (0.75 ** level))
         self.max_margin = max(0.12, self.max_margin * (0.7 ** level))
+        self.min_references = sround(self.min_references + level)
+        self.min_influential_atoms = sround(min(4, self.min_influential_atoms + level / 2))
+        self.min_shared_atoms = sround(min(1, self.min_shared_atoms + level / 4))
+        self.min_evidence_flips = sround(min(2, self.min_evidence_flips + level / 5))
 
 
 class MostProbableEvidence(Task):
@@ -270,7 +347,7 @@ class MostProbableEvidence(Task):
             instance = evidence_instance(node, self.config)
             if instance is None:
                 continue
-            src, english = instance
+            src, english, structure = instance
             try:
                 sol = mpe_solution(src)
             except Exception:
@@ -282,12 +359,20 @@ class MostProbableEvidence(Task):
                 continue
             opts = lit_options(src, shuffle_pairs=True)
             lits = sorted_lits(map(str, json.loads(answer)))
+            prior_lits = sorted_lits(
+                atom if p > 0.5 else f"not {atom}"
+                for atom, p in structure.probabilities.items()
+            )
+            evidence_flips = sum(a != b for a, b in zip(lits, prior_lits))
+            if evidence_flips < self.config.min_evidence_flips:
+                continue
             indices = [opts.index(x) for x in lits]
             pair_members = [index % 2 for index in indices]
             answer = " ".join(map(str, indices))
             return Entry(edict(problog=src, english=english, options=opts,
                                n_atoms=len(hidden_atoms(src)), margin=margin,
-                               selected_pair_members=pair_members), answer)
+                               selected_pair_members=pair_members,
+                               evidence_flip_count=evidence_flips, **structure), answer)
         raise RuntimeError("Failed to generate probabilistic evidence task")
 
     def render_prompt(self, m):
@@ -309,10 +394,114 @@ class MostProbableEvidence(Task):
 class MostProbableOutcomeConfig(Config):
     max_count: int = 8
     depth: int = 5
+    n_draws: int = 3
+    n_categories: int = 3
+    multistage_rate: float = 0.35
+    observation_rate: float = 0.2
+    max_attempts: int = 100
+    min_margin: float = 0.02
+    max_margin: float = 0.95
 
     def apply_difficulty(self, level):
         self.max_count += level
         self.depth += level
+        self.n_draws = sround(min(5, self.n_draws + level / 2))
+        self.n_categories = sround(min(4, self.n_categories + level / 3))
+        self.multistage_rate = min(0.9, self.multistage_rate + 0.11 * level)
+        self.observation_rate = min(0.6, self.observation_rate + 0.08 * level)
+
+
+COLORS = ("red", "blue", "green", "gold")
+
+
+def _draw_probability(sequence, counts, replacements):
+    remaining, probability = dict(counts), F(1)
+    for i, category in enumerate(sequence):
+        total = sum(remaining.values())
+        if remaining[category] <= 0:
+            return F(0)
+        probability *= F(remaining[category], total)
+        if i < len(replacements) and not replacements[i]:
+            remaining[category] -= 1
+    return probability
+
+
+def _multistage_outcome(config, target):
+    for _ in range(int(config.max_attempts)):
+        categories = COLORS[: int(config.n_categories)]
+        draws = int(config.n_draws)
+        counts = {c: random.randint(2, int(config.max_count)) for c in categories}
+        x, y = random.sample(categories, 2)
+        if target == "equal":
+            counts[y] = counts[x]
+        elif counts[x] == counts[y]:
+            counts[y] = counts[x] + 1 if counts[x] < config.max_count else counts[x] - 1
+        replacements = [random.random() < 0.5 for _ in range(draws - 1)]
+        if draws > 2 and len(set(replacements)) == 1:
+            replacements[random.randrange(len(replacements))] = not replacements[0]
+
+        z = next(c for c in categories if c not in {x, y})
+        observation = random.choice(("none", "first_not_z", "contains_z")) \
+            if random.random() < config.observation_rate else "none"
+        observed = {
+            "none": lambda seq: True,
+            "first_not_z": lambda seq, z=z: seq[0] != z,
+            "contains_z": lambda seq, z=z: z in seq,
+        }[observation]
+        observation_text = {
+            "none": "No draw result is observed in advance.",
+            "first_not_z": f"We observe that the first item is not {z}.",
+            "contains_z": f"We observe that at least one drawn item is {z}.",
+        }[observation]
+
+        event_kind = random.choice(("exact", "at_least_one", "all"))
+        if event_kind == "exact":
+            k = random.randint(1, draws - 1)
+            event_a = lambda seq, x=x, k=k: seq.count(x) == k
+            event_b = lambda seq, y=y, k=k: seq.count(y) == k
+            text_a, text_b = f"exactly {k} draws are {x}", f"exactly {k} draws are {y}"
+        elif event_kind == "at_least_one":
+            event_a = lambda seq, x=x: x in seq
+            event_b = lambda seq, y=y: y in seq
+            text_a, text_b = f"at least one draw is {x}", f"at least one draw is {y}"
+        else:
+            event_a = lambda seq, x=x: all(c == x for c in seq)
+            event_b = lambda seq, y=y: all(c == y for c in seq)
+            text_a, text_b = f"all {draws} draws are {x}", f"all {draws} draws are {y}"
+
+        weighted = [(seq, _draw_probability(seq, counts, replacements))
+                    for seq in product(categories, repeat=draws)]
+        denominator = sum((p for seq, p in weighted if observed(seq)), F(0))
+        if not denominator:
+            continue
+        pa = sum((p for seq, p in weighted if observed(seq) and event_a(seq)), F(0)) / denominator
+        pb = sum((p for seq, p in weighted if observed(seq) and event_b(seq)), F(0)) / denominator
+        if target == "equal" and pa != pb:
+            continue
+        if target != "equal" and pa == pb:
+            continue
+        if (target == "A") != (pa > pb) and target != "equal":
+            pa, pb, text_a, text_b = pb, pa, text_b, text_a
+        margin = float(abs(pa - pb))
+        if target != "equal" and not config.min_margin <= margin <= config.max_margin:
+            continue
+
+        policies = [f"After draw {i + 1}, replace the item before the next draw."
+                    if replace else f"After draw {i + 1}, do not replace the item."
+                    for i, replace in enumerate(replacements)]
+        english = "\n".join([
+            "A container has " + ", ".join(f"{n} {c} items" for c, n in counts.items()) + ".",
+            f"Draw {draws} items in sequence.", *policies, observation_text,
+            "Which statement is more likely?", f"A: {text_a}.", f"B: {text_b}.",
+        ])
+        metadata = edict(
+            problog="", english=english, mode="multistage_exact", counts=counts,
+            n_draws=draws, n_categories=len(categories), replacements=replacements,
+            observation=observation, event_kind=event_kind,
+            probability_a=str(pa), probability_b=str(pb), margin=margin,
+        )
+        return Entry(metadata, target)
+    return None
 
 
 class MostProbableOutcome(Task):
@@ -323,6 +512,11 @@ class MostProbableOutcome(Task):
 
     def generate_entry(self):
         target = random.choice(["A", "B", "equal"])
+
+        if random.random() < self.config.multistage_rate:
+            entry = _multistage_outcome(self.config, target)
+            if entry is not None:
+                return entry
 
         node = generate(outcome_grammar(self.config.max_count, target=target), depth=self.config.depth)
         src = node @ problog
