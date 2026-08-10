@@ -35,12 +35,12 @@ class TableQAConfig(Config):
         # tax under answer-only training (global -1.98 / bbh -3.01). Shrinking the table to
         # ~600 tok at L4 flips influence to neutral (global -0.20 / bbh +0.80), confirming
         # prompt length was the driver. Validated 2026-07-09 (REEVAL_TQSHRINK_OLMO1B); the
-        # neutral run held complexity flat, so leave it at its default rather than adding an
-        # unvalidated length source. Query complexity is the length-safe lever to reintroduce
-        # difficulty later (re-measure length before ramping it).
+        # neutral run held complexity flat. Query-aware generation below now makes semantic
+        # complexity the length-safe difficulty lever while keeping the table compact.
         self.num_rows = 4 + 2 * level              # 4, 6, 8, 10, 12
         self.num_columns = min(3 + level, 6)       # 3, 4, 5, 6, 6
         self.num_tables = 1                        # never shard
+        self.complexity = sround(min(4, self.complexity + 0.75 * level))
 
 
 @dataclass
@@ -134,10 +134,6 @@ def apply_tableqa_noise(df, config):
 def is_date_series(s):
     xs = s.dropna()
     return len(xs) and xs.map(lambda x: hasattr(x, "strftime")).all()
-
-
-def date_columns(dataframe):
-    return [c for c in dataframe.columns if is_date_series(dataframe[c])]
 
 
 def render_date_series(s):
@@ -310,39 +306,8 @@ def split_table(dataframe, n):
     return out
 
 
-AGGS = ["SUM", "AVG", "MIN", "MAX"]
-OPS = ["+", "-", "*"]
-
-
-def sample_complexity(config):
-    c = config.complexity
-    return {
-        "expr_depth": random.randint(0, c),
-        "n_predicates": random.randint(0, c),
-        "n_group_keys": min(random.randint(0, c), random.randint(0, 2)),
-    }
-
-
 def ident(c):
     return f'"{c}"'
-
-
-def column_roles(df):
-    dates = date_columns(df)
-    return {
-        "id": [c for c in ["row_id", "customer"] if c in df.columns],
-        "num": [c for c in ["qty", "unit_price", "discount", "gross", "net"] if c in df.columns],
-        "group": [c for c in ["country", "segment", "category", "status"] if c in df.columns],
-        "date": [c for c in dates],
-        "bool": [c for c in ["is_refund"] if c in df.columns],
-    }
-
-
-def num_expr(nums, depth):
-    expr = ident(random.choice(nums))
-    for _ in range(depth):
-        expr = f"({expr} {random.choice(OPS)} {ident(random.choice(nums))})"
-    return expr
 
 
 def literal(x):
@@ -357,117 +322,91 @@ def literal(x):
     return str(x)
 
 
-def predicate(df, roles):
-    choices = []
-    if roles["num"]:
-        c = random.choice(roles["num"])
-        q = df[c].quantile(random.choice([0.25, 0.5, 0.75]))
-        if pd.notna(q):
-            choices.append(f"{ident(c)} {random.choice(['>', '<', '>=', '<='])} {literal(q)}")
-    if roles["group"]:
-        c = random.choice(roles["group"])
-        values = df[c].dropna().drop_duplicates()
-        if len(values):
-            vals = values.sample(min(2, len(values))).tolist()
-            choices.append(f"{ident(c)} IN ({', '.join(literal(v) for v in vals)})")
-    if roles["date"]:
-        c = random.choice(roles["date"])
-        values = df[c].dropna()
-        if len(values):
-            choices.append(f"{ident(c)} > {literal(values.sample(1).iloc[0])}")
-    if roles["bool"]:
-        c = random.choice(roles["bool"])
-        choices.append(f"{ident(c)} = {random.choice(['TRUE', 'FALSE'])}")
-    nullables = [c for c in ["segment", "discount"] if c in df.columns]
-    if nullables:
-        c = random.choice(nullables)
-        choices.append(f"{ident(c)} IS {random.choice(['', 'NOT '])}NULL")
-    return random.choice(choices) if choices else "TRUE"
+def _refresh_derived_columns(df):
+    if "gross" in df:
+        df["gross"] = np.round(df["qty"] * df["unit_price"], 2)
+    if "net" in df:
+        discount = df["discount"].fillna(0) if "discount" in df else 0
+        df["net"] = np.round(df["qty"] * df["unit_price"] * (1 - discount), 2)
+    if "is_refund" in df:
+        df["is_refund"] = df["status"].eq("refunded")
+    return df
 
 
-def group_key_candidates(roles):
-    out = [(ident(c), ident(c), ident(c)) for c in roles["group"]]
-    for c in roles["date"]:
-        expr = f"CAST(DATE_TRUNC('month', {ident(c)}) AS DATE)"
-        alias = ident(f"{c}_month")
-        out.append((f"{expr} AS {alias}", expr, alias))
-    return out
+def _sample_query_family(config):
+    complexity = int(config.complexity)
+    families = ["count", "arithmetic", "grouped_arithmetic"]
+    weights = [max(1, 5 - complexity), complexity, max(0, 2 * (complexity - 1))]
+    if config.num_rows < 6:
+        weights[-1] = 0
+    return random.choices(families, weights=weights, k=1)[0]
 
 
-def tie_breaker(df):
-    if "row_id" in df.columns:
-        return ident("row_id")
-    return ident(df.columns[0])
-
-
-def synthesize_query(df, spec):
-    roles = column_roles(df)
-    nums = roles["num"]
-    if not nums and not roles["group"] and not roles["date"] and not roles["bool"]:
-        return "SELECT COUNT(*) FROM dataframe"
-
-    predicates = []
-    for _ in range(spec["n_predicates"]):
-        p = predicate(df, roles)
-        if p not in predicates:
-            predicates.append(p)
-    where_sql = " AND ".join(predicates) if predicates else "TRUE"
-    candidates = group_key_candidates(roles)
-    group_keys = random.sample(candidates, min(spec["n_group_keys"], len(candidates)))
-
-    if nums:
-        value = num_expr(nums, spec["expr_depth"])
-        agg = random.choice(AGGS)
+def _condition_table_for_query(config, family, n_predicates):
+    """Build filter witnesses and numeric contrasts for a chosen query plan."""
+    df = generate_tableqa_dataframe(config).copy()
+    predicate_columns = ["country", "status"][:n_predicates]
+    country, other_country = random.sample(["France", "Germany", "Spain", "Italy"], 2)
+    status, other_status = random.sample(["paid", "pending", "cancelled"], 2)
+    anchor = {"country": country, "status": status}
+    alternatives = {"country": other_country, "status": other_status}
+    for column in predicate_columns:
+        df[column] = alternatives[column]
+    if family == "grouped_arithmetic":
+        matched_rows = 3
+    elif family == "count":
+        matched_rows = random.randint(2, min(4, len(df) - n_predicates))
     else:
-        value = None
-        agg = "COUNT"
+        matched_rows = 2
+    for row in range(min(matched_rows, len(df))):
+        for column in predicate_columns:
+            df.loc[df.index[row], column] = anchor[column]
+    for i, column in enumerate(predicate_columns, start=matched_rows):
+        if i >= len(df):
+            break
+        for other in predicate_columns:
+            df.loc[df.index[i], other] = anchor[other]
+        df.loc[df.index[i], column] = alternatives[column]
 
-    if group_keys:
-        select_key, group_sql, order_key = group_keys[0]
-        order_value = "COUNT(*)" if agg == "COUNT" else f"{agg}({value})"
-        return f"""
-        SELECT {select_key}
-        FROM dataframe
-        WHERE {where_sql}
-        GROUP BY {group_sql}
-        ORDER BY {order_value} {random.choice(["ASC", "DESC"])}, {order_key} ASC
-        LIMIT 1
-        """.strip()
+    if family == "grouped_arithmetic":
+        winner, quantity_winner = random.sample(
+            ["Books", "Electronics", "Clothing", "Food"], 2
+        )
+        prices = random.sample(range(55, 66), 2)
+        qty_b, price_b = random.randint(8, 10), random.randint(18, 20)
+        values = [(winner, 2, price) for price in prices]
+        values.append((quantity_winner, qty_b, price_b))
+        witness_price = 2 * sum(prices) + 100
+        values += [(quantity_winner, 1, witness_price) for _ in predicate_columns]
+    elif family == "arithmetic":
+        first, second = random.sample(["Books", "Electronics", "Clothing", "Food"], 2)
+        values = [(first, random.randint(2, 5), random.randint(9, 15)),
+                  (second, random.randint(6, 10), random.randint(16, 25))]
+        values += [("Clothing", 3, 17.0) for _ in predicate_columns]
+    else:
+        values = [
+            (random.choice(["Books", "Electronics", "Clothing", "Food"]),
+             random.randint(2, 10), random.randint(9, 25))
+            for _ in range(matched_rows + n_predicates)
+        ]
+    for i, (category, qty, price) in enumerate(values[:len(df)]):
+        df.loc[df.index[i], ["category", "qty", "unit_price"]] = category, qty, price
+    predicates = [f"{ident(column)} = {literal(anchor[column])}" for column in predicate_columns]
+    return _refresh_derived_columns(df), predicates
 
-    if nums and random.random() < 0.35:
-        c = random.choice(nums)
-        threshold = df[c].quantile(random.choice([0.25, 0.5, 0.75]))
-        return f"""
-        SELECT {agg}({value}) {random.choice([">", "<", ">=", "<="])} {literal(threshold)}
-        FROM dataframe
-        WHERE {where_sql}
-        """.strip()
 
-    if random.random() < 0.45:
-        return f"""
-        SELECT COUNT(*)
-        FROM dataframe
-        WHERE {where_sql}
-        """.strip()
-
-    if random.random() < 0.55:
-        return f"""
-        SELECT COUNT(*) > 0
-        FROM dataframe
-        WHERE {where_sql}
-        """.strip()
-
-    allowed = roles["id"] + roles["group"] + roles["date"] + roles["bool"]
-    orderable = roles["num"] + roles["date"] + roles["group"] + roles["bool"]
-    col = random.choice(allowed)
-    order = random.choice(orderable)
-    return f"""
-    SELECT {ident(col)}
-    FROM dataframe
-    WHERE {where_sql}
-    ORDER BY {ident(order)} {random.choice(["ASC", "DESC"])}, {tie_breaker(df)} ASC
-    LIMIT 1
-    """.strip()
+def _render_query(family, predicates, expression=None):
+    where_sql = " AND ".join(predicates) if predicates else "TRUE"
+    if family == "count":
+        return f"SELECT COUNT(*) FROM dataframe WHERE {where_sql}"
+    expression = expression or f"{ident('qty')} * {ident('unit_price')}"
+    if family == "arithmetic":
+        return f"SELECT ROUND(SUM({expression}), 2) FROM dataframe WHERE {where_sql}"
+    return (
+        f"SELECT {ident('category')} FROM dataframe WHERE {where_sql} "
+        f"GROUP BY {ident('category')} ORDER BY SUM({expression}) DESC, "
+        f"{ident('category')} ASC LIMIT 1"
+    )
 
 
 def interesting_result(result):
@@ -481,16 +420,53 @@ def interesting_result(result):
     return False
 
 
-def sample_query(df, conn, config, max_tries=80):
+def sample_query(conn, config, max_tries=80):
     for _ in range(max_tries):
-        spec = sample_complexity(config)
-        q = synthesize_query(df, spec)
+        family = _sample_query_family(config)
+        n_predicates = min(2, max(1, int(config.complexity)))
+        df, predicates = _condition_table_for_query(config, family, n_predicates)
+        conn.register("dataframe", df)
+        q = _render_query(family, predicates)
         try:
             result = conn.execute(q).df()
         except Exception:
             continue
-        if interesting_result(result):
-            return q, result, spec
+        filter_checks = []
+        for i in range(len(predicates)):
+            ablated = conn.execute(_render_query(
+                family, predicates[:i] + predicates[i + 1:]
+            )).df()
+            filter_checks.append(not ablated.equals(result))
+        arithmetic_matters = None
+        if family != "count":
+            ablated = conn.execute(_render_query(family, predicates, ident("qty"))).df()
+            arithmetic_matters = not ablated.equals(result)
+        grouping_matters = None
+        if family == "grouped_arithmetic":
+            where_sql = " AND ".join(predicates)
+            ungrouped = conn.execute(
+                f"SELECT {ident('category')} FROM dataframe WHERE {where_sql} "
+                f"ORDER BY {ident('qty')} * {ident('unit_price')} DESC, "
+                f"{ident('category')} ASC LIMIT 1"
+            ).df()
+            grouping_matters = not ungrouped.equals(result)
+        checks = filter_checks + [
+            x for x in (arithmetic_matters, grouping_matters) if x is not None
+        ]
+        if interesting_result(result) and all(checks):
+            spec = {
+                "query_conditioned": True,
+                "family": family,
+                "expr_depth": int(family != "count"),
+                "n_predicates": len(predicates),
+                "n_group_keys": int(family == "grouped_arithmetic"),
+                "feature_checks": {
+                    "filters_matter": filter_checks,
+                    "arithmetic_matters": arithmetic_matters,
+                    "grouping_matters": grouping_matters,
+                },
+            }
+            return df, q, result, spec
     raise RuntimeError("Could not synthesize interesting table QA query")
 
 
@@ -518,16 +494,13 @@ class TableQA(Task):
             return "text"
     
     def generate_entry(self):
-        semantic_df = generate_tableqa_dataframe(self.config)
+        conn = duckdb.connect()
+        semantic_df, q, result, query_spec = sample_query(conn, self.config)
         display_df, display_meta = make_display_dataframe(
             semantic_df,
             number_formats=TABLEQA_NUMBER_FORMATS,
             number_locales=["en_US"],
         )
-
-        conn = duckdb.connect()
-        conn.register("dataframe", semantic_df)
-        q, result, query_spec = sample_query(semantic_df, conn, self.config)
         renderers = get_renderers(display_df)
         fmt_name = sample_renderer(renderers)
         render_func = renderers[fmt_name]

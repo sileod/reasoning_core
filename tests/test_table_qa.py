@@ -4,9 +4,10 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
+import reasoning_core.tasks.table_qa as table_qa
 from reasoning_core.tasks.table_qa import (
-    TableEquivalence, TableQA, canonical_scalar, canonical_table, corrupt_table,
-    equivalence_display, render_nulls,
+    TableEquivalence, TableQA, TableQAConfig, canonical_scalar, canonical_table,
+    corrupt_table, equivalence_display, render_nulls,
 )
 
 
@@ -68,3 +69,33 @@ def test_multiple_corruptions_are_certified_inequivalent():
 
     assert len(mutations) == 3
     assert canonical_table(corrupted) != canonical_table(df)
+
+
+def test_table_qa_conditions_data_on_each_query_family(monkeypatch):
+    task = TableQA(TableQAConfig(num_rows=8, num_columns=6, complexity=3))
+
+    for family in ("count", "arithmetic", "grouped_arithmetic"):
+        monkeypatch.setattr(table_qa, "_sample_query_family", lambda _config: family)
+        entry = task.generate_entry()
+        spec = entry.metadata["query_spec"]
+        checks = spec["feature_checks"]
+
+        assert spec["query_conditioned"]
+        assert all(checks["filters_matter"])
+        assert checks["arithmetic_matters"] is (
+            True if family != "count" else None
+        )
+        assert checks["grouping_matters"] is (
+            True if family == "grouped_arithmetic" else None
+        )
+        assert task.score_answer(entry.answer, entry) == 1
+
+
+def test_table_qa_difficulty_increases_semantic_complexity():
+    easy = TableQAConfig()
+    hard = TableQAConfig()
+    easy.set_level(0)
+    hard.set_level(4)
+
+    assert hard.complexity > easy.complexity
+    assert hard.num_tables == easy.num_tables == 1
