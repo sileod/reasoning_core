@@ -366,14 +366,20 @@ def quality_ok(G, q, answer, phenomenon=None):
 
 def sample_instance(seed=None, n_extra=8, p_edge=0.10):
     rng = np.random.default_rng(seed)
-    phenomena = list(KERNELS)
+    query_kind = str(rng.choice(list(ANSWER_SPACES)))
+    target_label = str(rng.choice(ANSWER_SPACES[query_kind]))
+    eligible = [
+        (phenomenon, make)
+        for phenomenon, (labels, make) in KERNELS.items()
+        if target_label in labels
+    ]
 
     for _ in range(1000):
-        phenomenon = str(rng.choice(phenomena))
-        labels, make = KERNELS[phenomenon]
-        target_label = str(rng.choice(labels))
+        phenomenon, make = eligible[int(rng.integers(len(eligible)))]
 
         G, q = make(target_label, rng)
+        if q.kind != query_kind:
+            continue
         before = verify(G, q)
 
         H = augment(G, rng, n_extra=n_extra, p_edge=p_edge)
@@ -498,7 +504,4 @@ class QualitativeCausalReasoning(Task):
         return 1 if normalized == entry.answer else 0
 
     def balancing_key(self, problem):
-        return (
-            f"{problem.metadata.query_kind}:"
-            f"{problem.metadata.phenomenon}:{problem.answer}"
-        )
+        return f"{problem.metadata.query_kind}:{problem.answer}"

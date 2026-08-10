@@ -204,9 +204,9 @@ def regex_grammar(fsm_subset=False, alpha=None, words=None, advanced=False):
     R("regex(regex,count_range)", "{0}{1}")
 
     R("regex(rangechar,rangechar)", "[{0}-{1}]")
-    R("regex(rangechar,rangechar)", "[^{0}-{1}]")
+    R("regex(rangechar,rangechar)", "[^{0}-{1}]", weight=0.25)
     R("regex(char,char,char)", "[{0}{1}{2}]")
-    R("regex(char,char,char)", "[^{0}{1}{2}]")
+    R("regex(char,char,char)", "[^{0}{1}{2}]", weight=0.25)
 
     R("regex(regex)", "(?:{0})")
 
@@ -220,7 +220,7 @@ def regex_grammar(fsm_subset=False, alpha=None, words=None, advanced=False):
         R("regex(regex,regex)", "(?={0}){1}", weight=0.05)
         R("regex(regex,regex)", "(?!{0}){1}", weight=0.05)
 
-    R("regex(predef)", "{0}", weight=3)
+    R("regex(predef)", "{0}", weight=1)
 
     for c in string.ascii_letters + string.digits:
         R("char", c)
@@ -314,19 +314,31 @@ class RegexFollowing(Task):
     summary = "Produce a string that matches a specified regular expression pattern."
     def __init__(self, config=None):
         super().__init__(config=config or RegexConfig())
-        self.balancing_key_ratio = 0.4
+        self.balancing_key_ratio = 0.25
+
+    @staticmethod
+    def _answer_bucket(answer):
+        length = "1" if len(answer) == 1 else "2" if len(answer) == 2 else "3+"
+        first = answer[0]
+        kind = ("digit" if first.isdigit() else "upper" if first.isupper()
+                else "lower" if first.islower() else "punct")
+        return length, kind
 
     def generate_entry(self):
-        for _ in range(50):
+        target_kind = random.choice(["digit", "upper", "lower", "punct"])
+        for _ in range(120):
             meta = edict()
             r = sample_regex(self.config, max_tries=300, canonical=True, advanced=True)
             answer = canonical_instance(r)
-            if answer == "!" and random.random() < 0.75:
+            length_bucket, first_kind = self._answer_bucket(answer)
+            if first_kind != target_kind or (length_bucket == "1" and random.random() < 0.7):
                 continue
             meta.regex = r
             meta.string = answer
+            meta.answer_length_bucket = length_bucket
+            meta.answer_first_kind = first_kind
             return Entry(meta, meta.string)
-        raise RuntimeError("Could not generate a regex with a capped canonical target")
+        raise RuntimeError(f"Could not generate a canonical regex target starting with {target_kind}")
 
 
     def score_answer(self, answer, entry):
@@ -340,13 +352,8 @@ class RegexFollowing(Task):
         )
 
     def balancing_key(self, problem):
-        answer = problem.answer
-        if answer == "!":
-            return "answer:bang"
-        if answer.startswith("!"):
-            return "answer:bang_prefix"
-        bucket = "1" if len(answer) == 1 else "2" if len(answer) == 2 else "3+"
-        return f"answer:{bucket}:{answer[0]}"
+        length, kind = self._answer_bucket(problem.answer)
+        return f"answer:{length}:{kind}:{problem.answer[0]}"
 
 def strip_anchors_safe(text: str) -> str:
     """Strips optional ^, non-escaped $, and markdown formatting from a regex string."""

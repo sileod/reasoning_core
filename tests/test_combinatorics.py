@@ -10,9 +10,11 @@ from reasoning_core.tasks.combinatorics import (
     ExclusiveCommittee,
     LatticePath,
     ManagerCommittee,
+    ProjectChairCommittee,
     RoleThenCommittee,
     Select,
     ThroughPointPath,
+    TwoCheckpointPath,
     UnionCount,
     _compile,
     _valid,
@@ -71,6 +73,17 @@ def test_composed_programs_have_depth_two_and_unique_options():
     ]
 
 
+def test_depth_three_programs_have_semantic_unique_options():
+    programs = (
+        ProjectChairCommittee(3, 12, 4),
+        TwoCheckpointPath(9, 8, 2, 2, 6, 5),
+    )
+    compiled = [_compile(program) for program in programs]
+
+    assert all(problem.depth == 3 for problem in compiled)
+    assert all(_valid(problem) for problem in compiled)
+
+
 def test_unknown_choice_rule_fails_closed():
     with pytest.raises(ValueError, match="unknown choice rule"):
         _compile(ChoiceRule("typo", 5, 3))
@@ -81,6 +94,7 @@ def test_difficulty_increases_composition_and_reduces_explicitness():
     config.set_level(5)
 
     assert config.depth_2_rate > CombinatoricsConfig().depth_2_rate
+    assert config.depth_3_rate > CombinatoricsConfig().depth_3_rate
     assert config.explicit_rate < CombinatoricsConfig().explicit_rate
 
 
@@ -89,12 +103,13 @@ def test_generated_metadata_and_answer():
 
     for _ in range(50):
         example = task.generate_example()
-        assert example.answer in "ABCD"
+        assert example.answer == example.metadata.correct_expression
         assert task.score_answer(example.answer, example) == 1
-        assert task.score_answer("not a label", example) == 0
-        assert example.metadata.structural_depth in (1, 2)
-        assert example.metadata.correct_option_index == "ABCD".index(example.answer)
+        assert task.score_answer("not a formula", example) == 0
+        assert example.metadata.structural_depth in (1, 2, 3)
+        assert example.metadata.correct_option_label == "ABCD"[example.metadata.correct_option_index]
+        assert example.metadata.options[example.metadata.correct_option_index]["expression"] == example.answer
         assert example.metadata.correct_features.top_operator
         assert all(option["semantics"] for option in example.metadata.options)
         assert len({option["value"] for option in example.metadata.options}) == 4
-        assert example.prompt.startswith("Which expression counts the outcomes? Answer A-D.")
+        assert example.prompt.startswith("Which listed expression counts the outcomes?")

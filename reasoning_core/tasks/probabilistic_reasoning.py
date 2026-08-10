@@ -68,8 +68,12 @@ def norm_lits(s):
         return None
 
 
-def lit_options(src):
-    return sorted_lits(x for a in hidden_atoms(src) for x in (a, f"not {a}"))
+def lit_options(src, shuffle_pairs=False):
+    pairs = [[a, f"not {a}"] for a in hidden_atoms(src)]
+    if shuffle_pairs:
+        for pair in pairs:
+            random.shuffle(pair)
+    return [literal for pair in pairs for literal in pair]
 
 
 def cmp_rules(cmp):
@@ -166,7 +170,7 @@ def evidence_instance(node, config=None):
         return None
     if config and not config.min_atoms <= len(atoms) <= config.max_atoms:
         return None
-    probs = dict(zip(atoms, random.choices([0.1, 0.2, 0.3, 0.4, 0.6, 0.7], k=len(atoms))))
+    probs = dict(zip(atoms, random.choices([0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9], k=len(atoms))))
     src = "\n".join(
         [f"{p}::{a}." for a, p in probs.items()]
         + [f"observed :- {formula}.", "evidence(observed,true)."]
@@ -258,6 +262,7 @@ class MostProbableEvidence(Task):
     summary = "Find the most probable configuration of hidden variables given evidence."
     def __init__(self, config=None):
         super().__init__(config=config or MostProbableEvidenceConfig())
+        self.balancing_key_ratio = 1 / 3
 
     def generate_entry(self):
         for _ in range(self.config.max_attempts):
@@ -275,10 +280,14 @@ class MostProbableEvidence(Task):
             answer, margin = sol
             if not self.config.min_margin <= margin <= self.config.max_margin:
                 continue
-            opts = lit_options(src)
+            opts = lit_options(src, shuffle_pairs=True)
             lits = sorted_lits(map(str, json.loads(answer)))
-            answer = " ".join(str(opts.index(x)) for x in lits)
-            return Entry(edict(problog=src, english=english, options=opts, n_atoms=len(hidden_atoms(src)), margin=margin), answer)
+            indices = [opts.index(x) for x in lits]
+            pair_members = [index % 2 for index in indices]
+            answer = " ".join(map(str, indices))
+            return Entry(edict(problog=src, english=english, options=opts,
+                               n_atoms=len(hidden_atoms(src)), margin=margin,
+                               selected_pair_members=pair_members), answer)
         raise RuntimeError("Failed to generate probabilistic evidence task")
 
     def render_prompt(self, m):
@@ -290,6 +299,10 @@ class MostProbableEvidence(Task):
 
     def score_answer(self, answer, entry):
         return score_space_ints(answer, entry)
+
+    def balancing_key(self, problem):
+        positions = "".join(map(str, problem.metadata.selected_pair_members))
+        return f"{problem.metadata.n_atoms}:{positions}"
 
 
 @dataclass

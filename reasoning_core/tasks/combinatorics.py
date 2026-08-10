@@ -13,11 +13,13 @@ from reasoning_core.template import Config, Entry, Task, edict, render_payload
 @dataclass
 class CombinatoricsConfig(Config):
     depth_2_rate: float = 0.2
+    depth_3_rate: float = 0.05
     explicit_rate: float = 0.9
     max_tries: int = 100
 
     def apply_difficulty(self, level):
         self.depth_2_rate = min(0.65, self.depth_2_rate + level * 0.09)
+        self.depth_3_rate = min(0.55, self.depth_3_rate + level * 0.1)
         self.explicit_rate = max(0.25, self.explicit_rate - level * 0.13)
 
 
@@ -95,6 +97,23 @@ class ThroughPointPath:
 class ExclusiveCommittee:
     population: int
     size: int
+
+
+@dataclass(frozen=True)
+class ProjectChairCommittee:
+    projects: int
+    population: int
+    committee_size: int
+
+
+@dataclass(frozen=True)
+class TwoCheckpointPath:
+    right: int
+    up: int
+    first_right: int
+    first_up: int
+    second_right: int
+    second_up: int
 
 
 @dataclass(frozen=True)
@@ -541,6 +560,65 @@ def _compile_exclusive_committee(program, explicit):
     return CompiledProblem("exclusive_committee", 2, text, options)
 
 
+def _compile_project_chair_committee(program, explicit):
+    g, n, k = program.projects, program.population, program.committee_size
+    text = _surface(
+        explicit,
+        (f"Choose one of {g} projects, appoint its chair from {n} people, then choose an unordered "
+         f"{k}-person committee from the remaining people.",),
+        (f"A club picks one of {g} projects, names one of {n} members to lead it, and assigns "
+         f"{k} other members as an unordered team.",),
+    )
+    options = (
+        _option(f"{g}*{n}*C({n - 1},{k})", g * n * math.comb(n - 1, k), "correct", True,
+                chooses_project=True, chair_excluded=True, committee_ordered=False),
+        _option(f"{n}*C({n - 1},{k})", n * math.comb(n - 1, k), "forgets_project_choice",
+                chooses_project=False, chair_excluded=True, committee_ordered=False),
+        _option(f"{g}*{n}*C({n},{k})", g * n * math.comb(n, k), "allows_chair_on_committee",
+                chooses_project=True, chair_excluded=False, committee_ordered=False),
+        _option(f"{g}*{n}*P({n - 1},{k})", g * n * math.perm(n - 1, k), "orders_committee",
+                chooses_project=True, chair_excluded=True, committee_ordered=True),
+    )
+    return CompiledProblem("project_chair_committee", 3, text, options)
+
+
+def _compile_two_checkpoint_path(program, explicit):
+    r, u = program.right, program.up
+    ar, au = program.first_right, program.first_up
+    br, bu = program.second_right, program.second_up
+    first = (ar + au, ar)
+    middle = (br - ar + bu - au, br - ar)
+    last = (r - br + u - bu, r - br)
+
+    def choose(segment):
+        return math.comb(*segment)
+
+    text = _surface(
+        explicit,
+        (f"Count right/up paths from (0,0) to ({r},{u}) that pass first through ({ar},{au}) "
+         f"and later through ({br},{bu}).",),
+        (f"Walk east or north from (0,0) to ({r},{u}), visiting ({ar},{au}) and then "
+         f"({br},{bu}). Count the routes.",),
+    )
+    direct_second = (br + bu, br)
+    after_first = (r - ar + u - au, r - ar)
+    correct = choose(first) * choose(middle) * choose(last)
+    options = (
+        _option(f"C({first[0]},{first[1]})*C({middle[0]},{middle[1]})*C({last[0]},{last[1]})",
+                correct, "correct", True, uses_first=True, uses_second=True, segments=3),
+        _option(f"C({direct_second[0]},{direct_second[1]})*C({last[0]},{last[1]})",
+                choose(direct_second) * choose(last), "ignores_first_checkpoint",
+                uses_first=False, uses_second=True, segments=2),
+        _option(f"C({first[0]},{first[1]})*C({after_first[0]},{after_first[1]})",
+                choose(first) * choose(after_first), "ignores_second_checkpoint",
+                uses_first=True, uses_second=False, segments=2),
+        _option(f"C({first[0]},{first[1]})*C({direct_second[0]},{direct_second[1]})*C({last[0]},{last[1]})",
+                choose(first) * choose(direct_second) * choose(last), "restarts_middle_from_origin",
+                uses_first=True, uses_second=True, middle_origin="origin"),
+    )
+    return CompiledProblem("two_checkpoint_path", 3, text, options)
+
+
 def _compile(program, explicit=True):
     compilers = {
         Select: _compile_select,
@@ -554,6 +632,8 @@ def _compile(program, explicit=True):
         ManagerCommittee: _compile_manager_committee,
         ThroughPointPath: _compile_through_point,
         ExclusiveCommittee: _compile_exclusive_committee,
+        ProjectChairCommittee: _compile_project_chair_committee,
+        TwoCheckpointPath: _compile_two_checkpoint_path,
     }
     compiler = compilers.get(type(program))
     if compiler is None:
@@ -568,6 +648,8 @@ def _valid(compiled):
         and len({option.expression for option in compiled.options}) == 4
         and len({option.value for option in compiled.options}) == 4
         and all(option.value > 0 for option in compiled.options)
+        and len({option.mutation for option in compiled.options}) == 4
+        and all(option.semantics for option in compiled.options)
     )
 
 
@@ -657,7 +739,19 @@ class CombinatoricsFormulaSelection(Task):
             return ThroughPointPath(right, up, random.randint(2, right - 2), random.randint(2, up - 2))
         return ExclusiveCommittee(random.randint(9, 15), random.randint(3, 5))
 
+    def _sample_depth_3(self):
+        if random.random() < 0.5:
+            return ProjectChairCommittee(random.randint(2, 5), random.randint(9, 15),
+                                         random.randint(2, 5))
+        right, up = random.randint(7, 12), random.randint(7, 12)
+        first_right, first_up = random.randint(1, right - 3), random.randint(1, up - 3)
+        second_right = random.randint(first_right + 1, right - 1)
+        second_up = random.randint(first_up + 1, up - 1)
+        return TwoCheckpointPath(right, up, first_right, first_up, second_right, second_up)
+
     def _sample_program(self):
+        if random.random() < self.config.depth_3_rate:
+            return self._sample_depth_3()
         if random.random() < self.config.depth_2_rate:
             return self._sample_composed()
         return self._sample_atomic()
@@ -671,7 +765,7 @@ class CombinatoricsFormulaSelection(Task):
             options = list(compiled.options)
             random.shuffle(options)
             correct_index = next(i for i, option in enumerate(options) if option.correct)
-            answer = "ABCD"[correct_index]
+            answer = options[correct_index].expression
             option_rows = []
             for option in options:
                 row = asdict(option)
@@ -685,9 +779,12 @@ class CombinatoricsFormulaSelection(Task):
                 program=asdict(program),
                 correct_expression=options[correct_index].expression,
                 correct_option_index=correct_index,
+                correct_option_label="ABCD"[correct_index],
                 correct_features=correct_features,
                 mutation_types=[option.mutation for option in options if not option.correct],
                 options=option_rows,
+                finite_menu_exhaustively_checked=True,
+                candidate_values=[option.value for option in options],
             )
             metadata.payload = {
                 "problem": compiled.text,
@@ -698,7 +795,7 @@ class CombinatoricsFormulaSelection(Task):
 
     def render_prompt(self, metadata):
         return (
-            "Which expression counts the outcomes? Answer A-D.\n"
+            "Which listed expression counts the outcomes? Answer with its exact expression.\n"
             "C(n,k): unordered; P(n,k): ordered.\n\n"
             f"{render_payload(metadata.payload)}"
         )
@@ -707,5 +804,5 @@ class CombinatoricsFormulaSelection(Task):
         return "|".join((
             problem.metadata.family,
             problem.metadata.correct_features.top_operator,
-            problem.answer,
+            problem.metadata.correct_option_label,
         ))

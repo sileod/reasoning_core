@@ -1136,7 +1136,8 @@ def _ranked_noncompiling(answer, candidates, template, runner, limit=None):
     seen, ranked = set(), []
     for candidate in candidates:
         candidate = str(candidate).strip()
-        if candidate == answer or candidate in seen or not _safe(candidate):
+        if (candidate == answer or candidate in seen or not _safe(candidate)
+                or _uses_automation(candidate)):
             continue
         seen.add(candidate)
         similarity = SequenceMatcher(None, answer, candidate).ratio()
@@ -1641,18 +1642,25 @@ class LeanMissingLine(Task):
                 "  __ANSWER__\n" if i == idx else f"  {line}\n"
                 for i, line in enumerate(script.lines)
             )
+            menu_size = min(8, max(2, int(self.config.n_candidates)))
             available = _line_options(
                 script.lines,
                 correct_line,
-                self.config.n_candidates,
+                menu_size,
                 template,
                 runner,
                 getattr(script, "candidate_lines", ()),
             )
-            if len(available) != max(2, int(self.config.n_candidates)):
+            if len(available) != menu_size:
                 continue
+            candidate_results = [
+                runner.check(template.replace("__ANSWER__", candidate))[0]
+                for candidate in available
+            ]
             correct_index = available.index(correct_line) + 1
-            compiling = [correct_index]
+            compiling = [i + 1 for i, ok in enumerate(candidate_results) if ok]
+            if compiling != [correct_index]:
+                continue
             return Entry(
                 edict(
                     kind=script.kind,
@@ -1660,13 +1668,15 @@ class LeanMissingLine(Task):
                     available_lines=available,
                     compiling_indices=compiling,
                     compiling_lines=[correct_line],
+                    candidate_compiles=candidate_results,
+                    finite_menu_exhaustively_checked=True,
                     correct_line=correct_line,
                     correct_index=correct_index,
                     missing_line=idx + 1,
                     use_mathlib=use_mathlib,
                     used_mathlib=use_mathlib,
                 ),
-                str(correct_index),
+                correct_line,
             )
         raise RuntimeError("failed to generate unique hard Lean line options")
 
@@ -1677,14 +1687,14 @@ class LeanMissingLine(Task):
         imports = "Mathlib is imported." if _mget(metadata, "use_mathlib") else "Only Lean/Std is imported."
         return (
             f"Fill `__ANSWER__` with one listed Lean proof line. {imports}\n"
-            "The answer is the line number.\n\n"
+            "The answer is the exact text of the selected line.\n\n"
             f"THEOREM:\n{_mget(metadata, 'template')}\n"
             f"LINES:\n{options}"
         )
 
     def score_answer(self, answer, entry):
-        value = str(answer).strip().strip("`")
-        return float(bool(re.fullmatch(r"\d+", value)) and value == str(entry.answer))
+        value = str(answer).strip().strip("`").strip()
+        return float(value == str(entry.answer))
 
 
 class LeanCandidateCompilation(Task):
