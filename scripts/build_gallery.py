@@ -19,10 +19,10 @@ from reasoning_core.template import _strip_docstrings
 ROOT = Path(__file__).resolve().parents[1]
 TASKS_DIR = ROOT / "reasoning_core" / "tasks"
 CATEGORY_ORDER = [
-    "arithmetics", "equation_system", "math_lean", "math_tptp",
-    "math_geometry", "math_metamath", "binding",
+    "arithmetics", "equation_system", "combinatorics", "function_manipulation",
+    "math_lean", "math_tptp", "math_geometry", "math_metamath", "binding",
     "probabilistic_reasoning", "causal_reasoning", "logic_semantics",
-    "logic_depth", "planning", "set_operations", "sequential_induction",
+    "logic_depth", "logic_derivation", "planning", "set_operations", "sequential_induction",
     "qstr", "grid_navigation", "tracking", "belief_tracking", "coreference",
     "constraint_satisfaction", "graph_operations", "regex",
     "formal_analogies", "grammar", "knowledge", "table_qa",
@@ -240,14 +240,15 @@ def write_gallery(task_names, examples, out_path, existing_sections=None,
     with out_path.open("w", encoding="utf-8") as f:
         menu = " · ".join(f"[`{t}`](#{slug(t)})" for t in task_names)
         f.write(f"# 📖 Task Gallery\n\n{len(task_names)} tasks\n\n{menu}\n\n---\n\n")
-        for name in task_names:
+        for index, name in enumerate(task_names):
             if name in examples:
                 section = section_text(name, examples[name], include_summaries)
             else:
                 section = normalize_section(
                     name, existing_sections[name], include_summaries
                 )
-            f.write(f"{section}\n\n---\n\n")
+            suffix = "\n\n---\n" if index == len(task_names) - 1 else "\n\n---\n\n"
+            f.write(f"{section}{suffix}")
 
 
 def gallery_menu(task_names):

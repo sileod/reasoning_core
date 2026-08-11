@@ -4,7 +4,7 @@ from reasoning_core.tasks.combinatorics import (
     Arrange,
     ChoiceRule,
     CombinatoricsConfig,
-    CombinatoricsFormulaSelection,
+    CombinatoricsFormula,
     Distribute,
     ExactSymbolStrings,
     ExclusiveCommittee,
@@ -100,7 +100,7 @@ def test_difficulty_increases_composition_and_reduces_explicitness():
 
 
 def test_generated_metadata_and_answer():
-    task = CombinatoricsFormulaSelection()
+    task = CombinatoricsFormula()
 
     for _ in range(50):
         example = task.generate_example()

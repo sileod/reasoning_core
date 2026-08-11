@@ -2,7 +2,7 @@
 
 50 tasks
 
-[`arithmetics`](#arithmetics) · [`math_word_problem`](#math_word_problem) · [`equation_system`](#equation_system) · [`lean_missing_line`](#lean_missing_line) · [`lean_candidate_compilation`](#lean_candidate_compilation) · [`planar_geometry_relations`](#planar_geometry_relations) · [`metamath_entailment`](#metamath_entailment) · [`metamath_core_select`](#metamath_core_select) · [`lambda_reduction`](#lambda_reduction) · [`rewrite_system`](#rewrite_system) · [`unification_entailment`](#unification_entailment) · [`most_probable_evidence`](#most_probable_evidence) · [`most_probable_outcome`](#most_probable_outcome) · [`multistep_nli`](#multistep_nli) · [`defeasible_nli`](#defeasible_nli) · [`multistep_evidence_retrieval`](#multistep_evidence_retrieval) · [`multistep_abduction`](#multistep_abduction) · [`logic_qa`](#logic_qa) · [`planning`](#planning) · [`set_missing_element`](#set_missing_element) · [`set_expression`](#set_expression) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`grid_navigation`](#grid_navigation) · [`reference_tracking`](#reference_tracking) · [`belief_tracking`](#belief_tracking) · [`coreference`](#coreference) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_successors`](#graph_successors) · [`regex_following`](#regex_following) · [`regex_reasoning`](#regex_reasoning) · [`analogical_case_matching`](#analogical_case_matching) · [`parsing_derivation`](#parsing_derivation) · [`syntax_error_detection`](#syntax_error_detection) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_equivalence`](#table_equivalence) · [`table_statistics`](#table_statistics) · [`string_transduction`](#string_transduction) · [`game_best_move`](#game_best_move) · [`game_forced_win`](#game_forced_win) · [`qualitative_causal_reasoning`](#qualitative_causal_reasoning) · [`code_analysis`](#code_analysis) · [`code_runnability`](#code_runnability) · [`code_execution`](#code_execution) · [`program_synthesis`](#program_synthesis) · [`function_manipulation`](#function_manipulation) · [`logic_derivation`](#logic_derivation) · [`combinatorics_formula_selection`](#combinatorics_formula_selection)
+[`arithmetics`](#arithmetics) · [`math_word_problem`](#math_word_problem) · [`equation_system`](#equation_system) · [`combinatorics_formula`](#combinatorics_formula) · [`function_manipulation`](#function_manipulation) · [`lean_missing_line`](#lean_missing_line) · [`lean_candidate_compilation`](#lean_candidate_compilation) · [`planar_geometry_relations`](#planar_geometry_relations) · [`metamath_entailment`](#metamath_entailment) · [`metamath_core_select`](#metamath_core_select) · [`lambda_reduction`](#lambda_reduction) · [`rewrite_system`](#rewrite_system) · [`unification_entailment`](#unification_entailment) · [`most_probable_evidence`](#most_probable_evidence) · [`most_probable_outcome`](#most_probable_outcome) · [`multistep_nli`](#multistep_nli) · [`defeasible_nli`](#defeasible_nli) · [`multistep_evidence_retrieval`](#multistep_evidence_retrieval) · [`multistep_abduction`](#multistep_abduction) · [`logic_qa`](#logic_qa) · [`logic_derivation`](#logic_derivation) · [`planning`](#planning) · [`set_missing_element`](#set_missing_element) · [`set_expression`](#set_expression) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`grid_navigation`](#grid_navigation) · [`reference_tracking`](#reference_tracking) · [`belief_tracking`](#belief_tracking) · [`coreference`](#coreference) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_successors`](#graph_successors) · [`regex_following`](#regex_following) · [`regex_reasoning`](#regex_reasoning) · [`analogical_case_matching`](#analogical_case_matching) · [`parsing_derivation`](#parsing_derivation) · [`syntax_error_detection`](#syntax_error_detection) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_equivalence`](#table_equivalence) · [`table_statistics`](#table_statistics) · [`string_transduction`](#string_transduction) · [`game_best_move`](#game_best_move) · [`game_forced_win`](#game_forced_win) · [`qualitative_causal_reasoning`](#qualitative_causal_reasoning) · [`code_analysis`](#code_analysis) · [`code_runnability`](#code_runnability) · [`code_execution`](#code_execution) · [`program_synthesis`](#program_synthesis)
 
 ---
 
@@ -58,6 +58,49 @@ The answer is the value of X1, or 'No solution' / 'Multiple solutions'.
 **Answer:**
 ```
 -27
+```
+
+---
+
+## [combinatorics_formula](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/combinatorics.py)
+
+**Prompt:**
+```
+Write the counting expression. C(n,k) is unordered; P(n,k) is ordered.
+
+Problem:
+Place 9 identical tokens into 5 labeled boxes; empty boxes are allowed.
+
+The answer must have the form:
+C(X1,X2)
+where:
+X1 := 4 | 13 | 9
+X2 := 14 | 5 | 4
+Answer with the complete expression.
+```
+
+**Answer:**
+```
+C(13,4)
+```
+
+---
+
+## [function_manipulation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/function_manipulation.py)
+
+Multistep symbolic function manipulation with composition, local inverses, calculus, and short exact answers.
+
+**Prompt:**
+```
+Let $f(x)=-\frac{2}{3} + 2\left(x-2\right)$.
+Define $h(x)=f\left(\left(x\right)-\left(2\left(x-2\right)\right)\right)$.
+Compute $h'(2)$.
+The answer is a reduced rational number.
+```
+
+**Answer:**
+```
+-2
 ```
 
 ---
@@ -459,6 +502,34 @@ Answer with names in alphabetical order, comma-separated, or 'none'.
 **Answer:**
 ```
 bruno, david
+```
+
+---
+
+## [logic_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_derivation.py)
+
+Produce a canonical forward proof trace for a logical target.
+
+**Prompt:**
+```
+Premise:
+0: alice trusts bruno.
+1: bruno is careful.
+2: From x trusts y and y is careful, it follows that x is active.
+3: Being active implies being trusted.
+4: Every approved entity is not active.
+
+Target:
+alice is trusted.
+
+Provide derivation lines in Rule: Input... => Deduction format.
+Premises use their ID. Derived lines use @i, starting with @0.
+```
+
+**Answer:**
+```
+2: 0 1 => active(alice)
+3: @0 => trusted(alice)
 ```
 
 ---
@@ -1233,78 +1304,6 @@ def f(s: str) -> str:
 ```
 def f(s: str) -> str:
     return ((s + "_") + "-")
-```
-
----
-
-## [function_manipulation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/function_manipulation.py)
-
-Multistep symbolic function manipulation with composition, local inverses, calculus, and short exact answers.
-
-**Prompt:**
-```
-Let $f(x)=-\frac{2}{3} + 2\left(x-2\right)$.
-Define $h(x)=f\left(\left(x\right)-\left(2\left(x-2\right)\right)\right)$.
-Compute $h'(2)$.
-The answer is a reduced rational number.
-```
-
-**Answer:**
-```
--2
-```
-
----
-
-## [logic_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_derivation.py)
-
-Produce a canonical forward proof trace for a logical target.
-
-**Prompt:**
-```
-Premise:
-0: alice trusts bruno.
-1: bruno is careful.
-2: From x trusts y and y is careful, it follows that x is active.
-3: Being active implies being trusted.
-4: Every approved entity is not active.
-
-Target:
-alice is trusted.
-
-Provide derivation lines in Rule: Input... => Deduction format.
-Premises use their ID. Derived lines use @i, starting with @0.
-```
-
-**Answer:**
-```
-2: 0 1 => active(alice)
-3: @0 => trusted(alice)
-```
-
----
-
-## [combinatorics_formula_selection](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/combinatorics.py)
-
-**Prompt:**
-```
-Write the counting expression. C(n,k) is unordered; P(n,k) is ordered.
-
-Problem:
-Select an ordered list of 4 distinct objects from 11.
-
-The answer must have the form:
-X1(X2,X3)
-where:
-X1 := P | C
-X2 := 4 | 11 | 14
-X3 := 11 | 4 | 14
-Answer with the complete expression.
-```
-
-**Answer:**
-```
-P(11,4)
 ```
 
 ---

@@ -787,7 +787,7 @@ def _expression_features(expression):
     }
 
 
-class CombinatoricsFormulaSelection(Task):
+class CombinatoricsFormula(Task):
     """Synthesize the unique expression in a small constrained grammar."""
 
     config_cls = CombinatoricsConfig
