@@ -4,7 +4,7 @@
 This avoids materializing the full Hugging Face Dataset locally. Deduplication is
 done with sequential bucket files and a compact keep bitmap:
 
-  pass 1A: stream source rows -> write 128-bit prompt hash + row index buckets
+  pass 1A: stream source rows -> write 128-bit semantic/exact-pair hash + row index buckets
   pass 1B: sort one bucket at a time -> mark first occurrence in bitmap
   pass 2: stream source again -> transform kept rows -> parquet shard -> upload/delete
 
@@ -70,7 +70,18 @@ TARGET_SCHEMA = pa.schema([
     ("mode", pa.large_string()),
 ])
 
+
+def output_schema(dataset_name):
+    """Return the published schema, excluding preprocessing-only columns."""
+    if dataset_name == "procedural-pile":
+        return pa.schema([
+            field for field in TARGET_SCHEMA
+            if field.name != "cot"
+        ])
+    return TARGET_SCHEMA
+
 RECORD = struct.Struct("<QQQ")  # hash_lo, hash_hi, row_index
+DEDUPLICATION_VERSION = "metadata-key-or-prompt-answer-v1"
 _SCORE_DEVNULL = None
 _VERIFY_POOLS = None
 _VERIFY_ARGS = None
@@ -92,9 +103,19 @@ def stable_u01(*parts, seed=42):
     return h.intdigest() / 2**64
 
 
-def prompt_hash(prompt):
-    digest = xxhash.xxh3_128_digest(str(prompt).encode())
-    return struct.unpack("<QQ", digest)
+def deduplication_hash(row):
+    """Prefer generator-provided semantic keys; safely fall back to prompt+answer."""
+    key = metadata_obj(row.get("metadata")).get("_deduplication_key")
+    if isinstance(key, str) and len(key) == 32:
+        try:
+            return struct.unpack("<QQ", bytes.fromhex(key))
+        except ValueError:
+            pass
+    canonical = json.dumps(
+        {"prompt": str(row.get("prompt", "")), "answer": str(row.get("answer", ""))},
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    )
+    return struct.unpack("<QQ", xxhash.xxh3_128_digest(canonical))
 
 
 def metadata_obj(metadata):
@@ -353,6 +374,28 @@ def isolate_runtime_dirs(run_dir, respect_env=False):
         pass
 
 
+def preflight_hub_write(args):
+    """Fail before preprocessing when Hub authentication cannot create the target."""
+    if args.dry_run:
+        return
+    repo_id = f"reasoning-core/{args.dataset_name}"
+    api = HfApi()
+    try:
+        identity = api.whoami()
+        api.create_repo(
+            repo_id,
+            repo_type="dataset",
+            private=args.private,
+            exist_ok=True,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            f"Hub write preflight failed for {repo_id}; set a valid HF_TOKEN "
+            "with write access before starting preprocessing"
+        ) from exc
+    print(f"hub write preflight ok: {identity.get('name', 'unknown')} -> {repo_id}", flush=True)
+
+
 def write_manifest(run_dir, **data):
     path = os.path.join(run_dir, "manifest.json")
     current = {}
@@ -397,7 +440,7 @@ def pass1_partition(args, run_dir, total):
                 if rows_seen % args.tick_rows == 0:
                     monitor.tick(rows_seen, accepted=accepted_pre_dedup)
                 continue
-            lo, hi = prompt_hash(prompt)
+            lo, hi = deduplication_hash(row)
             bucket = lo & (args.dedup_buckets - 1) if args.dedup_buckets & (args.dedup_buckets - 1) == 0 else lo % args.dedup_buckets
             files[bucket].write(RECORD.pack(lo, hi, row_i))
             accepted_pre_dedup += 1
@@ -606,18 +649,13 @@ class ShardWriter:
         os.makedirs(self.output_dir, exist_ok=True)
         self.api = HfApi()
         self.repo_id = f"reasoning-core/{args.dataset_name}"
+        self.schema = output_schema(args.dataset_name)
         self.upload_prefix = args.upload_prefix.strip("/")
         self.rows = {"train": [], "test": []}
         self.shard_i = {"train": 0, "test": 0}
         self.uploaded_rows = 0
         self.uploaded_shards = []
         if not args.dry_run:
-            self.api.create_repo(
-                self.repo_id,
-                repo_type="dataset",
-                private=args.private,
-                exist_ok=True,
-            )
             if args.clear_existing_data:
                 self.clear_existing_data()
 
@@ -638,7 +676,7 @@ class ShardWriter:
 
     def add(self, row):
         split = row.pop("_split", "train")
-        self.rows[split].append({k: row.get(k, "" if k != "level" else 0) for k in TARGET_SCHEMA.names})
+        self.rows[split].append({k: row.get(k, "" if k != "level" else 0) for k in self.schema.names})
         if len(self.rows[split]) >= self.args.shard_rows:
             self.flush(split)
 
@@ -653,7 +691,7 @@ class ShardWriter:
         shard_i = self.shard_i[split]
         shard_name = f"{self.upload_prefix}/{split}-{shard_i:05d}.parquet"
         path = os.path.join(self.output_dir, f"{split}-{shard_i:05d}.parquet")
-        table = pa.Table.from_pylist(self.rows[split], schema=TARGET_SCHEMA)
+        table = pa.Table.from_pylist(self.rows[split], schema=self.schema)
         pq.write_table(table, path, compression="zstd")
         row_count = len(self.rows[split])
         sha = sha256_file(path)
@@ -910,6 +948,10 @@ def main():
             resume_manifest = json.load(f)
         if not resume_manifest.get("pass1_resolve_done"):
             raise RuntimeError(f"pass 1 is incomplete in {run_dir}")
+        if resume_manifest.get("deduplication_version") != DEDUPLICATION_VERSION:
+            raise RuntimeError(
+                f"pass 1 in {run_dir} used an older deduplication scheme; restart preprocessing"
+            )
         args.source = resume_manifest["source"]
         args.source_revision = resume_manifest["source_revision"]
         args.dataset_name = resume_manifest["dataset_name"]
@@ -921,6 +963,7 @@ def main():
     if args.upload_prefix is None:
         args.upload_prefix = "data"
     isolate_runtime_dirs(run_dir, respect_env=args.respect_env_cache)
+    preflight_hub_write(args)
     if args.source == "staging" and args.source_revision is None:
         args.source_revision = HfApi().repo_info("reasoning-core/staging", repo_type="dataset").sha
         print(f"pinned staging revision: {args.source_revision}", flush=True)
@@ -937,6 +980,7 @@ def main():
             upload_prefix=args.upload_prefix,
             dry_run=args.dry_run,
             smoke_test=args.smoke_test,
+            deduplication_version=DEDUPLICATION_VERSION,
         )
     total = source_total(args)
     stats = None

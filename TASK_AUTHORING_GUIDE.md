@@ -32,6 +32,8 @@ Every task should provide:
 - `_task`, `_level`, `_config`, `_time`, `_prompt_tokens`, `_answer_tokens`,
 - `_generator_name`, `_generator_version`, `_generator_commit`, `_task_version`,
 - `_task_behavior_hash` (AST-based module hash; ignores whitespace, comments, and docstrings).
+- `_deduplication_key` (128-bit hash of the canonical prompt/answer pair, with shallow
+  payload order normalized; override `deduplication_key()` only for safe semantic invariances).
 
 ## Config and Difficulty Scaling
 Base `Config` protected fields:

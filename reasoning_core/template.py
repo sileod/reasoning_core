@@ -30,6 +30,7 @@ import tiktoken
 from appdirs import user_cache_dir
 import os
 import psutil
+import xxhash
 from tqdm.auto import tqdm 
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 
@@ -463,10 +464,24 @@ class Task(ProceduralDataset):
 
     def deduplication_key(self, problem):
         """
-        To override, an optional feature that must be the key to deduplicate examples.
-        This can prevent the generation of the same problem.
+        Return the canonical content used to deduplicate examples.
+
+        By default this is the full prompt/answer pair.  For payload-rendered prompts,
+        only the shallow payload order is normalized; the surrounding instructions
+        remain part of the key.  Tasks may override this with stronger, domain-safe
+        invariances.
         """
-        return None
+        prompt = str(problem.prompt)
+        payload = problem.metadata.get("payload")
+        if isinstance(payload, Mapping):
+            rendered = render_payload(payload)
+            if rendered and prompt.count(rendered) == 1:
+                normalized = render_payload({key: payload[key] for key in sorted(payload)})
+                prompt = prompt.replace(rendered, normalized, 1)
+        return json.dumps(
+            {"prompt": prompt, "answer": problem.answer},
+            ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str,
+        )
 
     def on_config_level_change(self):
         pass
@@ -514,12 +529,22 @@ class Task(ProceduralDataset):
                     problem.prompt = self.render_prompt(problem.metadata)
 
                     prompt_tokens = len(self.tokenizer.encode(problem.prompt))
-                    answer_tokens = len(self.tokenizer.encode(problem.metadata.get('cot','') + problem.answer))
+                    # `_answer_tokens` must be the ANSWER only. It used to be cot+answer, which made
+                    # 9 CoT-bearing tasks look like long-answer tasks (logic_nli read 122 tokens for
+                    # the answer "Yes") and silently corrupted any length analysis built on it. The
+                    # generation FILTER below still uses cot+answer, so which examples are kept is
+                    # unchanged -- only the reported metric is fixed.
+                    _cot = problem.metadata.get('cot','') or ''
+                    cot_tokens = len(self.tokenizer.encode(_cot))
+                    answer_tokens = len(self.tokenizer.encode(problem.answer))
+                    # the FILTER keeps the original expression verbatim -- tok(cot+answer) is not
+                    # tok(cot)+tok(answer) (tokenizers merge across the join), so recomputing it from
+                    # the parts would shift the threshold and change which examples are kept.
                     if max_tokens and prompt_tokens > max_tokens:
                         continue
-                    if max_tokens and answer_tokens > max_tokens:
+                    if max_tokens and len(self.tokenizer.encode(_cot + problem.answer)) > max_tokens:
                         continue
-                    break  
+                    break
                 
                 problem.task = self.task_name
 
@@ -530,6 +555,7 @@ class Task(ProceduralDataset):
                 problem.metadata['_config'] = self.config.to_dict()
                 problem.metadata['_prompt_tokens'] = prompt_tokens
                 problem.metadata['_answer_tokens'] = answer_tokens
+                problem.metadata['_cot_tokens'] = cot_tokens
                 generator_name = self.__class__.__module__.split(".", 1)[0]
                 problem.metadata['_generator_name'] = generator_name
                 problem.metadata['_generator_version'] = _generator_version(generator_name)
@@ -538,7 +564,16 @@ class Task(ProceduralDataset):
                 problem.metadata['_task_behavior_hash'] = self.behavior_hash()
 
                 problem.balancing_key = self.balancing_key(problem)
-                problem.deduplication_key = self.deduplication_key(problem)
+                canonical = self.deduplication_key(problem)
+                problem.deduplication_key = canonical
+                problem.metadata["_deduplication_key"] = (
+                    None if canonical is None
+                    else xxhash.xxh3_128_hexdigest(
+                        canonical if isinstance(canonical, (str, bytes))
+                        else json.dumps(canonical, ensure_ascii=False, sort_keys=True,
+                        separators=(",", ":"), default=str)
+                    )
+                )
                 return problem
         return inner()
 
@@ -550,8 +585,26 @@ class Task(ProceduralDataset):
                                 progress=False, workers=1, **kwargs):
         max_per_key = math.ceil(batch_size * self.balancing_key_ratio)
         counts, seen, batch = Counter(), set(), []
+        # A batch is fillable only if (distinct keys) * max_per_key >= batch_size, i.e. roughly
+        # balancing_key_ratio >= 1/(keys the task can actually realise). When it is not, the fill
+        # loop below never terminates -- table_qa burned ~3 CPU-hours that way at level 0, where the
+        # generator can only produce 2 keys against a 0.25 cap. Infeasibility cannot be detected
+        # before sampling (the realised key set is unknown a priori), so count attempts and raise
+        # with the observed distribution instead of spinning.
+        attempts = [0]
+        budget = max(200, 40 * batch_size)
 
         def try_accept(group):
+            attempts[0] += 1
+            if attempts[0] > budget and len(batch) < batch_size:
+                need = math.ceil(1 / max(len(counts), 1) * 100) / 100
+                raise RuntimeError(
+                    f"{type(self).__name__}.generate_balanced_batch could not fill {batch_size} rows "
+                    f"in {attempts[0]} attempts (got {len(batch)}). Only {len(counts)} distinct "
+                    f"balancing keys were realised, so at most {len(counts)}*{max_per_key}="
+                    f"{len(counts) * max_per_key} rows are reachable. Raise balancing_key_ratio to "
+                    f">= {need} (it is {self.balancing_key_ratio}), widen balancing_key, or make the "
+                    f"generator reach more keys. Observed: {dict(counts)}")
             if len(batch) + len(group) > batch_size:
                 return 0
             keys = Counter(ex.balancing_key for ex in group if ex.balancing_key is not None)

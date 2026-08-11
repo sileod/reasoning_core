@@ -55,6 +55,7 @@ dependencies = [
     "wrapt",
     "psutil",
     "nfsdict",
+    "xxhash",
 ]
 
 [project.optional-dependencies]

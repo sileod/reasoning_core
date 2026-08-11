@@ -3,13 +3,14 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MEMORY_MAX="${RC_MEMORY_MAX:-360G}"
+PYTHON_BIN="${RC_PYTHON:-python3}"
 LOG_DIR="${RC_LOG_DIR:-$ROOT/scripts/logs}"
 TS="$(date +%Y%m%d_%H%M%S)"
 LOG="$LOG_DIR/rc_preprocess_upload_$TS.log"
 
 mkdir -p "$LOG_DIR"
 
-cmd=(python "$ROOT/scripts/rc_preprocess_upload.py" "$@")
+cmd=("$PYTHON_BIN" "$ROOT/scripts/rc_preprocess_upload.py" "$@")
 
 echo "log: $LOG"
 echo "memory cap: $MEMORY_MAX"

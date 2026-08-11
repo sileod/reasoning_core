@@ -244,6 +244,62 @@ def _all_consequences(cases, q_before):
     return hits
 
 
+def _canonical_case_structure(context, consequence):
+    """Canonicalize a case up to entity/relation names and relation direction."""
+    context = [tuple(atom) for atom in context]
+    consequence = tuple(consequence)
+    predicates = sorted({atom[0] for atom in context + [consequence]})
+
+    def canonical_entities(records):
+        entities = sorted({x for _, _, a, b in records for x in (a, b)})
+
+        def refine(colors):
+            while True:
+                signatures = {}
+                for entity in entities:
+                    incident = []
+                    for kind, predicate, left, right in records:
+                        if entity == left:
+                            incident.append(("out", kind, predicate, colors[right]))
+                        if entity == right:
+                            incident.append(("in", kind, predicate, colors[left]))
+                    signatures[entity] = (colors[entity], tuple(sorted(incident)))
+                palette = {value: i for i, value in enumerate(sorted(set(signatures.values()), key=repr))}
+                updated = {entity: palette[signature] for entity, signature in signatures.items()}
+                if updated == colors:
+                    return colors
+                colors = updated
+
+        def search(colors):
+            colors = refine(colors)
+            cells = defaultdict(list)
+            for entity, color in colors.items():
+                cells[color].append(entity)
+            ambiguous = [cell for _, cell in sorted(cells.items()) if len(cell) > 1]
+            if not ambiguous:
+                names = {entity: color for entity, color in colors.items()}
+                return tuple(sorted((kind, predicate, names[left], names[right])
+                                    for kind, predicate, left, right in records))
+            cell = min(ambiguous, key=lambda values: (len(values), colors[values[0]]))
+            return min(search({**colors, entity: max(colors.values()) + 1}) for entity in cell)
+
+        return search({entity: 0 for entity in entities})
+
+    candidates = []
+    for order in it.permutations(predicates):
+        predicate_ids = {predicate: i for i, predicate in enumerate(order)}
+        for reversed_bits in it.product((False, True), repeat=len(predicates)):
+            reverse = dict(zip(predicates, reversed_bits))
+            records = []
+            for kind, atoms in ((0, context), (1, [consequence])):
+                for predicate, left, right in atoms:
+                    if reverse[predicate]:
+                        left, right = right, left
+                    records.append((kind, predicate_ids[predicate], left, right))
+            candidates.append(canonical_entities(records))
+    return min(candidates)
+
+
 @dataclass
 class AnalogicalCaseMatchingConfig(Config):
     n_query_objects: int = 5
@@ -430,6 +486,20 @@ class AnalogicalCaseMatching(Task):
         lines.append(f"Query: {query}")
 
         return "\n".join(lines)
+
+    def deduplication_key(self, problem):
+        metadata = problem.metadata
+        cases = sorted(
+            _canonical_case_structure(case["context"], case["consequence"])
+            for case in metadata["cases"]
+        )
+        query = _canonical_case_structure(
+            metadata["query_context"], metadata["answer_atom"]
+        )
+        return (
+            tuple(cases), query, metadata["answer_format"],
+            metadata["allow_no_match"], metadata["no_match"],
+        )
 
     def score_answer(self, answer, entry):
         text = str(answer).strip().casefold().rstrip(".")

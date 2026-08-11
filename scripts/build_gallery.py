@@ -40,8 +40,7 @@ SINGLE_EXAMPLE_TASKS = {
 
 GITHUB_BASE = "https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks"
 README_MENU_RE = re.compile(
-    r"(\[GALLERY\]\([^)]+\)[^\n]*\n\n)(.*?)(\n\n\[TASK_AUTHORING_GUIDE\]\([^)]+\))",
-    re.S,
+    r"(\[GALLERY\]\([^)]+\)[^\n]*\n\n)([^\n]*)(\n\n+## Task authoring guidelines)",
 )
 
 
@@ -264,6 +263,12 @@ def refresh_readme_menu(task_names, readme_path):
         raise RuntimeError(
             f"could not find README gallery menu block in {readme_path}"
         )
+    new_text = re.sub(
+        r"Browse all \[\d+ task examples\]\(GALLERY\.md\)\.",
+        f"Browse all [{len(task_names)} task examples](GALLERY.md).",
+        new_text,
+        count=1,
+    )
     readme_path.write_text(new_text, encoding="utf-8")
 
 

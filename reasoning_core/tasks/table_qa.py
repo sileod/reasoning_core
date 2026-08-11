@@ -474,7 +474,13 @@ class TableQA(Task):
     summary = "Answer queries on tabular data by executing SQL queries over dataframes."
     def __init__(self, config=None):
         super().__init__(config=config or TableQAConfig())
-        self.balancing_key_ratio = 0.25
+        # generate_balanced_batch caps each key at ceil(batch*ratio), so a batch is only fillable
+        # when ratio >= 1/(distinct keys realised). The query spec became data-aware, which made
+        # expr_depth/n_group_keys deterministic functions of `family` -- and at complexity 1 the
+        # family weights give grouped_arithmetic weight 0, so level 0 realises just TWO keys. At
+        # 0.25 that batch is unfillable and the loop, which has no attempt cap, spins forever.
+        # 0.5 is the framework default and exactly the feasibility limit for two keys.
+        self.balancing_key_ratio = 0.5
 
     def _query_family(self, query):
         q = " ".join(str(query).upper().split())
@@ -679,6 +685,12 @@ def canonical_table(dataframe):
     return cols, tuple(body)
 
 
+def canonical_table_pair(table_a, table_b, answer):
+    """Canonical semantic instance; table sides are interchangeable."""
+    pair = sorted((canonical_table(table_a), canonical_table(table_b)), key=repr)
+    return tuple(pair), answer
+
+
 def mutate_cell(x):
     if pd.isna(x):
         return "not missing"
@@ -771,12 +783,13 @@ class TableEquivalence(Task):
                 other_df, corruptions = corrupt_table(semantic_df)
             answer = "No"
 
+        deduplication_canonical = canonical_table_pair(semantic_df, other_df, answer)
         other_df = permute_table(other_df)
         style_a, style_b = random.sample(["plain", "formatted"], 2)
         display_a = equivalence_display(semantic_df, style_a)
         display_b = equivalence_display(other_df, style_b)
         fmt_a, fmt_b = sample_distinct_renderers(EQUIV_RENDERERS)
-        return Entry(
+        entry = Entry(
             metadata={
                 "table_a": get_renderers(display_a)[fmt_a](index=False),
                 "table_b": get_renderers(display_b)[fmt_b](index=False),
@@ -789,6 +802,8 @@ class TableEquivalence(Task):
             },
             answer=answer,
         )
+        entry._deduplication_canonical = deduplication_canonical
+        return entry
 
     def render_prompt(self, m):
         return (
@@ -810,6 +825,9 @@ class TableEquivalence(Task):
 
     def balancing_key(self, problem):
         return problem.answer
+
+    def deduplication_key(self, problem):
+        return problem._deduplication_canonical
 
 
 def pearson(a, b):

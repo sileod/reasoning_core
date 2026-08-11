@@ -820,11 +820,10 @@ class Planning(Task):
                 planted_na = len(reference_plan.actions)
                 if generator_mode == "planted_walk" and config.optimal_relabel:
                     solution = solve(problem, planner=config.planner)
-                    if not solution.plan or len(solution.plan.actions) < config.min_na:
-                        continue
-                    reference_plan = solution.plan
-                    generator_mode = "planted_walk_optimal"
-                elif len(reference_plan.actions) < target_na:
+                    if solution.plan and len(solution.plan.actions) >= config.min_na:
+                        reference_plan = solution.plan
+                        generator_mode = "planted_walk_optimal"
+                if generator_mode == "planted_walk" and len(reference_plan.actions) < target_na:
                     continue
 
                 if generator_mode == "planted_walk" and random.random() < config.audit_proba:

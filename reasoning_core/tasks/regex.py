@@ -741,8 +741,8 @@ class RegexRetrieval(DevTask):
         return (
             f"Text: {meta['text']}\n"
             f"Regex: {meta['regex']}\n"
-            f"The answer is a JSON array of exact non-overlapping matches, left-to-right, including duplicates. "
-            f"The answer is [] if none."
+            "Return only a JSON array of exact non-overlapping matches, left-to-right, "
+            "including duplicates; use [] if none."
         )
 
     def score_answer(self, answer, entry):

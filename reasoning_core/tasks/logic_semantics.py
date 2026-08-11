@@ -187,7 +187,7 @@ def is_bloat(meta, label):
     }
     return rules in bloat_signatures
 
-class LogicNLI(Task):
+class LogicNLI(DevTask):
     summary = "First-order logic natural language inference via automated theorem proving."
 
     def __init__(self, config=None):
@@ -377,7 +377,7 @@ def _alter_formula(f):
     random.shuffle(ops)
     return ops[0][0], ops[0][1](f)
 
-class LogicFormalization(Task):
+class LogicFormalization(DevTask):
     summary = "Translate natural language premises into formal first-order logic formulas."
     def __init__(self, config=None):
         super().__init__(config=config or LogicFormalizationConfig())

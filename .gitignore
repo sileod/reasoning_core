@@ -102,14 +102,19 @@ ROADMAP.md
 
 # Claude Code artifacts
 .claude/
+.codex-tmp/
 .test/
 data-gym-cache/
+
+# Local research scratch space; task implementations belong in reasoning_core/tasks/.
+/tasks/dev/
 
 # task_diagnostics: keep the RESULTS markdown in git, not the regenerable raw json
 task_diagnostics/*.json
 
 # unpublished paper results/tables — keep OFF the public repo
 paper_exports/
+/build_canon_shuffle.py
 
 # local sync utility (references private storage paths)
 sync_results.sh

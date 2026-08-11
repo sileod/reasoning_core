@@ -1,3 +1,4 @@
+import os
 import random
 from dataclasses import dataclass
 
@@ -15,7 +16,14 @@ NAMES = ('John', 'Paul', 'Mark', 'Leo', 'Tom', 'Sam', 'Max', 'Ben',
          'Adam', 'Noah', 'Luke', 'Eric', 'Jack', 'Hugo', 'Alan', 'Owen',
          'Mary', 'Anna', 'Jane', 'Eve', 'Sara', 'Lucy', 'Zoe', 'Rita',
          'Emma', 'Nora', 'Lily', 'Mia', 'Rose', 'Iris', 'Lena', 'Kate')
-Z3_TIMEOUT_MS = 1000
+Z3_TIMEOUT_MS = int(os.environ.get("RC_COREFERENCE_Z3_TIMEOUT_MS", 1000))
+# z3's `timeout` is WALL-CLOCK, so a contended machine is indistinguishable from a hard problem.
+# Every check then returns `unknown`, every candidate is discarded, generate_entry exhausts
+# max_attempts and RAISES -- and the task emits no rows at all rather than degrading. Retrying with
+# a larger budget makes starvation cost time instead of data. Set to 0 to restore the old behaviour.
+Z3_TIMEOUT_RETRIES = int(os.environ.get("RC_COREFERENCE_Z3_RETRIES", 1))
+Z3_TIMEOUT_GROWTH = 5
+_z3_unknown_count = 0            # checks that exhausted the whole ladder, for diagnostics
 
 
 @dataclass(frozen=True)
@@ -45,6 +53,28 @@ def _solver():
     solver = z3.Solver()
     solver.set(timeout=Z3_TIMEOUT_MS)
     return solver
+
+
+def _check(solver):
+    """`solver.check()` with an escalating wall-clock budget.
+
+    Semantics are unchanged whenever z3 answers within the first budget, which is the normal case --
+    these CSPs solve in about a millisecond, so the ladder never escalates on an idle machine. It
+    only engages when a check would otherwise return `unknown` and the candidate would be thrown
+    away.
+    """
+    global _z3_unknown_count
+    budget = Z3_TIMEOUT_MS
+    result = z3.unknown
+    for attempt in range(Z3_TIMEOUT_RETRIES + 1):
+        if attempt:
+            budget *= Z3_TIMEOUT_GROWTH
+            solver.set(timeout=budget)
+        result = solver.check()
+        if result != z3.unknown:
+            return result
+    _z3_unknown_count += 1
+    return result
 
 
 def _full_description(entity):
@@ -102,13 +132,13 @@ def entailment_status(query_idx, gold, domains, factors):
     variables, constraints = compile_z3(domains, factors)
     solver = _solver()
     solver.add(*constraints)
-    result = solver.check()
+    result = _check(solver)
     if result == z3.unknown:
         return None
     if result != z3.sat:
         return False
     solver.add(variables[query_idx] != gold)
-    result = solver.check()
+    result = _check(solver)
     if result == z3.unknown:
         return None
     return result == z3.unsat
@@ -120,7 +150,7 @@ def entailed_value(query_idx, domains, factors):
     for value in domains[query_idx]:
         solver = _solver()
         solver.add(*constraints, variables[query_idx] == value)
-        result = solver.check()
+        result = _check(solver)
         if result == z3.unknown:
             return None
         if result == z3.sat:
@@ -425,7 +455,7 @@ class Coreference(Task):
         variables, constraints = compile_z3(domains, factors)
         solver = _solver()
         solver.add(*constraints)
-        if solver.check() != z3.sat:
+        if _check(solver) != z3.sat:      # `unknown` lands here too, and also discards the candidate
             return None
         if entailed_value(query_idx, domains, factors) != gold:
             return None
@@ -479,11 +509,20 @@ class Coreference(Task):
         return Entry(metadata=metadata, answer=by_eid[gold].name)
 
     def generate_entry(self):
+        before = _z3_unknown_count
         for _ in range(self.config.max_attempts):
             candidate = self._generate_candidate()
             if candidate is not None:
                 return candidate
-        raise RuntimeError("Could not generate a certified coreference problem")
+        # This raise means the task emits NO rows for the job, so say why: a solver-timeout count
+        # near the attempt count means z3 is starved (raise RC_COREFERENCE_Z3_TIMEOUT_MS), while
+        # zero timeouts means the config itself is infeasible (usually target_depth too high).
+        timeouts = _z3_unknown_count - before
+        raise RuntimeError(
+            f"Could not generate a certified coreference problem in {self.config.max_attempts} "
+            f"attempts (z3 timeouts: {timeouts}, target_depth={self.config.target_depth}, "
+            f"n_entities={self.config.n_entities}, z3_budget_ms={Z3_TIMEOUT_MS}"
+            f"x{Z3_TIMEOUT_RETRIES + 1})")
 
     def render_prompt(self, metadata):
         return (

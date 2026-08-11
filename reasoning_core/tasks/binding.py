@@ -444,6 +444,9 @@ class LambdaReduction(Task):
             "The answer is the β-normal form (compared up to α-equivalence)."
         )
 
+    def deduplication_key(self, problem):
+        return problem.metadata["split_key"]
+
     def score_answer(self, answer, entry):
         if answer is None: return 0.0
         try:
@@ -1083,6 +1086,9 @@ class RewriteSystem(Task):
             "The answer is the normal form."
         )
 
+    def deduplication_key(self, problem):
+        return problem.metadata["split_key"]
+
     def score_answer(self, answer, entry):
         if answer is None:
             return 0.0
@@ -1457,16 +1463,50 @@ def _mgu_candidate_features(candidate):
 
 
 def _mgu_split_key(equations, candidate, answer):
-    """Conservative structural grouping invariant to names and equation order."""
-    def shape(t):
-        if _mgu_is_var(t): return 'V'
-        if isinstance(t, tuple): return (f'F{len(t) - 1}', *(shape(x) for x in t[1:]))
-        return 'C'
+    """Exact canonical form under symbol renaming, equation order, and equality sides."""
+    def copy_maps(maps):
+        variables, constants, functions = maps
+        return variables.copy(), constants.copy(), {arity: values.copy() for arity, values in functions.items()}
 
-    ceqs = sorted((min((shape(a), shape(b)), (shape(b), shape(a)), key=repr)
-                   for a, b in equations), key=repr)
-    ccand = (shape(candidate[0]), shape(candidate[1]))
-    return hashlib.sha1(repr((ceqs, ccand, answer)).encode()).hexdigest()[:16]
+    def canon_term(t, maps):
+        variables, constants, functions = maps
+        if _mgu_is_var(t):
+            variables.setdefault(t, len(variables))
+            return "V", variables[t]
+        if isinstance(t, tuple):
+            arity = len(t) - 1
+            names = functions.setdefault(arity, {})
+            names.setdefault(t[0], len(names))
+            return ("F", arity, names[t[0]], *(canon_term(x, maps) for x in t[1:]))
+        constants.setdefault(t, len(constants))
+        return "C", constants[t]
+
+    def pair_options(pair, maps):
+        out = []
+        for left, right in (pair, pair[::-1]):
+            next_maps = copy_maps(maps)
+            out.append(((canon_term(left, next_maps), canon_term(right, next_maps)), next_maps))
+        best = min(value for value, _ in out)
+        return [(value, state) for value, state in out if value == best]
+
+    def canon_equations(remaining, maps):
+        if not remaining:
+            return ()
+        choices = []
+        for i, equation in enumerate(remaining):
+            rest = remaining[:i] + remaining[i + 1:]
+            for value, state in pair_options(equation, maps):
+                choices.append((value, rest, state))
+        first = min(value for value, _, _ in choices)
+        return min((value, *canon_equations(rest, state))
+                   for value, rest, state in choices if value == first)
+
+    empty = ({}, {}, {})
+    candidates = []
+    for candidate_value, maps in pair_options(candidate, empty):
+        candidates.append((candidate_value, canon_equations(tuple(equations), maps), answer))
+    canonical = min(candidates)
+    return hashlib.sha1(repr(canonical).encode()).hexdigest()
 
 
 def _mgu_close_negative(sol, candidate):
@@ -1723,6 +1763,9 @@ class UnificationEntailment(Task):
             "Candidate:\n"
             f"{metadata['candidate']}"
         )
+
+    def deduplication_key(self, problem):
+        return problem.metadata["split_key"]
 
     def score_answer(self, answer, entry):
         if answer is None:
