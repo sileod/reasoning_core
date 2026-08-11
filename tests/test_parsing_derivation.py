@@ -1,6 +1,12 @@
 from easydict import EasyDict as edict
+from nltk import CFG
 
-from reasoning_core.tasks.grammar import ParsingDerivation
+from reasoning_core.tasks.grammar import (
+    GrammarConfig,
+    ParsingDerivation,
+    grammar_text,
+    labeled_rules,
+)
 from reasoning_core.template import Entry
 
 
@@ -16,3 +22,21 @@ def test_parsing_derivation_soft_score():
 def test_parsing_derivation_uses_shorter_defaults():
     config = ParsingDerivation().config
     assert (config.target_num_rules, config.min_prod_depth, config.max_prod_depth, config.max_tokens) == (8, 3, 5, 12)
+
+
+def test_grammar_rendering_supports_configured_lean_style():
+    grammar = CFG.fromstring("S -> A\nA -> 'a'")
+
+    arrow = grammar_text(grammar, GrammarConfig(lean_style_prob=0))
+    definition = grammar_text(grammar, GrammarConfig(lean_style_prob=1))
+
+    assert " -> " in arrow and " := " not in arrow
+    assert " := " in definition and " -> " not in definition
+    assert GrammarConfig().lean_style_prob == 0.5
+
+
+def test_labeled_rules_map_lean_style_back_to_productions():
+    rendered, labels = labeled_rules(edict(g="S := A\nA := 'a'"))
+
+    assert ":=" in rendered
+    assert set(labels) == {"S -> A", "A -> 'a'"}

@@ -35,9 +35,11 @@ wordlist = list(fake.words(nb=500,unique=True))
 
 from dataclasses import dataclass
 
-def grammar_text(grammar):
+def grammar_text(grammar, config=None):
     rules = list(dict.fromkeys(map(str, grammar.productions())))
     random.shuffle(rules)
+    if random.random() < getattr(config, "lean_style_prob", 0.0):
+        rules = [rule.replace(" -> ", " := ", 1) for rule in rules]
     return "\n".join(rules)
 
 @dataclass
@@ -45,6 +47,7 @@ class GrammarConfig(Config):
     n_types: int = 4
     n_terminals: int = 5
     perturbation_rate: float = 0.5
+    lean_style_prob: float = 0.5
 
     gramforge_algorithm: str = "sequential"
     min_depth:int =5
@@ -447,7 +450,7 @@ def generate_parse(config=None, max_attempts=200):
                          "ambiguous"   if len(meta.parses) > 1 else 
                          "unambiguous")
             meta.tokens = tokens
-            meta.g = grammar_text(g)
+            meta.g = grammar_text(g, config)
             meta.start = str(g.start())
             return meta
     raise RuntimeError(f"Failed to generate a parse after {max_attempts} attempts")
@@ -531,7 +534,7 @@ def labeled_rules(meta):
     lines = list(dict.fromkeys(meta.g.splitlines()))
     random.shuffle(lines)
     return "\n".join(f"R{i}: {rule}" for i, rule in enumerate(lines)), {
-        rule: f"R{i}" for i, rule in enumerate(lines)
+        rule.replace(" := ", " -> ", 1): f"R{i}" for i, rule in enumerate(lines)
     }
 
 
@@ -703,7 +706,7 @@ class Continuation(DevTask):
                 cot = _build_cot(tokens, can_stop, justifications)
                 
                 return Entry(
-                    edict(g=grammar_text(g), start=str(g.start()),
+                    edict(g=grammar_text(g, self.config), start=str(g.start()),
                           prefix=prefix, depth=len(prefix), cot=cot),
                     answer
                 )
@@ -824,7 +827,7 @@ class SyntaxErrorDetection(Task):
                     continue
 
                 return Entry(
-                    edict(g=grammar_text(g), start=str(g.start()),
+                    edict(g=grammar_text(g, self.config), start=str(g.start()),
                           tokens=out, error_index=idx),
                     ans
                 )
@@ -1038,7 +1041,7 @@ class ConstrainedContinuation(Task):
 
                     return Entry(
                         edict(
-                            g=grammar_text(g),
+                            g=grammar_text(g, self.config),
                             start=str(g.start()),
                             k=k,
                             prefix=prefix,
