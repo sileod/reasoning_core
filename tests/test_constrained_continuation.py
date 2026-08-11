@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 
 from nltk import CFG
+import pytest
 
 from reasoning_core.tasks import grammar as grammar_tasks
 from reasoning_core.tasks.grammar import (
@@ -48,11 +49,11 @@ def test_constrained_continuation_skips_oversized_sentences(monkeypatch):
     assert "<HOLE>" in problem.metadata.sentence
 
 
-def test_constrained_continuation_scores_exact_token_sequence():
+def test_constrained_continuation_gives_token_level_partial_credit():
     task = ConstrainedContinuation()
     entry = type("Entry", (), {"answer": "a b c", "__getitem__": lambda self, key: getattr(self, key)})()
 
     assert task.score_answer("a b c", entry) == 1.0
-    assert task.score_answer("a x c", entry) == 0.0
-    assert task.score_answer("a b", entry) == 0.0
+    assert task.score_answer("a x c", entry) == pytest.approx(2 / 3)
+    assert task.score_answer("a b", entry) == pytest.approx(2 / 3)
     assert task.score_answer("", entry) == 0.0

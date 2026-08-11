@@ -1051,7 +1051,8 @@ class ConstrainedContinuation(Task):
         )
 
     def score_answer(self, answer, entry):
-        return float(str(answer).split() == entry["answer"].split())
+        pred, gold = str(answer).split(), entry["answer"].split()
+        return Levenshtein.normalized_similarity(pred, gold) if pred else 0.0
 
 
 # --- Stress continuation: valid_next(G, prefix) with delayed recursive state ---
