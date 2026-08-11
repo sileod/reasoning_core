@@ -70,47 +70,62 @@ def process_row(ex: dict) -> dict:
     }
 
 
-def file_iterator(rc_path: str, version: str, state: NfsDict, delete: bool = False):
+def load_file_state(state: NfsDict) -> tuple[set[str], set[str]]:
+    """Index both legacy per-file entries and compact batch manifests."""
+    done, bad = set(), set()
+    for key, value in state.items():
+        if not isinstance(value, dict):
+            continue
+        status = value.get("s")
+        target = done if status == "done" else bad if status == "bad" else None
+        if target is None:
+            continue
+        files = value.get("files")
+        if isinstance(files, list):
+            target.update(files)
+        elif not key.startswith("__") and not key.startswith("batch:"):
+            target.add(key)  # legacy one-file-per-key state
+    return done, bad
+
+
+def save_manifest(state: NfsDict, status: str, keys: list[str], **extra):
+    if not keys:
+        return
+    mid = hashlib.sha1("\n".join(sorted(keys)).encode()).hexdigest()[:12]
+    state[f"batch:{status}:{mid}"] = {"s": status, "files": keys, **extra}
+
+
+def file_iterator(rc_path: str, version: str, done: set[str], bad: set[str],
+                  delete: bool = False):
     """Single lazy pass over the glob. Yields paths not yet in state."""
-    deleted_count = 0
     for p in Path(rc_path, "generated_data").glob(f"{version}/*.jsonl"):
         ap = os.path.abspath(p)
         k = file_key(ap)
-        if k not in state:
+        if k not in done and k not in bad:
             yield ap
-        elif delete and isinstance(state[k], dict) and state[k].get("s") == "done":
+        elif delete and k in done:
             try:
                 os.unlink(ap)
-                del state[k]
-                deleted_count += 1
-                if deleted_count % 1000 == 0:
-                    s = state.get("__stats__", {})
-                    s["done"] = s.get("done", 0) + 1000
-                    state["__stats__"] = s
             except OSError:
                 pass
-    if deleted_count % 1000 != 0:
-        s = state.get("__stats__", {})
-        s["done"] = s.get("done", 0) + (deleted_count % 1000)
-        state["__stats__"] = s
 
 
-def build_batch(file_iter, state: NfsDict, size: int, pbar: tqdm) -> tuple[list[str], int]:
+def build_batch(file_iter, known: set[str], size: int, pbar: tqdm):
     """Pull exactly `size` good files from the *shared* iterator."""
-    batch, bad = [], 0
+    batch, bad = [], {}
     for p in file_iter:
         pbar.update(1)
         k = file_key(p)
-        if k in state:
+        if k in known:
             continue
         ok, err = validate_jsonl(p)
         if ok:
             batch.append(p)
-            pbar.set_postfix(good=len(batch), bad=bad, refresh=False)
+            pbar.set_postfix(good=len(batch), bad=len(bad), refresh=False)
         else:
-            state[k] = {"s": "bad", "reason": (err or "invalid")[:200]}
-            bad += 1
-            pbar.set_postfix(good=len(batch), bad=bad, refresh=False)
+            bad[k] = (err or "invalid")[:200]
+            known.add(k)
+            pbar.set_postfix(good=len(batch), bad=len(bad), refresh=False)
         if len(batch) >= size:
             break
     return batch, bad
@@ -171,39 +186,25 @@ def upload_shard(files, bid, api, repo, num_proc):
 
 
 
-def mark_batch_done(state: NfsDict, paths: list[str], shard: str, delete: bool = False):
-    t = time.time()
-    deleted_count = 0
+def mark_batch_done(state: NfsDict, paths: list[str], shard: str,
+                    done: set[str], delete: bool = False):
+    keys = [file_key(p) for p in paths]
+    # Persist the whole uploaded batch atomically before deleting any source.
+    save_manifest(state, "done", keys, shard=shard, t=time.time())
+    done.update(keys)
     for p in tqdm(paths, desc="  💾 Marking done", unit="f", leave=False):
-        k = file_key(p)
         if delete:
             try:
                 os.unlink(p)
-                if k in state:
-                    del state[k]
-                deleted_count += 1
-                continue
             except OSError:
                 pass
-        state[k] = {"s": "done", "shard": shard, "t": t}
-    if deleted_count > 0:
-        s = state.get("__stats__", {})
-        s["done"] = s.get("done", 0) + deleted_count
-        state["__stats__"] = s
 
 
-def stats(state: NfsDict) -> tuple[int, int]:
-    done = bad = 0
+def stats(state: NfsDict, done: set[str], bad: set[str]) -> tuple[int, int]:
     s_obj = state.get("__stats__", {})
-    if isinstance(s_obj, dict):
-        done += s_obj.get("done", 0)
-        bad += s_obj.get("bad", 0)
-    for k, v in state.items():
-        if isinstance(k, str) and k.startswith("__"): continue
-        if isinstance(v, dict):
-            if v.get("s") == "done": done += 1
-            elif v.get("s") == "bad": bad += 1
-    return done, bad
+    historical_done = s_obj.get("done", 0) if isinstance(s_obj, dict) else 0
+    historical_bad = s_obj.get("bad", 0) if isinstance(s_obj, dict) else 0
+    return historical_done + len(done), historical_bad + len(bad)
 
 
 def main(args):
@@ -224,9 +225,10 @@ def main(args):
         serializer="json",
         progress_bar=True,
     )
+    done, bad = load_file_state(state)
 
-    d, b = stats(state)
-    print(f"   history  = {d} done, {b} bad ({len(state)} tracked)\n", flush=True)
+    d, b = stats(state, done, bad)
+    print(f"   history  = {d} done, {b} bad ({len(done) + len(bad)} tracked)\n", flush=True)
 
     api = HfApi()
     api.create_repo(repo_id=repo, repo_type="dataset", private=True, exist_ok=True)
@@ -236,22 +238,25 @@ def main(args):
     if pending_data and isinstance(pending_data, dict):
         pid = pending_data.get("id")
         pending = [p for p in pending_data.get("paths", [])
-                   if os.path.exists(p) and file_key(p) not in state]
+                   if os.path.exists(p) and file_key(p) not in done
+                   and file_key(p) not in bad]
         if pending:
-            good, nb = [], 0
+            good, bad_entries = [], {}
             for p in tqdm(pending, desc="🔄 Validating pending", unit="f", leave=False):
                 ok, err = validate_jsonl(p)
                 if ok:
                     good.append(p)
                 else:
-                    state[file_key(p)] = {"s": "bad", "reason": (err or "")[:200]}
-                    nb += 1
+                    bad_entries[file_key(p)] = (err or "invalid")[:200]
+            save_manifest(state, "bad", list(bad_entries),
+                          reasons=bad_entries, t=time.time())
+            bad.update(bad_entries)
             if good:
                 print(f"🔄 Resuming {pid} ({len(good)} files)")
                 bid = batch_id(good)
                 shard, rows = upload_shard(good, bid, api, repo, args.num_proc)
-                mark_batch_done(state, good, shard, delete=args.delete)
-                d, b = stats(state)
+                mark_batch_done(state, good, shard, done, delete=args.delete)
+                d, b = stats(state, done, bad)
                 print(f"  ✓ {d} done, {b} bad" +
                       (f", {rows:,} rows" if rows else "") + "\n")
     if "__pending__" in state:
@@ -260,11 +265,16 @@ def main(args):
     # ── Main loop: single glob pass, interleaved scan→process→push ───
     try:
         n = 0
-        file_iter = file_iterator(args.rc_path, args.version, state, delete=args.delete)
+        file_iter = file_iterator(args.rc_path, args.version, done, bad,
+                                  delete=args.delete)
         pbar = tqdm(desc="🔍 Scanning", unit="f")
 
         while True:
-            batch_files, nb = build_batch(file_iter, state, args.batch, pbar)
+            batch_files, bad_entries = build_batch(file_iter, done | bad,
+                                                    args.batch, pbar)
+            save_manifest(state, "bad", list(bad_entries),
+                          reasons=bad_entries, t=time.time())
+            bad.update(bad_entries)
             if not batch_files:
                 break
 
@@ -274,27 +284,27 @@ def main(args):
             bid = batch_id(batch_files)
             state["__pending__"] = {"id": bid, "paths": batch_files, "t": time.time()}
 
-            d, b = stats(state)
+            d, b = stats(state, done, bad)
             print(f"\n📤 #{n} [{bid}] {len(batch_files):,} files  ({d} done, {b} bad)")
 
             shard, rows = upload_shard(batch_files, bid, api, repo, args.num_proc)
-            mark_batch_done(state, batch_files, shard, delete=args.delete)
+            mark_batch_done(state, batch_files, shard, done, delete=args.delete)
             if "__pending__" in state:
                 del state["__pending__"]
 
-            d, b = stats(state)
+            d, b = stats(state, done, bad)
             print(f"  🏁 {d} done, {b} bad" +
                   (f", {rows:,} rows this batch" if rows else "") + "\n")
 
             pbar.set_description("🔍 Scanning")
 
         pbar.close()
-        d, b = stats(state)
+        d, b = stats(state, done, bad)
         print(f"🎉 Done — {d} uploaded, {b} bad")
 
     except KeyboardInterrupt:
         pbar.close()
-        d, b = stats(state)
+        d, b = stats(state, done, bad)
         print(f"\n⚠️  Interrupted — {d} done, {b} bad")
         raise SystemExit(130)
 
