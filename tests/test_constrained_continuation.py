@@ -41,7 +41,8 @@ def test_constrained_continuation_skips_oversized_sentences(monkeypatch):
     )
 
     config = GrammarConfig(
-        min_k=3, max_k=3, max_tokens=3, min_options=1, lean_style_prob=1,
+        min_k=3, max_k=3, max_tokens=3, min_options=1,
+        definition_operator_prob=1,
     )
     problem = ConstrainedContinuation(config).generate()
 

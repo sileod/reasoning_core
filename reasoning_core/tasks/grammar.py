@@ -38,7 +38,7 @@ from dataclasses import dataclass
 def grammar_text(grammar, config=None):
     rules = list(dict.fromkeys(map(str, grammar.productions())))
     random.shuffle(rules)
-    if random.random() < getattr(config, "lean_style_prob", 0.0):
+    if random.random() < getattr(config, "definition_operator_prob", 0.0):
         rules = [rule.replace(" -> ", " := ", 1) for rule in rules]
     return "\n".join(rules)
 
@@ -47,7 +47,7 @@ class GrammarConfig(Config):
     n_types: int = 4
     n_terminals: int = 5
     perturbation_rate: float = 0.5
-    lean_style_prob: float = 0.5
+    definition_operator_prob: float = 0.5
 
     gramforge_algorithm: str = "sequential"
     min_depth:int =5
