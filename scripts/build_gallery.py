@@ -145,6 +145,10 @@ def task_metadata_block(name, task=None, include_summaries=True):
     return f"{summary}\n\n" if summary else ""
 
 
+def behavior_marker(name):
+    return f"<!-- behavior-hash: {source_behavior_hash(task_source(name))} -->"
+
+
 def build_examples(tasks, cache=False, refresh_cache=False, allow_missing=False):
     examples = OrderedDict()
     failures = []
@@ -170,6 +174,7 @@ def section_text(name, example, include_summaries=True):
     task = get_task(name)
     return (
         f"## [{name}]({source_link(task)})\n\n"
+        f"{behavior_marker(name)}\n\n"
         f"{task_metadata_block(name, task, include_summaries)}"
         f"**Prompt:**\n{fence(example.prompt)}\n\n"
         f"**Answer:**\n{fence(example.answer)}"
@@ -187,6 +192,7 @@ def normalize_section(name, section, include_summaries=True):
         return section.strip()
     return (
         f"{header_match.group(1)}\n\n"
+        f"{behavior_marker(name)}\n\n"
         f"{task_metadata_block(name, include_summaries=include_summaries)}"
         f"{section[prompt_start:].strip()}"
     )
@@ -198,12 +204,16 @@ def changed_tasks(task_names, existing_sections, refresh=False):
     changed = []
     for name in task_names:
         section = existing_sections.get(name, "")
+        current_marker = behavior_marker(name)
         date_marker = f"- last modified: {source_modified_date(task_source(name))}"
         legacy_hash_marker = f"- hash: `{source_behavior_hash(task_source(name))}`"
         if not section:
             changed.append(name)
             continue
+        if current_marker in section:
+            continue
         if "<!-- behavior-hash:" in section:
+            changed.append(name)
             continue
         if "- hash:" in section:
             if legacy_hash_marker not in section:

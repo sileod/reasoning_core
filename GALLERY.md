@@ -8,6 +8,8 @@
 
 ## [arithmetics](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/arithmetics.py)
 
+<!-- behavior-hash: cd2be1ebe21516e7 -->
+
 Compositional arithmetics with float/int/bool, varied operators, number theory.
 
 **Prompt:**
@@ -25,6 +27,8 @@ The answer is a number.
 
 ## [math_word_problem](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/arithmetics.py)
 
+<!-- behavior-hash: cd2be1ebe21516e7 -->
+
 Solve relational and process math word problems involving objects and values.
 
 **Prompt:**
@@ -40,6 +44,8 @@ Mei has as many coins as Leo and Diego combined. Diego has 8 fewer coins than Le
 ---
 
 ## [equation_system](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/equation_system.py)
+
+<!-- behavior-hash: 8781164d0945f615 -->
 
 Solve systems of linear equations or detect inconsistent/underdetermined systems.
 
@@ -63,6 +69,8 @@ The answer is the value of X1, or 'No solution' / 'Multiple solutions'.
 ---
 
 ## [combinatorics_formula](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/combinatorics.py)
+
+<!-- behavior-hash: ea4ea56e7aa437ab -->
 
 **Prompt:**
 ```
@@ -88,6 +96,8 @@ C(13,4)
 
 ## [function_manipulation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/function_manipulation.py)
 
+<!-- behavior-hash: 6cfeba2da9fd3a2c -->
+
 Multistep symbolic function manipulation with composition, local inverses, calculus, and short exact answers.
 
 **Prompt:**
@@ -106,6 +116,8 @@ The answer is a reduced rational number.
 ---
 
 ## [lean_missing_line](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_lean.py)
+
+<!-- behavior-hash: a9cebc298eaac71f -->
 
 Complete a Lean proof with a uniquely valid constrained proof line.
 
@@ -134,6 +146,8 @@ simpa using inf_sup_left t s u
 
 ## [lean_candidate_compilation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_lean.py)
 
+<!-- behavior-hash: a9cebc298eaac71f -->
+
 Determine if a candidate proof body successfully closes a theorem in Lean.
 
 **Prompt:**
@@ -158,6 +172,8 @@ False
 
 ## [planar_geometry_relations](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_geometry.py)
 
+<!-- behavior-hash: cb970570b347392f -->
+
 Answer geometry queries about point intersections, angles, and distances.
 
 **Prompt:**
@@ -175,6 +191,8 @@ No
 ---
 
 ## [metamath_entailment](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_metamath.py)
+
+<!-- behavior-hash: 4edd58664bbad533 -->
 
 **Prompt:**
 ```
@@ -203,6 +221,8 @@ False
 ---
 
 ## [metamath_core_select](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_metamath.py)
+
+<!-- behavior-hash: 4edd58664bbad533 -->
 
 **Prompt:**
 ```
@@ -240,6 +260,8 @@ C
 
 ## [lambda_reduction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/binding.py)
 
+<!-- behavior-hash: 16af264fca09c34c -->
+
 Reduce lambda calculus terms to normal form with renaming and shadowing.
 
 **Prompt:**
@@ -260,6 +282,8 @@ The answer is the β-normal form (compared up to α-equivalence).
 ---
 
 ## [rewrite_system](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/binding.py)
+
+<!-- behavior-hash: 16af264fca09c34c -->
 
 Normalize term rewrite systems under boolean, list, logic, or path rules.
 
@@ -289,6 +313,8 @@ if(if(if(false,c,unit),pair(false,true),unit),pair(snd(b),b),pair(a,fst(a)))
 
 ## [unification_entailment](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/binding.py)
 
+<!-- behavior-hash: 16af264fca09c34c -->
+
 Decide if an equality is implied by the most general unifier of equations.
 
 **Prompt:**
@@ -310,6 +336,8 @@ Yes
 ---
 
 ## [most_probable_evidence](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/probabilistic_reasoning.py)
+
+<!-- behavior-hash: ed992c8f6d367267 -->
 
 Find the most probable configuration of hidden variables given evidence.
 
@@ -339,6 +367,8 @@ Choose one value for each hidden factor. Answer with space-separated indexes.
 
 ## [most_probable_outcome](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/probabilistic_reasoning.py)
 
+<!-- behavior-hash: ed992c8f6d367267 -->
+
 Predict the most probable outcome or select hidden factor values in ProbLog.
 
 **Prompt:**
@@ -361,6 +391,8 @@ B
 
 ## [multistep_nli](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_depth.py)
 
+<!-- behavior-hash: f7d1c90f99134e14 -->
+
 Multi-hop natural language inference over chained logic facts and rules.
 
 **Prompt:**
@@ -382,6 +414,8 @@ Maybe
 ---
 
 ## [defeasible_nli](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_depth.py)
+
+<!-- behavior-hash: f7d1c90f99134e14 -->
 
 NLI using defeasible logic rules and negation as failure.
 
@@ -419,6 +453,8 @@ Maybe
 
 ## [multistep_evidence_retrieval](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_depth.py)
 
+<!-- behavior-hash: f7d1c90f99134e14 -->
+
 Retrieve the specific premise indexes required to prove a logical hypothesis.
 
 **Prompt:**
@@ -445,6 +481,8 @@ Answer with space-separated indexes.
 ---
 
 ## [multistep_abduction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_depth.py)
+
+<!-- behavior-hash: f7d1c90f99134e14 -->
 
 Find the missing facts from candidates to satisfy a target hypothesis.
 
@@ -481,6 +519,8 @@ Answer with space-separated indexes.
 
 ## [logic_qa](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_depth.py)
 
+<!-- behavior-hash: f7d1c90f99134e14 -->
+
 Answer multi-step logical reasoning queries over rule-based theories.
 
 **Prompt:**
@@ -507,6 +547,8 @@ bruno, david
 ---
 
 ## [logic_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_derivation.py)
+
+<!-- behavior-hash: 6ce951bc8bdca571 -->
 
 Produce a canonical forward proof trace for a logical target.
 
@@ -535,6 +577,8 @@ Premises use their ID. Derived lines use @i, starting with @0.
 ---
 
 ## [planning](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/planning.py)
+
+<!-- behavior-hash: 6d63a921f5474083 -->
 
 Generate action plans to achieve goals in domains like Blocksworld.
 
@@ -567,6 +611,8 @@ action_1(object_2)
 
 ## [set_missing_element](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/set_operations.py)
 
+<!-- behavior-hash: 68a061870893e11f -->
+
 Identify missing elements from a shuffled sequence defined by set intension.
 
 **Prompt:**
@@ -582,6 +628,8 @@ Answer with the missing elements in the ordered span of {778, 777, 785, 782, 776
 ---
 
 ## [set_expression](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/set_operations.py)
+
+<!-- behavior-hash: 68a061870893e11f -->
 
 Evaluate complex set expressions involving union, intersection, and nested lists.
 
@@ -601,6 +649,8 @@ Evaluate len((B | (B | C))).
 
 ## [sequential_induction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/sequential_induction.py)
 
+<!-- behavior-hash: b4b67b4fcfc6a194 -->
+
 Infer the canonical recurrence in a bounded polynomial DSL.
 
 **Prompt:**
@@ -619,6 +669,8 @@ The answer is the RHS only.
 ---
 
 ## [qualitative_reasoning](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/qstr.py)
+
+<!-- behavior-hash: 029c65d1c05e5ead -->
 
 Solve qualitative spatial and temporal reasoning problems over algebras.
 
@@ -644,6 +696,8 @@ E2
 ---
 
 ## [grid_navigation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grid_navigation.py)
+
+<!-- behavior-hash: 4bdc8a43b7bbbe26 -->
 
 Infer object grid coordinates from spatial relations and step actions.
 
@@ -673,6 +727,8 @@ What is the final coordinate of A? The answer is (x, y).
 ---
 
 ## [reference_tracking](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/tracking.py)
+
+<!-- behavior-hash: 240c46240d37748c -->
 
 Track locations of balls in boxes across moves, swaps, and coreferences.
 
@@ -707,6 +763,8 @@ x3
 
 ## [belief_tracking](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/belief_tracking.py)
 
+<!-- behavior-hash: 2edebf66052d509d -->
+
 Track ordered beliefs through observation and communication.
 
 **Prompt:**
@@ -728,6 +786,8 @@ drawer
 ---
 
 ## [coreference](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/coreference.py)
+
+<!-- behavior-hash: 0d003634bece281b -->
 
 Resolve references through ordered groups, later evidence, and branches.
 
@@ -754,6 +814,8 @@ Mary
 
 ## [constraint_satisfaction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/constraint_satisfaction.py)
 
+<!-- behavior-hash: fbe4336573ab3c89 -->
+
 Solve query-aware assignment, graph, scheduling, grid, set, and numeric CSPs.
 
 **Prompt:**
@@ -778,6 +840,8 @@ Yes
 
 ## [graph_pathfinding](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/graph_operations.py)
 
+<!-- behavior-hash: 395bdd34b851e9bb -->
+
 Find the shortest path or cost in weighted and unweighted directed graphs.
 
 **Prompt:**
@@ -796,6 +860,8 @@ Graph:
 ---
 
 ## [graph_successors](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/graph_operations.py)
+
+<!-- behavior-hash: 395bdd34b851e9bb -->
 
 Determine the k-th successor of a node in a permutation digraph topology.
 
@@ -820,6 +886,8 @@ Queries:
 
 ## [regex_following](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/regex.py)
 
+<!-- behavior-hash: 9f753ce41c94c3e6 -->
+
 Produce a string that matches a specified regular expression pattern.
 
 **Prompt:**
@@ -835,6 +903,8 @@ The answer is the shortest non-empty visible non-whitespace ASCII string that fu
 ---
 
 ## [regex_reasoning](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/regex.py)
+
+<!-- behavior-hash: 9f753ce41c94c3e6 -->
 
 Reason about regular expression equivalence, containment, and witnesses.
 
@@ -854,6 +924,8 @@ No
 ---
 
 ## [analogical_case_matching](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/formal_analogies.py)
+
+<!-- behavior-hash: d4425f50bb96730a -->
 
 Retrieve analogical cases matching query objects, links, and logical facts.
 
@@ -876,38 +948,9 @@ M1
 
 ## [parsing_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
+<!-- behavior-hash: 4e23e9f7147959c3 -->
+
 Determine the derivation production rule sequence parsing a given string.
-
-**Prompt:**
-```
-(START)
-start
-
-(GRAMMAR)
-R0: start -> seq
-R1: expr -> '[' seq ']'
-R2: expr -> '<' seq '>'
-R3: seq -> expr seq
-R4: seq -> 
-R5: expr -> '(' seq ')'
-
-(STRING)
-[ < > ] < > [ ]
-
-(QUESTION)
-The answer is the rule labels used in the leftmost derivation of STRING, in order, separated by spaces.
-```
-
-**Answer:**
-```
-R0 R3 R1 R3 R2 R4 R4 R3 R2 R4 R3 R1 R4 R4
-```
-
----
-
-## [syntax_error_detection](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
-
-Locate syntax errors or grammatical perturbations in generated sentences.
 
 **Prompt:**
 ```
@@ -915,28 +958,31 @@ Locate syntax errors or grammatical perturbations in generated sentences.
 S
 
 (GRAMMAR)
-B -> S 'traditional'
-B -> S A
-B -> 'concern'
-S -> A
-A -> B
+R0: C ::= 'room'
+R1: S ::= A
+R2: C ::= A S
+R3: A ::= B
+R4: B ::= C
 
 (STRING)
-traditional traditional traditional
+room room
 
-Answer OK, INCOMPLETE, or ERROR token for the first invalid token. If that token repeats in STRING, append its 1-based occurrence as @occurrence.
+(QUESTION)
+The answer is the rule labels used in the leftmost derivation of STRING, in order, separated by spaces.
 ```
 
 **Answer:**
 ```
-ERROR traditional@1
+R1 R3 R4 R2 R3 R4 R0 R1 R3 R4 R0
 ```
 
 ---
 
-## [constrained_continuation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
+## [syntax_error_detection](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
-Complete a uniquely determined fixed-length span using a formal grammar.
+<!-- behavior-hash: 4e23e9f7147959c3 -->
+
+Locate syntax errors or grammatical perturbations in generated sentences.
 
 **Prompt:**
 ```
@@ -944,34 +990,63 @@ Complete a uniquely determined fixed-length span using a formal grammar.
 start
 
 (GRAMMAR)
-expr -> '(' seq ')'
-seq -> expr seq
-start -> seq
-seq -> 
-expr -> '<' seq '>'
-expr -> '[' seq ']'
+root ::= discourse '.'
+conj ::= 'and'
+decl ::= decl_simple ',' conj decl_simple
+there ::= 'there'
+decl_simple ::= there are det_pl_indef n_thing_pl
+det_pl_indef ::= 'some'
+are ::= 'are'
+discourse ::= decl
+n_thing_pl ::= 'ideas'
+start ::= root
 
-(PREFIX)
-( <
+(STRING)
+there are some ideas , and and there are some ideas .
 
-(TEMPLATE)
-___ [ ___ ___
-
-(SUFFIX)
-[ ] < > ( )
-
-Fill in the 3 blanks (___) so that PREFIX + filled-TEMPLATE + SUFFIX is a grammatical sentence.
-Answer with the blank tokens in order, space-separated.
+Answer OK, INCOMPLETE, or ERROR token for the first invalid token. If that token repeats in STRING, append its 1-based occurrence as @occurrence.
 ```
 
 **Answer:**
 ```
-> ] )
+ERROR and@2
+```
+
+---
+
+## [constrained_continuation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
+
+<!-- behavior-hash: 4e23e9f7147959c3 -->
+
+Complete a uniquely determined fixed-length span using a formal grammar.
+
+**Prompt:**
+```
+Complete <HOLE> according to the grammar.
+
+GRAMMAR:
+S ::= A
+B ::= 'certainly'
+B ::= 'certainly' A
+S ::= '[' S ']'
+A ::= B
+
+SENTENCE:
+<HOLE> ]
+
+Return only the missing 3 tokens.
+```
+
+**Answer:**
+```
+[ certainly certainly
 ```
 
 ---
 
 ## [table_qa](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
+
+<!-- behavior-hash: 2d0436406b7e80db -->
 
 Answer queries on tabular data by executing SQL queries over dataframes.
 
@@ -1011,6 +1086,8 @@ Books
 ---
 
 ## [table_equivalence](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
+
+<!-- behavior-hash: 2d0436406b7e80db -->
 
 Decide if two rendered tables are semantically equivalent under mutations.
 
@@ -1056,6 +1133,8 @@ Yes
 
 ## [table_statistics](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
 
+<!-- behavior-hash: 2d0436406b7e80db -->
+
 Select rows or columns using associations, conditioning, group robustness, and shifts.
 
 **Prompt:**
@@ -1094,6 +1173,8 @@ G
 
 ## [string_transduction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/string_transduction.py)
 
+<!-- behavior-hash: 7e37b3a7153847d2 -->
+
 Apply string transduction operations including Caesar cipher and rotation.
 
 **Prompt:**
@@ -1113,6 +1194,8 @@ ddedee
 ---
 
 ## [game_best_move](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/game_playing.py)
+
+<!-- behavior-hash: 4b4daac8084b238d -->
 
 Determine the minimax-optimal move for a player in a finite graph-based game.
 
@@ -1134,6 +1217,8 @@ n4
 
 ## [game_forced_win](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/game_playing.py)
 
+<!-- behavior-hash: 4b4daac8084b238d -->
+
 Decide if a player can force a win from a given state in a graph-based game.
 
 **Prompt:**
@@ -1152,6 +1237,8 @@ No
 ---
 
 ## [qualitative_causal_reasoning](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/qualitative_causal_reasoning.py)
+
+<!-- behavior-hash: c5133ef287038003 -->
 
 Reason qualitatively about causal effects and associations in graphs.
 
@@ -1178,6 +1265,8 @@ independent
 ---
 
 ## [code_analysis](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/code_analysis.py)
+
+<!-- behavior-hash: c7c83d70b4515923 -->
 
 Analyze toy finite-state Python-like programs with CTL temporal formulas.
 
@@ -1216,6 +1305,8 @@ Yes
 
 ## [code_runnability](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/code_execution.py)
 
+<!-- behavior-hash: 0213298e76d0d03d -->
+
 Predict if a given Python code snippet runs successfully or raises an exception.
 
 **Prompt:**
@@ -1247,6 +1338,8 @@ OK
 
 ## [code_execution](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/code_execution.py)
 
+<!-- behavior-hash: 0213298e76d0d03d -->
+
 Predict the return value or stdout of executing generated Python code blocks.
 
 **Prompt:**
@@ -1275,6 +1368,8 @@ The answer is the exact Python `repr` of the returned value.
 ---
 
 ## [program_synthesis](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/code_program_synthesis.py)
+
+<!-- behavior-hash: 199f17d08656bf4f -->
 
 **Prompt:**
 ```

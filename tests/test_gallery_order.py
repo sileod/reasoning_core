@@ -1,5 +1,5 @@
 from reasoning_core import list_tasks
-from scripts.build_gallery import sort_task_names
+from scripts.build_gallery import behavior_marker, changed_tasks, sort_task_names
 
 
 def test_gallery_keeps_math_and_logic_tasks_in_their_clusters():
@@ -26,3 +26,10 @@ def test_combinatorics_task_uses_synthesis_name_only():
 
     assert "combinatorics_formula" in tasks
     assert "combinatorics_formula_selection" not in tasks
+
+
+def test_gallery_behavior_markers_detect_stale_sections():
+    name = "combinatorics_formula"
+
+    assert changed_tasks([name], {name: behavior_marker(name)}) == []
+    assert changed_tasks([name], {name: "<!-- behavior-hash: stale -->"}) == [name]
