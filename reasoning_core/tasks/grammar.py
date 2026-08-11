@@ -38,8 +38,8 @@ from dataclasses import dataclass
 def grammar_text(grammar, config=None):
     rules = list(dict.fromkeys(map(str, grammar.productions())))
     random.shuffle(rules)
-    if random.random() < getattr(config, "definition_operator_prob", 0.0):
-        rules = [rule.replace(" -> ", " := ", 1) for rule in rules]
+    if random.random() < getattr(config, "bnf_operator_prob", 0.0):
+        rules = [rule.replace(" -> ", " ::= ", 1) for rule in rules]
     return "\n".join(rules)
 
 @dataclass
@@ -47,7 +47,7 @@ class GrammarConfig(Config):
     n_types: int = 4
     n_terminals: int = 5
     perturbation_rate: float = 0.5
-    definition_operator_prob: float = 0.5
+    bnf_operator_prob: float = 0.5
 
     gramforge_algorithm: str = "sequential"
     min_depth:int =5
@@ -534,7 +534,7 @@ def labeled_rules(meta):
     lines = list(dict.fromkeys(meta.g.splitlines()))
     random.shuffle(lines)
     return "\n".join(f"R{i}: {rule}" for i, rule in enumerate(lines)), {
-        rule.replace(" := ", " -> ", 1): f"R{i}" for i, rule in enumerate(lines)
+        rule.replace(" ::= ", " -> ", 1): f"R{i}" for i, rule in enumerate(lines)
     }
 
 

@@ -24,19 +24,19 @@ def test_parsing_derivation_uses_shorter_defaults():
     assert (config.target_num_rules, config.min_prod_depth, config.max_prod_depth, config.max_tokens) == (8, 3, 5, 12)
 
 
-def test_grammar_rendering_supports_configured_definition_operator():
+def test_grammar_rendering_supports_configured_bnf_operator():
     grammar = CFG.fromstring("S -> A\nA -> 'a'")
 
-    arrow = grammar_text(grammar, GrammarConfig(definition_operator_prob=0))
-    definition = grammar_text(grammar, GrammarConfig(definition_operator_prob=1))
+    arrow = grammar_text(grammar, GrammarConfig(bnf_operator_prob=0))
+    definition = grammar_text(grammar, GrammarConfig(bnf_operator_prob=1))
 
-    assert " -> " in arrow and " := " not in arrow
-    assert " := " in definition and " -> " not in definition
-    assert GrammarConfig().definition_operator_prob == 0.5
+    assert " -> " in arrow and " ::= " not in arrow
+    assert " ::= " in definition and " -> " not in definition
+    assert GrammarConfig().bnf_operator_prob == 0.5
 
 
-def test_labeled_rules_map_lean_style_back_to_productions():
-    rendered, labels = labeled_rules(edict(g="S := A\nA := 'a'"))
+def test_labeled_rules_map_bnf_style_back_to_productions():
+    rendered, labels = labeled_rules(edict(g="S ::= A\nA ::= 'a'"))
 
-    assert ":=" in rendered
+    assert "::=" in rendered
     assert set(labels) == {"S -> A", "A -> 'a'"}

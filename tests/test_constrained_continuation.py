@@ -42,13 +42,13 @@ def test_constrained_continuation_skips_oversized_sentences(monkeypatch):
 
     config = GrammarConfig(
         min_k=3, max_k=3, max_tokens=3, min_options=1,
-        definition_operator_prob=1,
+        bnf_operator_prob=1,
     )
     problem = ConstrainedContinuation(config).generate()
 
     assert problem.answer == "a b c"
     assert problem.metadata.n_candidates == 1
-    assert " := " in problem.metadata.g
+    assert " ::= " in problem.metadata.g
     assert len(problem.metadata.prefix) + problem.metadata.k + len(problem.metadata.suffix) == 3
     assert "<HOLE>" in problem.metadata.sentence
 
