@@ -2,7 +2,12 @@ import ast
 import random
 from types import SimpleNamespace
 
-from reasoning_core.tasks.code_analysis import CodeAnalysis, CodeAnalysisConfig, _BadProgram
+from reasoning_core.tasks.code_analysis import (
+    CodeAnalysis,
+    CodeAnalysisConfig,
+    _BadProgram,
+    _formula,
+)
 
 
 class _NeedChoice(Exception):
@@ -109,6 +114,7 @@ def test_prompt_only_shows_state_table_and_choice_semantics_when_needed():
         program="x = 0",
         state_variables="x",
         property_text="some execution can eventually reach x == 1",
+        formula="EF(p0)",
         witness_kind="witness",
     )
 
@@ -116,6 +122,7 @@ def test_prompt_only_shows_state_table_and_choice_semantics_when_needed():
     assert "Reachable states:" not in holds
     assert "Predicates:" not in holds
     assert "nondeterministic" not in holds
+    assert "Formula:" in holds
 
     states = task.render_prompt(SimpleNamespace(**fields, query_type="states"))
     assert "Reachable states:" not in states
@@ -125,6 +132,28 @@ def test_prompt_only_shows_state_table_and_choice_semantics_when_needed():
     witness = task.render_prompt(SimpleNamespace(**fields, query_type="witness"))
     assert "Reachable states:" not in witness
     assert "nondeterministic transition" in witness
+
+
+def test_nested_temporal_property_rendering_preserves_scope():
+    task = CodeAnalysis()
+    atom = _formula("atom", "p")
+    af_ag = _formula("AF", _formula("AG", atom))
+    ag_af = _formula("AG", _formula("AF", atom))
+
+    assert task._render_property(af_ag) == (
+        "on every execution, eventually (at every reachable state, (p))"
+    )
+    assert task._render_property(ag_af) == (
+        "at every reachable state, (on every execution, eventually (p))"
+    )
+    assert task._render_property(af_ag) != task._render_property(ag_af)
+
+    successors = [[1], [2], [0]]
+    predicates = {"p": {2}}
+    af_ag_sat, _ = task._sat(af_ag, successors, predicates)
+    ag_af_sat, _ = task._sat(ag_af, successors, predicates)
+    assert 0 not in af_ag_sat
+    assert 0 in ag_af_sat
 
 
 def test_state_answers_use_valuations_without_prompt_leakage():

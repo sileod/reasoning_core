@@ -8,37 +8,37 @@
 
 ## [arithmetics](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/arithmetics.py)
 
-<!-- behavior-hash: cd2be1ebe21516e7 -->
+<!-- behavior-hash: f2b3d4e7e62e71bb -->
 
 Compositional arithmetics with float/int/bool, varied operators, number theory.
 
 **Prompt:**
 ```
-Evaluate max(14, 2.90) / -5 * 6.4.
+Evaluate 0 * -14.
 The answer is a number.
 ```
 
 **Answer:**
 ```
--17.92
+0
 ```
 
 ---
 
 ## [math_word_problem](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/arithmetics.py)
 
-<!-- behavior-hash: cd2be1ebe21516e7 -->
+<!-- behavior-hash: f2b3d4e7e62e71bb -->
 
 Solve relational and process math word problems involving objects and values.
 
 **Prompt:**
 ```
-Mei has as many coins as Leo and Diego combined. Diego has 8 fewer coins than Leo. Diego has 3 coins. How many coins does Mei have? Answer with a number.
+Yuki has 2 more stamps than Hana. Jon has 4 fewer stamps than Hana. Yuki has 11 stamps. How many stamps does Jon have? Answer with a number.
 ```
 
 **Answer:**
 ```
-14
+5
 ```
 
 ---
@@ -548,30 +548,32 @@ bruno, david
 
 ## [logic_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_derivation.py)
 
-<!-- behavior-hash: 6ce951bc8bdca571 -->
+<!-- behavior-hash: e3bb9c6efeeb771a -->
 
 Produce a canonical forward proof trace for a logical target.
 
 **Prompt:**
 ```
 Premise:
-0: alice trusts bruno.
-1: bruno is careful.
-2: From x trusts y and y is careful, it follows that x is active.
-3: Being active implies being trusted.
-4: Every approved entity is not active.
+0: alice is a parent of clara.
+1: clara is a parent of bruno.
+2: clara is careful.
+3: Whenever x is a parent of y, x is an ancestor of y.
+4: For all x, y, z, if x is a parent of y and y is an ancestor of z, then x is an ancestor of z.
 
 Target:
-alice is trusted.
+alice is an ancestor of bruno.
 
 Provide derivation lines in Rule: Input... => Deduction format.
 Premises use their ID. Derived lines use @i, starting with @0.
+Rule is the numeric ID of the applied rule, e.g. 2: 0 1 => active(alice).
+Deduction may use compact predicate(entity) notation (prefix ! means not), or an equivalent English statement.
 ```
 
 **Answer:**
 ```
-2: 0 1 => active(alice)
-3: @0 => trusted(alice)
+3: 1 => ancestor(clara, bruno)
+4: 0 @0 => ancestor(alice, bruno)
 ```
 
 ---
@@ -728,30 +730,30 @@ What is the final coordinate of A? The answer is (x, y).
 
 ## [reference_tracking](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/tracking.py)
 
-<!-- behavior-hash: 240c46240d37748c -->
+<!-- behavior-hash: 4f3376f005d950c5 -->
 
 Track locations of balls in boxes across moves, swaps, and coreferences.
 
 **Prompt:**
 ```
 Inventory:
-- b1: white
-- b2: blue
-- b3: black
-- b4: red
+- b1: green
+- b2: black
+- b3: red
+- b4: green
 
 Initial State:
-- b1 is in x3
-- b2 is in x2
-- b3 is in x3
-- b4 is in x1
+- b1 is in x2
+- b2 is in x3
+- b3 is in x1
+- b4 is in x3
 
 Moves:
-- Transfer b4 from x1 into x3.
-- Move it from x3 to x2.
-- Transfer b1 from x3 into x1.
-- Relocate b1 from x1 to x3.
-Where is b3 now? The answer is a box tag, like x1.
+- Move b1 from x2 to x1.
+- Move it from x1 to x2.
+- Transfer everything in x2 into x3.
+- Transfer b2 from x3 into x2.
+Where is b1 now? The answer is a box tag, like x1.
 ```
 
 **Answer:**
@@ -1266,7 +1268,7 @@ independent
 
 ## [code_analysis](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/code_analysis.py)
 
-<!-- behavior-hash: c7c83d70b4515923 -->
+<!-- behavior-hash: ad434bfeb17e2165 -->
 
 Analyze toy finite-state Python-like programs with CTL temporal formulas.
 
@@ -1274,24 +1276,19 @@ Analyze toy finite-state Python-like programs with CTL temporal formulas.
 ````
 Program:
 ```python
-import random
-
-count, index = 0, 0
+y, level = 0, 0
 
 def step():
-    global count, index
-    count, index = random.choice([0, 1]), (index + count + 1) % 2
-    if (index >= 1) or (index == 0):
-        count = random.choice([0, 1])
-        return
+    global y, level
+    y = (y + 1) % 2
+    level = (level + y + 1) % 2
 
 ```
 
 Start from the assignments above; each transition calls `step()`.
 
-Each `random.choice` outcome is a nondeterministic transition.
-
-Property: some next step can reach a state where count == 0
+Formula: AF(p1)
+Property: on every execution, eventually (level == 1)
 
 Does the property hold from the initial state? Answer Yes or No.
 ````

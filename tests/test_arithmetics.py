@@ -12,6 +12,9 @@ from reasoning_core.tasks.arithmetics import (
     _semantic_cue_required,
     _semantic_decoy_eligible,
     fill_num,
+    relational_proof_core_size,
+    MathWordProblem,
+    WordProblemMathConfig,
 )
 
 
@@ -87,3 +90,24 @@ def test_round_is_exact_and_halfway_note_is_contextual():
 def test_prime_functions_use_standard_negative_semantics():
     assert SAFE_FUNCS["is_prime"](-7) == 0
     assert SAFE_FUNCS["prime_count"](-7) == 0
+
+
+def test_relational_proof_core_is_query_specific():
+    names = ["A", "B", "C"]
+    relations = [
+        ("more", "B", "A", 2, None),
+        ("times", "C", "B", 3, None),
+    ]
+
+    assert relational_proof_core_size(names, relations, "A", "C", 4) == 2
+    assert relational_proof_core_size(names, relations, "B", "C", 6) == 1
+
+
+def test_relational_generator_can_require_multistep_queries():
+    task = MathWordProblem(WordProblemMathConfig(
+        relational_p=1, deep_query_p=1,
+    ))
+
+    examples = [task.generate_example(max_tokens=0) for _ in range(10)]
+
+    assert all(example.metadata.proof_core_size >= 2 for example in examples)

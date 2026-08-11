@@ -112,7 +112,10 @@ def test_logic_derivation_registers_generates_and_scores():
     assert ex.prompt.startswith("Premise:\n0: ")
     assert ex.prompt.endswith(
         "Provide derivation lines in Rule: Input... => Deduction format.\n"
-        "Premises use their ID. Derived lines use @i, starting with @0."
+        "Premises use their ID. Derived lines use @i, starting with @0.\n"
+        "Rule is the numeric ID of the applied rule, e.g. 2: 0 1 => active(alice).\n"
+        "Deduction may use compact predicate(entity) notation (prefix ! means not), "
+        "or an equivalent English statement."
     )
 
     spaced = ex.answer.replace(":", " : ").replace("=>", " => ")

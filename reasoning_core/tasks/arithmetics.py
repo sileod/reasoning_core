@@ -9,6 +9,7 @@ import math
 from decimal import Decimal, getcontext
 import ast, operator
 from fractions import Fraction
+from itertools import combinations
 import sympy
 from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
 
@@ -353,11 +354,13 @@ class WordProblemMathConfig(Config):
     max_n: int = 12
     inverse_p: float = .30
     relational_p: float = .50
+    deep_query_p: float = .15
 
     def apply_difficulty(self, level):
         self.n_rel = sround(self.n_rel + level)
         self.max_n = sround(self.max_n + 12 * level)
         self.inverse_p = min(.70, self.inverse_p + .08 * level)
+        self.deep_query_p = min(.85, self.deep_query_p + .15 * level)
 
 
 def ri(a, b):
@@ -398,6 +401,30 @@ def relation_text(rel, unit):
     if op == "frac":
         return f"{a} has {ORD[k]} as many {unit} as {b}"
     return f"{a} has as many {unit} as {b} and {c} combined"
+
+
+def relational_proof_core_size(names, rels, given, asked, given_value):
+    """Minimum relation equations that identify ``asked`` from ``given``."""
+    symbols = {name: sp.Symbol(name) for name in names}
+    equations = []
+    for op, a, b, k, c in rels:
+        rhs = symbols[b] + symbols[c] if op == "combine" else {
+            "times": k * symbols[b],
+            "more": symbols[b] + k,
+            "fewer": symbols[b] - k,
+            "frac": symbols[b] / k,
+        }[op]
+        equations.append(sp.Eq(symbols[a], rhs))
+
+    variables = [symbols[name] for name in names]
+    asked_index = names.index(asked)
+    given_eq = sp.Eq(symbols[given], given_value)
+    for size in range(len(equations) + 1):
+        for subset in combinations(equations, size):
+            matrix, _ = sp.linear_eq_to_matrix((given_eq, *subset), variables)
+            if all(vector[asked_index] == 0 for vector in matrix.nullspace()):
+                return size
+    return None
 
 
 def gen_process(config):
@@ -512,11 +539,23 @@ def gen_relational(config):
     if not revealable:
         return None
 
-    given = random.choice(revealable)
-    asked = random.choice([z for z in names if z != given])
-
-    if not unique(val[given], nums[given], x, base):
+    pairs = []
+    for given in revealable:
+        if not unique(val[given], nums[given], x, base):
+            continue
+        for asked in names:
+            if asked == given:
+                continue
+            core_size = relational_proof_core_size(
+                names, rels, given, asked, nums[given]
+            )
+            if core_size is not None:
+                pairs.append((given, asked, core_size))
+    require_deep = random.random() < config.deep_query_p
+    eligible = [pair for pair in pairs if pair[2] >= 2] if require_deep else pairs
+    if not eligible:
         return None
+    given, asked, core_size = random.choice(eligible)
 
     random.shuffle(rels)
 
@@ -530,6 +569,9 @@ def gen_relational(config):
         given_value=nums[given],
         values=nums,
         base=base,
+        query_distance=core_size,
+        proof_core_size=core_size,
+        deep_query_required=require_deep,
         equation=str(sp.Eq(val[given], nums[given]))
     )
     return Entry(metadata=metadata, answer=str(nums[asked]))
@@ -577,7 +619,7 @@ class MathWordProblem(Task):
             ops = ",".join(op for op, _ in m.steps)
             return f"process:{'inverse' if m.inverse else 'forward'}:{ops}"
         ops = ",".join(r[0] for r in m.relations)
-        return f"relational:{ops}"
+        return f"relational:d{min(m.proof_core_size, 3)}:{ops}"
 
     def deduplication_key(self, problem):
         m = problem.metadata

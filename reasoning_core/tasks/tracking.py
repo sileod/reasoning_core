@@ -25,6 +25,7 @@ class ReferenceTrackingConfig(Config):
     bulk_move_p: float = 0.25
     pronoun_move_p: float = 0.3
     swap_move_p: float = 0.2
+    affected_target_p: float = 0.8
 
     prefer_indirect_p: float = 0.2  # Bumped to force tracking coupling in Winograd zero-level
     winograd_p: float = 0.35
@@ -64,7 +65,12 @@ class ReferenceTracking(Task):
     def __init__(self, config=None):
         super().__init__(config=config or ReferenceTrackingConfig())
 
-
+    @staticmethod
+    def _tracking_target(balls, affected, affected_target_p):
+        untouched = [ball for ball in balls if ball not in affected]
+        if affected and (not untouched or random.random() < affected_target_p):
+            return random.choice(sorted(affected))
+        return random.choice(untouched or balls)
 
     def _box_inv(
         self, placement: Dict[str, str], boxes: List[str], balls: List[str]
@@ -113,15 +119,17 @@ class ReferenceTracking(Task):
         bulk_p: float,
         pronoun_p: float,
         swap_p: float,
-    ) -> Tuple[List[str], List[str]]:
+    ) -> Tuple[List[str], List[str], set[str]]:
         sents: List[str] = []
         resolved: List[str] = []
         last_explicit: Optional[str] = None
+        affected: set[str] = set()
 
         for _ in range(n_steps):
             singles = self._single_occupants(placement, boxes, balls)
             if len(singles) >= 2 and random.random() < swap_p:
                 x, y = random.sample(list(singles), 2)
+                affected.update((singles[x], singles[y]))
                 placement[singles[x]], placement[singles[y]] = y, x
                 text = f"Swap the balls in {x} and {y}."
                 sents.append(text)
@@ -135,6 +143,7 @@ class ReferenceTracking(Task):
                 if nonempty:
                     src = random.choice(nonempty)
                     dst = random.choice([x for x in boxes if x != src])
+                    affected.update(inv[src])
                     for b in balls:
                         if placement[b] == src:
                             placement[b] = dst
@@ -157,6 +166,7 @@ class ReferenceTracking(Task):
                     continue
                 dst = random.choice(candidates)
                 placement[b] = dst
+                affected.add(b)
                 sents.append(f"Move it from {src} to {dst}.")
                 resolved.append(f"Move {b} from {src} to {dst}.")
                 last_explicit = None
@@ -168,6 +178,7 @@ class ReferenceTracking(Task):
                     continue
                 dst = random.choice(candidates)
                 placement[b] = dst
+                affected.add(b)
                 # Avoiding "it" in standard phrases to prevent coreference confusion
                 t = random.choice([
                     f"Move {b} from {src} to {dst}.",
@@ -178,7 +189,7 @@ class ReferenceTracking(Task):
                 resolved.append(f"Move {b} from {src} to {dst}.")
                 last_explicit = b
 
-        return sents, resolved
+        return sents, resolved, affected
 
     @staticmethod
     def _rel_text(a: str, rel: str, b: str) -> str:
@@ -254,7 +265,7 @@ class ReferenceTracking(Task):
         initial_placement = {b: random.choice(boxes) for b in balls}
         placement = dict(initial_placement)
 
-        moves, resolved_moves = self._do_moves(
+        moves, resolved_moves, affected = self._do_moves(
             placement, balls, boxes,
             int(c.n_steps), float(c.bulk_move_p), float(c.pronoun_move_p),
             float(c.swap_move_p),
@@ -268,7 +279,9 @@ class ReferenceTracking(Task):
 
         # ---- pure tracking ----
         if random.random() >= float(c.winograd_p):
-            target = random.choice(balls)
+            target = self._tracking_target(
+                balls, affected, float(c.affected_target_p)
+            )
             desc = _qualify_desc(
                 self._pick_desc(target, balls, colors, initial_placement, boxes, prefer_indirect)
             )
@@ -276,6 +289,8 @@ class ReferenceTracking(Task):
                 family="track", balls=balls, boxes=boxes, colors=colors,
                 initial_placement=initial_placement,
                 moves=moves, resolved_moves=resolved_moves,
+                affected_balls=sorted(affected), target=target,
+                target_was_affected=target in affected,
                 final_placement=dict(placement),
                 question=f"Where is {desc} now? The answer is a box tag, like x1.",
             )

@@ -265,7 +265,7 @@ class CodeAnalysis(Task):
         ]
         if "random.choice" in m.program:
             parts += ["", "Each `random.choice` outcome is a nondeterministic transition."]
-        parts += ["", f"Property: {m.property_text}", ""]
+        parts += ["", f"Formula: {m.formula}", f"Property: {m.property_text}", ""]
         if m.query_type == "holds":
             parts.append("Does the property hold from the initial state? Answer Yes or No.")
         elif m.query_type == "states":
@@ -650,17 +650,17 @@ class CodeAnalysis(Task):
         if op == "->":
             return f"if {self._render_property(f[1], predicates)}, then {self._render_property(f[2], predicates)}"
         if op == "EX":
-            return f"some next step can reach a state where {self._render_property(f[1], predicates)}"
+            return f"after some next step, ({self._render_property(f[1], predicates)})"
         if op == "AX":
-            return f"every next step reaches a state where {self._render_property(f[1], predicates)}"
+            return f"after every next step, ({self._render_property(f[1], predicates)})"
         if op == "EF":
-            return f"some execution can eventually reach a state where {self._render_property(f[1], predicates)}"
+            return f"on some execution, eventually ({self._render_property(f[1], predicates)})"
         if op == "AF":
-            return f"every execution eventually reaches a state where {self._render_property(f[1], predicates)}"
+            return f"on every execution, eventually ({self._render_property(f[1], predicates)})"
         if op == "EG":
-            return f"some infinite execution keeps {self._render_property(f[1], predicates)} true forever"
+            return f"on some infinite execution, always ({self._render_property(f[1], predicates)})"
         if op == "AG":
-            return f"{self._render_property(f[1], predicates)} holds now and after every possible sequence of steps"
+            return f"at every reachable state, ({self._render_property(f[1], predicates)})"
         return self._render_formula(f)
 
 
