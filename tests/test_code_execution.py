@@ -9,6 +9,7 @@ from reasoning_core.tasks.code_execution import (
     endpoint_probes,
     function_triviality,
     organic_mutations,
+    runnability_pair,
     sample_problem,
 )
 
@@ -56,6 +57,18 @@ def test_code_runnability_emits_paired_labels(monkeypatch):
     assert "The answer is `OK`" in task.prompt(problems[0].metadata)
     assert all(task.score_answer(problem.answer, problem) == 1.0 for problem in problems)
     assert not hasattr(task, "_pending_pair")
+
+
+def test_runnability_pair_uses_declared_attempt_budget(monkeypatch):
+    cfg = MesopyCodeCfg(max_attempts=4)
+    calls = []
+    monkeypatch.setattr(code_tasks, "make_code", lambda *_args, **_kwargs: calls.append(1) or "code")
+    monkeypatch.setattr(code_tasks, "endpoint_probes", lambda *_args, **_kwargs: [])
+
+    with pytest.raises(RuntimeError):
+        runnability_pair(cfg)
+
+    assert len(calls) == cfg.max_attempts
 
 
 def test_code_generators_have_no_mutable_balancing_state():

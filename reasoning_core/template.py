@@ -444,8 +444,11 @@ class Task(ProceduralDataset):
         assert self.score_answer(x.answer, x)==1, "The generated answer must be correct"
         assert x.prompt, "Generated example must have a non-empty prompt"
         assert len({y.prompt for y in ys})!=1 or n_samples==1, "Examples should not be identical"
-        score = [self.score_answer(y.answer, x) for y in ys]
-        assert set(score)!={1}, "score_answer must return values other than 1 for other answers"
+        other_answers = [y.answer for y in ys if y.answer != x.answer]
+        score = [self.score_answer(answer, x) for answer in other_answers]
+        assert not score or set(score) != {1}, (
+            "score_answer must return values other than 1 for other answers"
+        )
         assert {self.score_answer(y.answer,y)==1 for y in ys}=={True}, "The generated answer must be correct"
         self.score_answer('reajrjrje9595!',x)
         self.score_answer('',x)

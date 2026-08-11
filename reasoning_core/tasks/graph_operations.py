@@ -15,11 +15,9 @@ class GraphReasoningConfig(Config):
     weight_min: int = 1
     weight_max: int = 9
     def apply_difficulty(self, level):
-        # 2**level exploded to 96 nodes at L4 (~1200 tok) making graph_pathfinding a net-hurter via prompt-
-        # length tax under answer-only training (global -0.52, mbpp -1.68). A moderate 1.5**level ramp (->30
-        # nodes) cuts the tax and flips it to a helper (global +0.95, bbh gain +3.5 preserved, reward 0.86
-        # non-trivial). Validated 2026-07-09 (RESCALE_AB_OLMO1B).
-        self.num_nodes = sround(6 * 1.5 ** level)
+        # Keep structural growth, but leave some of the difficulty budget to the
+        # path-length curriculum in GraphPathfinding instead of prompt bulk.
+        self.num_nodes = sround(6 * 1.4 ** level)
 
 _GRAPH_GENERATORS = [
     (nx.fast_gnp_random_graph, {'p': (0.15, 0.4)}),
@@ -183,12 +181,38 @@ class GraphPathfinding(BaseGraphTask, Task):
 
         return None, None
 
+    def _has_optimal_tie(self, G, start, end):
+        distances = nx.single_source_dijkstra_path_length(G, start, weight="weight")
+        ways = {start: 1}
+        for u in sorted(distances, key=lambda node: (distances[node], node)):
+            for v in G.successors(u):
+                weight = G.edges[u, v].get("weight", 1)
+                if distances.get(v) == distances[u] + weight:
+                    ways[v] = min(2, ways.get(v, 0) + ways.get(u, 0))
+        return ways.get(end, 0) > 1
+
     def _disconnected_graph(self):
         n = max(2, self.config.num_nodes)
         n1 = random.randint(1, n - 1)
         G1 = nx.fast_gnp_random_graph(n1, 0.5, directed=True)
         G2 = nx.fast_gnp_random_graph(n - n1, 0.5, directed=True)
         return nx.disjoint_union(G1, G2)
+
+    def _reachable_pair(self, G):
+        pairs = [
+            (u, v, hops)
+            for u, distances in nx.all_pairs_shortest_path_length(G)
+            for v, hops in distances.items()
+            if u != v
+        ]
+        if not pairs:
+            return None
+        # L0 remains uniform. Higher levels increasingly prefer longer genuine
+        # shortest paths without imposing a brittle minimum or retry loop.
+        exponent = self.config.level / 2
+        return random.choices(
+            pairs, weights=[hops ** exponent for _, _, hops in pairs], k=1
+        )[0]
 
     def make_cot(self, G, start, end, path=None, cost=None):
         if path is None and cost is None:
@@ -200,6 +224,7 @@ class GraphPathfinding(BaseGraphTask, Task):
     def generate_entry(self):
         weighted = random.random() < self.config.weighted_prob
         G = self._generate_graph()
+        selected_hops = None
         
         if random.random() < self.config.no_solution_prob:
             pairs = [(u, v) for u in G.nodes() for v in G.nodes() if u != v and not nx.has_path(G, u, v)]
@@ -213,24 +238,33 @@ class GraphPathfinding(BaseGraphTask, Task):
             G = self._add_weights(G, weighted)
             path, cost = None, None
         else:
-            pairs = [(u, v) for u in G.nodes() for v in G.nodes() if u != v and nx.has_path(G, u, v)]
-            if not pairs:
+            pair = self._reachable_pair(G)
+            if pair is None:
                 G = nx.path_graph(self.config.num_nodes, create_using=nx.DiGraph)
                 start, end = 0, self.config.num_nodes - 1
+                selected_hops = self.config.num_nodes - 1
             else:
-                start, end = random.choice(pairs)
+                start, end, selected_hops = pair
             G = self._add_weights(G, weighted)
             path, cost = self._shortest_path(G, start, end)
 
         graph_description = self._render_graph(G, weighted=weighted)
+        mention_no_path = path is None or random.random() < 0.5
+        mention_ties = (
+            path is not None
+            and (self._has_optimal_tie(G, start, end) or random.random() < 0.5)
+        )
         return Entry(
             metadata={
                 "weighted": weighted,
+                "mention_no_path": mention_no_path,
+                "mention_ties": mention_ties,
                 "graph_description": graph_description, "start_node": start, "end_node": end,
                 "payload": {"graph": graph_description},
                 "nodes": list(G.nodes()), "edges": [(u, v, d["weight"]) for u, v, d in G.edges(data=True)],
                 "optimal_cost": cost,
                 "optimal_length": len(path) if path is not None else None,
+                "selected_hops": selected_hops if path is not None else None,
                 "cot": self.make_cot(G, start, end, path, cost)
             },
             answer="None" if path is None else " ".join(map(str, path))
@@ -238,11 +272,14 @@ class GraphPathfinding(BaseGraphTask, Task):
 
     def render_prompt(self, m):
         objective = "minimum-cost" if m.get("weighted") else "shortest"
+        answer_format = "Return space-separated nodes"
+        if m.get("mention_no_path", True):
+            answer_format += ", or `None` if no path exists"
+        tie_rule = "Break ties lexicographically. " if m.get("mention_ties", True) else ""
         return (
             f"Find the {objective} directed path from node {m['start_node']} "
-            f"to node {m['end_node']}. "
-            "If several paths are tied, return the lexicographically smallest one. "
-            "Answer with space-separated nodes, or `None` if no path exists.\n\n"
+            f"to node {m['end_node']}. {tie_rule}"
+            f"{answer_format}.\n\n"
             f"{render_payload(m['payload'])}"
         )
 

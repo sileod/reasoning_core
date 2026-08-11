@@ -87,13 +87,18 @@ def active_signed_effects(G, source, target, conditioned=frozenset()):
         H.remove_edges_from(list(H.in_edges(z)))
         H.remove_edges_from(list(H.out_edges(z)))
 
-    signs = {u: set() for u in H.nodes}
+    return directed_path_signs(H, source)[target]
+
+
+def directed_path_signs(G, source):
+    """Signs of all directed paths from source to every node in a DAG."""
+    signs = {u: set() for u in G.nodes}
     signs[source].add(1)
-    for u in nx.topological_sort(H):
-        for v in H.successors(u):
+    for u in nx.topological_sort(G):
+        for v in G.successors(u):
             for sign in signs[u]:
-                signs[v].add(sign * edge_sign(H, u, v))
-    return signs[target]
+                signs[v].add(sign * edge_sign(G, u, v))
+    return signs
 
 
 def verify_intervention(G, query):
@@ -117,20 +122,29 @@ def verify_marginal_association(G, query):
     if query.conditioned:
         raise ValueError("marginal association queries cannot condition on nodes")
     signs = set()
-    U = G.to_undirected()
-    for path in nx.all_simple_paths(
-        U, query.source, query.target, cutoff=len(G) - 1
-    ):
-        if any(
-            is_collider(G, a, b, c)
-            for a, b, c in zip(path, path[1:], path[2:])
-        ):
-            continue
+    neighbors = {node: tuple(G.predecessors(node)) + tuple(G.successors(node))
+                 for node in G.nodes}
+    visited = {query.source}
 
-        sign = 1
-        for u, v in zip(path, path[1:]):
-            sign *= undirected_edge_sign(G, u, v)
-        signs.add(sign)
+    def search(previous, current, sign):
+        for nxt in neighbors[current]:
+            if nxt in visited or (
+                previous is not None and is_collider(G, previous, current, nxt)
+            ):
+                continue
+            next_sign = sign * undirected_edge_sign(G, current, nxt)
+            if nxt == query.target:
+                signs.add(next_sign)
+                if len(signs) == 2:
+                    return True
+                continue
+            visited.add(nxt)
+            if search(current, nxt, next_sign):
+                return True
+            visited.remove(nxt)
+        return False
+
+    search(None, query.source, 1)
 
     if not signs:
         return "no_association"

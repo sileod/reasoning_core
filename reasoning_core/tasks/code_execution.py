@@ -370,7 +370,7 @@ def organic_mutations(code):
 
 def runnability_pair(cfg):
     """Find two calls with different outcomes in an organically generated program."""
-    for _ in range(max(1, cfg.max_attempts // 2)):
+    for _ in range(max(1, cfg.max_attempts)):
         base = make_code(cfg, failure_rate=random.uniform(0.05, 0.35), profile="runnability")
         probes = endpoint_probes(base, cfg)
         if len(probes) < 2:

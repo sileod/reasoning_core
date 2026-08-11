@@ -1,4 +1,5 @@
 import json
+import random
 
 import networkx as nx
 import numpy as np
@@ -114,6 +115,42 @@ def test_multiple_same_sign_treks_have_that_sign():
     )
     query = Query("marginal_association", "X", "Y")
     assert verify_marginal_association(G, query) == "increase"
+
+
+def test_marginal_dynamic_program_matches_path_enumeration():
+    def brute_force(G, query):
+        signs = set()
+        for path in nx.all_simple_paths(G.to_undirected(), query.source, query.target):
+            if any(
+                G.has_edge(a, b) and G.has_edge(c, b)
+                for a, b, c in zip(path, path[1:], path[2:])
+            ):
+                continue
+            sign = 1
+            for left, right in zip(path, path[1:]):
+                edge = (left, right) if G.has_edge(left, right) else (right, left)
+                sign *= G.edges[edge]["sign"]
+            signs.add(sign)
+        if not signs:
+            return "no_association"
+        if signs == {1}:
+            return "increase"
+        if signs == {-1}:
+            return "decrease"
+        return "ambiguous"
+
+    rng = random.Random(0)
+    for _ in range(100):
+        G = nx.DiGraph()
+        G.add_nodes_from(range(7))
+        for left in range(7):
+            for right in range(left + 1, 7):
+                if rng.random() < 0.35:
+                    G.add_edge(left, right, sign=rng.choice((-1, 1)))
+        for source in range(7):
+            for target in range(source + 1, 7):
+                query = Query("marginal_association", source, target)
+                assert verify_marginal_association(G, query) == brute_force(G, query)
 
 
 def test_sample_instance_is_deterministic_and_verified():

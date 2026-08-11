@@ -928,10 +928,9 @@ def _exact_next_tokens_and_stop(grammar, prefix, parser=None, nullable=None, fir
     return valid_tokens, can_stop
 
 
-def exact_window_fills(grammar, prefix, k, suffix=(), max_states=1024):
-    """All distinct k-token windows W such that prefix + W + suffix is grammatical.
-    Empty suffix => W must yield STOP (original `exact_completions` behavior).
-    Returns [] (safe skip) on state-space overflow."""
+def _window_fill_analysis(grammar, prefix, k, suffix=(), max_states=1024,
+                          max_fills=None):
+    """Return (valid fills, reachable windows), sharing the expensive search."""
     prefix, suffix = list(prefix), list(suffix)
     parser = EarleyChartParser(grammar)
     nullable, first = _compute_nullable_and_first(grammar)
@@ -946,17 +945,32 @@ def exact_window_fills(grammar, prefix, k, suffix=(), max_states=1024):
             for tok in toks:
                 nxt.add(win + (tok,))
                 if len(nxt) > max_states:
-                    return []
+                    return [], []
         if not nxt:
-            return []
+            return [], []
         frontier = nxt
 
+    reachable = [list(w) for w in sorted(frontier)]
+    fills = []
     if not suffix:
-        return [list(w) for w in sorted(frontier)
-                if _exact_next_tokens_and_stop(grammar, prefix + list(w),
-                                               parser, nullable, first)[1]]
-    return [list(w) for w in sorted(frontier)
-            if next(parser.parse(prefix + list(w) + suffix), None) is not None]
+        accepts = lambda w: _exact_next_tokens_and_stop(
+            grammar, prefix + w, parser, nullable, first
+        )[1]
+    else:
+        accepts = lambda w: next(parser.parse(prefix + w + suffix), None) is not None
+    for window in reachable:
+        if accepts(window):
+            fills.append(window)
+            if max_fills is not None and len(fills) >= max_fills:
+                break
+    return fills, reachable
+
+
+def exact_window_fills(grammar, prefix, k, suffix=(), max_states=1024):
+    """All distinct k-token windows W such that prefix + W + suffix is grammatical.
+    Empty suffix => W must yield STOP (original `exact_completions` behavior).
+    Returns [] (safe skip) on state-space overflow."""
+    return _window_fill_analysis(grammar, prefix, k, suffix, max_states)[0]
 
 
 def reachable_windows(grammar, prefix, k, max_states=1024):
@@ -1008,20 +1022,17 @@ class ConstrainedContinuation(Task):
                          for start in range(0, len(sent) - k + 1)]
                 random.shuffle(slots)
                 slots.sort(key=lambda x: not (x[0] and x[0] + x[1] < len(sent)))
-                slots = slots[:16]
 
-                for start, k in slots:
+                for start, k in slots[:16]:
                     prefix = sent[:start]
                     suffix = sent[start + k:]
-                    cands = exact_window_fills(
-                        g, prefix, k, suffix, max_states=self.config.max_options,
+                    cands, reachable = _window_fill_analysis(
+                        g, prefix, k, suffix,
+                        max_states=self.config.max_options, max_fills=2,
                     )
                     target = sent[start:start + k]
                     if cands != [target]:
                         continue
-                    reachable = reachable_windows(
-                        g, prefix, k, max_states=self.config.max_options,
-                    )
                     if not self.config.min_options <= len(reachable) <= self.config.max_options:
                         continue
 

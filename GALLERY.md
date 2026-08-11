@@ -68,25 +68,23 @@ Complete a Lean proof with a uniquely valid constrained proof line.
 
 **Prompt:**
 ```
-Fill `__ANSWER__` with one listed Lean proof line. Mathlib is imported.
-The answer is the line number.
+Fill `__ANSWER__` with a Lean proof line. Mathlib is imported.
 
 THEOREM:
-theorem ex (a b : Int) (h0 : b < a) (h1 : a ≤ 3 * a) : b < 3 * a := by
+theorem ex (s t u : Finset Nat) : t ∩ (s ∪ u) = (t ∩ s) ∪ (t ∩ u) := by
   __ANSWER__
 
-LINES:
-1. exact Int.lt_of_lt_of_le (h0) h0
-2. exact Int.lt_of_lt_of_le (h1) h1
-3. exact Int.lt_of_le_of_lt (h0) h1
-4. exact h1
-5. exact Int.lt_of_lt_of_le (h0) h1
-6. exact h0
+The answer must have the form:
+simpa using inf_sup_left X1 s X2
+where:
+X1 := s | u | t
+X2 := s | t | u
+Answer with the complete Lean line.
 ```
 
 **Answer:**
 ```
-5
+simpa using inf_sup_left t s u
 ```
 
 ---
@@ -1289,23 +1287,23 @@ Give the proof, one step per line: `rule: supports => conclusion`. Use premise l
 
 **Prompt:**
 ```
-Which expression counts the outcomes? Answer A-D.
-C(n,k): unordered; P(n,k): ordered.
+Write the counting expression. C(n,k) is unordered; P(n,k) is ordered.
 
 Problem:
-Order 6 distinct objects linearly.
+Select an ordered list of 4 distinct objects from 11.
 
-Options:
-A. 6!/2
-B. 6!
-C. 5!
-D. 5!/2
+The answer must have the form:
+X1(X2,X3)
+where:
+X1 := P | C
+X2 := 4 | 11 | 14
+X3 := 11 | 4 | 14
+Answer with the complete expression.
 ```
 
 **Answer:**
 ```
-B
+P(11,4)
 ```
 
 ---
-

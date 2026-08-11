@@ -11,5 +11,7 @@ def test_benchmark_cell_reports_level_support():
     assert row["status"] == "supported"
     assert row["successes"] == row["valid_scores"] == 2
     assert row["wall_seconds_mean"] >= 0
+    assert row["wall_seconds_first"] >= 0
+    assert row["wall_seconds_warm_mean"] >= 0
     assert row["prompt_tokens_mean"] > 0
     assert row["config"]["level"] == 6

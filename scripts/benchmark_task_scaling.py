@@ -82,6 +82,10 @@ def benchmark_cell(task_name, level, samples, max_tokens):
         "successes": successes,
         "valid_scores": valid_scores,
         "wall_seconds_mean": statistics.fmean(timings) if timings else None,
+        "wall_seconds_first": timings[0] if timings else None,
+        "wall_seconds_warm_mean": (
+            statistics.fmean(timings[1:]) if len(timings) > 1 else None
+        ),
         "wall_seconds_p50": statistics.median(timings) if timings else None,
         "wall_seconds_p95": percentile(timings, 0.95),
         "generation_seconds_mean": statistics.fmean(generation_times) if generation_times else None,
@@ -141,7 +145,8 @@ def bounded_cell(task_name, level, samples, max_tokens, timeout):
 def write_csv(path, rows):
     columns = [
         "task", "level", "status", "requested", "successes", "valid_scores",
-        "wall_seconds_mean", "wall_seconds_p50", "wall_seconds_p95",
+        "wall_seconds_mean", "wall_seconds_first", "wall_seconds_warm_mean",
+        "wall_seconds_p50", "wall_seconds_p95",
         "generation_seconds_mean", "prompt_tokens_mean", "prompt_tokens_max",
         "answer_tokens_mean", "unique_prompt_ratio", "unique_deduplication_ratio",
         "error",
@@ -160,13 +165,15 @@ def display(rows):
         row["task"], row["level"], row["status"],
         f"{row['successes']}/{row['requested']}",
         number(row.get("wall_seconds_mean")),
+        number(row.get("wall_seconds_first")),
+        number(row.get("wall_seconds_warm_mean")),
         number(row.get("wall_seconds_p95")),
         number(row.get("prompt_tokens_mean"), 1),
         number(row.get("unique_deduplication_ratio"), 2),
         row.get("error") or "",
     ] for row in rows]
     print(tabulate(table, headers=[
-        "task", "level", "status", "ok", "mean_s", "p95_s",
+        "task", "level", "status", "ok", "mean_s", "first_s", "warm_s", "p95_s",
         "prompt_tok", "unique", "error",
     ]))
 

@@ -23,7 +23,7 @@ class ConstraintSatisfactionConfig(Config):
     n_constraints: int = 3
     coef_bound: int = 3
     unsat_prob: float = 0.0  # legacy override: force an UNSAT consistency example
-    max_tries: int = 64
+    max_tries: int = 256
 
     # Compatibility aliases: attribute -> assignment, linear -> numeric.
     model_mode: str = "any"
