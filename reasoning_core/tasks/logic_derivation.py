@@ -2,6 +2,7 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import product
+import re
 
 from reasoning_core.template import Entry, Task, render_payload
 from reasoning_core.tasks.logic_depth import (
@@ -11,7 +12,6 @@ from reasoning_core.tasks.logic_depth import (
     case_metadata,
     derivation_rules,
     generate_case,
-    indexed_premise,
 )
 
 
@@ -206,6 +206,21 @@ def normalize_trace(text):
     )
 
 
+def trace_prefixes(text):
+    """Parse rule/input references while leaving conclusion wording unconstrained."""
+    prefixes = []
+    for line in (line for line in str(text).splitlines() if line.strip()):
+        match = re.match(
+            r"^\s*(?:rule\s*)?\[?(\d+)\]?\s*:\s*(.*?)\s*(?:=>|->|→)\s*(.+?)\s*$",
+            line,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return None
+        prefixes.append((int(match.group(1)), tuple(re.findall(r"@?\d+", match.group(2)))))
+    return tuple(prefixes) or None
+
+
 class LogicDerivation(Task):
     summary = "Produce a canonical forward proof trace for a logical target."
 
@@ -248,7 +263,9 @@ class LogicDerivation(Task):
             meta.uses_signed = any(not rule.head.sign for rule in rules)
             meta.uses_composition = any("composition" in rule.shape for rule in rules)
             meta.payload = {
-                "premise": indexed_premise(case.lines),
+                "premise": "\n".join(
+                    f"{i}: {line}" for i, line in enumerate(case.lines)
+                ),
                 "target": meta.target,
             }
             return Entry(meta, trace.answer)
@@ -258,12 +275,12 @@ class LogicDerivation(Task):
     def render_prompt(self, meta):
         return (
             f"{render_payload(meta.payload)}\n\n"
-            "Give the proof, one step per line: `rule: supports => conclusion`. "
-            "Use premise lines for facts and `@i` for earlier proof lines."
+            "Provide derivation lines in Rule: Input... => Deduction format.\n"
+            "Premises use their ID. Derived lines use @i, starting with @0."
         )
 
     def score_answer(self, answer, entry):
-        return float(normalize_trace(answer) == normalize_trace(entry.answer))
+        return float(trace_prefixes(answer) == trace_prefixes(entry.answer))
 
     def balancing_key(self, problem):
         meta = problem.metadata

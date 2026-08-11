@@ -1263,16 +1263,17 @@ Produce a canonical forward proof trace for a logical target.
 **Prompt:**
 ```
 Premise:
-[0] alice trusts bruno.
-[1] bruno is careful.
-[2] From x trusts y and y is careful, it follows that x is active.
-[3] Being active implies being trusted.
-[4] Every approved entity is not active.
+0: alice trusts bruno.
+1: bruno is careful.
+2: From x trusts y and y is careful, it follows that x is active.
+3: Being active implies being trusted.
+4: Every approved entity is not active.
 
 Target:
 alice is trusted.
 
-Give the proof, one step per line: `rule: supports => conclusion`. Use premise lines for facts and `@i` for earlier proof lines.
+Provide derivation lines in Rule: Input... => Deduction format.
+Premises use their ID. Derived lines use @i, starting with @0.
 ```
 
 **Answer:**

@@ -109,6 +109,11 @@ def test_logic_derivation_registers_generates_and_scores():
     assert ex.metadata.proof_steps >= ex.metadata.proof_depth
     assert ex.metadata.optimal_trace_count == 1
     assert score_answer(ex.answer, ex) == 1
+    assert ex.prompt.startswith("Premise:\n0: ")
+    assert ex.prompt.endswith(
+        "Provide derivation lines in Rule: Input... => Deduction format.\n"
+        "Premises use their ID. Derived lines use @i, starting with @0."
+    )
 
     spaced = ex.answer.replace(":", " : ").replace("=>", " => ")
     assert task.score_answer(spaced, ex) == 1
@@ -117,3 +122,21 @@ def test_logic_derivation_registers_generates_and_scores():
     for i, line in enumerate(ex.answer.splitlines()):
         refs = [token for token in line.split() if token.startswith("@")]
         assert all(int(ref[1:]) < i for ref in refs)
+
+
+def test_logic_derivation_scoring_focuses_on_rule_and_inputs():
+    task = get_task("logic_derivation")
+    entry = type("Entry", (), {
+        "answer": "2: 0 1 => active(alice)\n3: @0 => trusted(alice)"
+    })()
+
+    assert task.score_answer(
+        "Rule [2]: premises 0, 1 -> Alice becomes active.\n"
+        "3: input @0 → Therefore Alice is trusted.",
+        entry,
+    ) == 1
+    assert task.score_answer(
+        "2: 0 => Alice becomes active.\n3: @0 => Alice is trusted.",
+        entry,
+    ) == 0
+    assert task.score_answer("2: 0 1 =>\n3: @0 => trusted", entry) == 0
