@@ -6,9 +6,26 @@ import pytest
 from reasoning_core.tasks import grammar as grammar_tasks
 from reasoning_core.tasks.grammar import (
     ConstrainedContinuation,
+    ConstrainedContinuationConfig,
     GrammarConfig,
+    _exact_next_tokens_and_stop,
     exact_window_fills,
 )
+
+
+def test_constrained_continuation_config_scales_span_without_branch_explosion():
+    config = ConstrainedContinuationConfig()
+    config.set_level(6)
+
+    assert config.min_k == 3
+    assert config.max_k == 7
+    assert config.n_types == 6
+    assert config.n_terminals == 8
+    assert config.max_num_rules == 14
+    assert config.max_options == 85
+    assert config.max_slot_checks == 32
+    assert config.random_grammar_prob == 1
+    assert config.free_form_grammar_prob == 0
 
 
 def test_exact_window_fills_stops_at_state_limit():
@@ -16,6 +33,13 @@ def test_exact_window_fills_stops_at_state_limit():
 
     assert exact_window_fills(grammar, [], 3, max_states=16) == []
     assert len(exact_window_fills(grammar, [], 3, max_states=64)) == 64
+
+
+def test_packed_recognizer_handles_recursive_ambiguity_without_tree_expansion():
+    grammar = CFG.fromstring("S -> S S | 'a'")
+
+    assert _exact_next_tokens_and_stop(grammar, []) == ({"a"}, False)
+    assert _exact_next_tokens_and_stop(grammar, ["a", "a", "a"]) == ({"a"}, True)
 
 
 def test_constrained_continuation_skips_oversized_sentences(monkeypatch):

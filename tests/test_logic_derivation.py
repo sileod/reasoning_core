@@ -35,8 +35,8 @@ def test_canonical_trace_is_forward_and_uses_step_references():
     assert trace.depth == 2
     assert trace.size == 2
     assert trace.answer == (
-        "2: 0 => c(alice)\n"
-        "3: @0 1 => target(alice)"
+        "2: 0 => alice is c\n"
+        "3: @0 1 => alice is target"
     )
 
 
@@ -67,10 +67,10 @@ def test_canonical_trace_optimizes_proof_dag_steps_with_sharing():
     assert trace.depth == 3
     assert trace.size == 4
     assert trace.answer == (
-        "2: 0 => shared(alice)\n"
-        "3: @0 => left(alice)\n"
-        "4: @0 => right(alice)\n"
-        "9: @1 @2 => target(alice)"
+        "2: 0 => alice is shared\n"
+        "3: @0 => alice is left\n"
+        "4: @0 => alice is right\n"
+        "9: @1 @2 => alice is target"
     )
 
 
@@ -88,8 +88,8 @@ def test_canonical_trace_rejects_equal_optimal_derivations():
     assert not trace.unique
     assert trace.answer is None
     assert set(trace.traces) == {
-        "2: 0 => target(alice)",
-        "3: 1 => target(alice)",
+        "2: 0 => alice is target",
+        "3: 1 => alice is target",
     }
 
 
@@ -111,11 +111,8 @@ def test_logic_derivation_registers_generates_and_scores():
     assert score_answer(ex.answer, ex) == 1
     assert ex.prompt.startswith("Premise:\n0: ")
     assert ex.prompt.endswith(
-        "Provide derivation lines in Rule: Input... => Deduction format.\n"
-        "Premises use their ID. Derived lines use @i, starting with @0.\n"
-        "Rule is the numeric ID of the applied rule, e.g. 2: 0 1 => active(alice).\n"
-        "Deduction may use compact predicate(entity) notation (prefix ! means not), "
-        "or an equivalent English statement."
+        "Give derivation lines as Rule: Input... => Deduction.\n"
+        "Use premise IDs and @0, @1, ... for derived lines."
     )
 
     spaced = ex.answer.replace(":", " : ").replace("=>", " => ")

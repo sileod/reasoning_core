@@ -548,32 +548,30 @@ bruno, david
 
 ## [logic_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_derivation.py)
 
-<!-- behavior-hash: e3bb9c6efeeb771a -->
+<!-- behavior-hash: a99f22a5612d1966 -->
 
 Produce a canonical forward proof trace for a logical target.
 
 **Prompt:**
 ```
 Premise:
-0: alice is a parent of clara.
-1: clara is a parent of bruno.
-2: clara is careful.
-3: Whenever x is a parent of y, x is an ancestor of y.
-4: For all x, y, z, if x is a parent of y and y is an ancestor of z, then x is an ancestor of z.
+0: clara advises david.
+1: david trusts clara.
+2: david is careful.
+3: Advises relations followed by trusts relations imply helps relations.
+4: From x helps z, it follows that x is active.
 
 Target:
-alice is an ancestor of bruno.
+clara is active.
 
-Provide derivation lines in Rule: Input... => Deduction format.
-Premises use their ID. Derived lines use @i, starting with @0.
-Rule is the numeric ID of the applied rule, e.g. 2: 0 1 => active(alice).
-Deduction may use compact predicate(entity) notation (prefix ! means not), or an equivalent English statement.
+Give derivation lines as Rule: Input... => Deduction.
+Use premise IDs and @0, @1, ... for derived lines.
 ```
 
 **Answer:**
 ```
-3: 1 => ancestor(clara, bruno)
-4: 0 @0 => ancestor(alice, bruno)
+3: 0 1 => clara helps clara
+4: @0 => clara is active
 ```
 
 ---
@@ -950,7 +948,7 @@ M1
 
 ## [parsing_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
-<!-- behavior-hash: 4e23e9f7147959c3 -->
+<!-- behavior-hash: f304ba7ec278a653 -->
 
 Determine the derivation production rule sequence parsing a given string.
 
@@ -960,14 +958,15 @@ Determine the derivation production rule sequence parsing a given string.
 S
 
 (GRAMMAR)
-R0: C ::= 'room'
-R1: S ::= A
-R2: C ::= A S
-R3: A ::= B
-R4: B ::= C
+R0: A -> B
+R1: S -> A
+R2: B -> 'bank' S
+R3: B -> S 'subject'
+R4: B -> 'bank'
+R5: S -> B 'dinner'
 
 (STRING)
-room room
+bank bank
 
 (QUESTION)
 The answer is the rule labels used in the leftmost derivation of STRING, in order, separated by spaces.
@@ -975,14 +974,14 @@ The answer is the rule labels used in the leftmost derivation of STRING, in orde
 
 **Answer:**
 ```
-R1 R3 R4 R2 R3 R4 R0 R1 R3 R4 R0
+R1 R0 R2 R1 R0 R4
 ```
 
 ---
 
 ## [syntax_error_detection](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
-<!-- behavior-hash: 4e23e9f7147959c3 -->
+<!-- behavior-hash: f304ba7ec278a653 -->
 
 Locate syntax errors or grammatical perturbations in generated sentences.
 
@@ -992,33 +991,29 @@ Locate syntax errors or grammatical perturbations in generated sentences.
 start
 
 (GRAMMAR)
-root ::= discourse '.'
-conj ::= 'and'
-decl ::= decl_simple ',' conj decl_simple
-there ::= 'there'
-decl_simple ::= there are det_pl_indef n_thing_pl
-det_pl_indef ::= 'some'
-are ::= 'are'
-discourse ::= decl
-n_thing_pl ::= 'ideas'
-start ::= root
+expr ::= '(' seq ')'
+seq ::=
+seq ::= expr seq
+expr ::= '<' seq '>'
+start ::= seq
+expr ::= '[' seq ']'
 
 (STRING)
-there are some ideas , and and there are some ideas .
+[ < > ] ( ) <
 
 Answer OK, INCOMPLETE, or ERROR token for the first invalid token. If that token repeats in STRING, append its 1-based occurrence as @occurrence.
 ```
 
 **Answer:**
 ```
-ERROR and@2
+INCOMPLETE
 ```
 
 ---
 
 ## [constrained_continuation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
-<!-- behavior-hash: 4e23e9f7147959c3 -->
+<!-- behavior-hash: f304ba7ec278a653 -->
 
 Complete a uniquely determined fixed-length span using a formal grammar.
 
@@ -1027,21 +1022,20 @@ Complete a uniquely determined fixed-length span using a formal grammar.
 Complete <HOLE> according to the grammar.
 
 GRAMMAR:
-S ::= A
-B ::= 'certainly'
-B ::= 'certainly' A
 S ::= '[' S ']'
 A ::= B
+S ::= A
+B ::= 'candidate'
 
 SENTENCE:
-<HOLE> ]
+[ <HOLE> ] ] ]
 
-Return only the missing 3 tokens.
+Return only the missing 5 tokens.
 ```
 
 **Answer:**
 ```
-[ certainly certainly
+[ [ [ candidate ]
 ```
 
 ---

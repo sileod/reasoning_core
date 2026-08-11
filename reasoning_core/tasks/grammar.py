@@ -902,32 +902,61 @@ def _first_of_sequence(seq, first, nullable):
 
 
 def _exact_next_tokens_and_stop(grammar, prefix, parser=None, nullable=None, first=None):
-    """
-    Sound next-token discovery via Earley boundary edges + exact FIRST/nullable.
-    Returns (valid_tokens: set[str], can_stop: bool).
-    """
-    parser = parser or EarleyChartParser(grammar)
-    if nullable is None or first is None:
-        nullable, first = _compute_nullable_and_first(grammar)
+    """Recognize a prefix with packed Earley states, without parse backpointers."""
+    del parser, nullable, first  # Kept for compatibility with existing callers.
+    tokens = list(prefix)
+    by_lhs = defaultdict(list)
+    for production in grammar.productions():
+        by_lhs[production.lhs()].append(production.rhs())
 
-    try:
-        chart = parser.chart_parse(list(prefix))
-    except ValueError:
-        return set(), False
+    # A state is (lhs, rhs, dot, origin). Ambiguous derivations merge here.
+    chart = [set() for _ in range(len(tokens) + 1)]
+    waiting = [defaultdict(set) for _ in chart]
+    nullable_complete = [set() for _ in chart]
 
-    n = len(prefix)
-    valid_tokens = set()
-    can_stop = False
+    def add(position, state, agenda=None):
+        if state in chart[position]:
+            return
+        chart[position].add(state)
+        if agenda is not None:
+            agenda.append(state)
+        _, rhs, dot, _ = state
+        if dot < len(rhs) and isinstance(rhs[dot], Nonterminal):
+            waiting[position][rhs[dot]].add(state)
 
-    for edge in chart.select(end=n):
-        if edge.is_complete():
-            if edge.start() == 0 and edge.lhs() == grammar.start():
-                can_stop = True
-            continue
-        remainder = edge.rhs()[edge.dot():]
-        toks, _ = _first_of_sequence(remainder, first, nullable)
-        valid_tokens.update(toks)
+    for rhs in by_lhs[grammar.start()]:
+        add(0, (grammar.start(), rhs, 0, 0))
 
+    for position in range(len(chart)):
+        agenda = list(chart[position])
+        for lhs, rhs, dot, origin in agenda:
+            if dot == len(rhs):
+                if origin == position:
+                    nullable_complete[position].add(lhs)
+                for plhs, prhs, pdot, porigin in tuple(waiting[origin][lhs]):
+                    add(position, (plhs, prhs, pdot + 1, porigin), agenda)
+                continue
+
+            symbol = rhs[dot]
+            if isinstance(symbol, Nonterminal):
+                for child_rhs in by_lhs[symbol]:
+                    add(position, (symbol, child_rhs, 0, position), agenda)
+                # Complete nullable children discovered before this waiting state.
+                if symbol in nullable_complete[position]:
+                    add(position, (lhs, rhs, dot + 1, origin), agenda)
+            elif position < len(tokens) and symbol == tokens[position]:
+                add(position + 1, (lhs, rhs, dot + 1, origin))
+
+    boundary = chart[-1]
+    valid_tokens = {
+        rhs[dot]
+        for _, rhs, dot, _ in boundary
+        if dot < len(rhs) and isinstance(rhs[dot], str)
+    }
+    can_stop = any(
+        lhs == grammar.start() and origin == 0 and dot == len(rhs)
+        for lhs, rhs, dot, origin in boundary
+    )
     return valid_tokens, can_stop
 
 
@@ -935,16 +964,11 @@ def _window_fill_analysis(grammar, prefix, k, suffix=(), max_states=1024,
                           max_fills=None):
     """Return (valid fills, reachable windows), sharing the expensive search."""
     prefix, suffix = list(prefix), list(suffix)
-    parser = EarleyChartParser(grammar)
-    nullable, first = _compute_nullable_and_first(grammar)
-
     frontier = {()}
     for _ in range(k):
         nxt = set()
         for win in frontier:
-            toks, _ = _exact_next_tokens_and_stop(
-                grammar, prefix + list(win), parser, nullable, first
-            )
+            toks, _ = _exact_next_tokens_and_stop(grammar, prefix + list(win))
             for tok in toks:
                 nxt.add(win + (tok,))
                 if len(nxt) > max_states:
@@ -956,11 +980,11 @@ def _window_fill_analysis(grammar, prefix, k, suffix=(), max_states=1024,
     reachable = [list(w) for w in sorted(frontier)]
     fills = []
     if not suffix:
-        accepts = lambda w: _exact_next_tokens_and_stop(
-            grammar, prefix + w, parser, nullable, first
-        )[1]
+        accepts = lambda w: _exact_next_tokens_and_stop(grammar, prefix + w)[1]
     else:
-        accepts = lambda w: next(parser.parse(prefix + w + suffix), None) is not None
+        accepts = lambda w: _exact_next_tokens_and_stop(
+            grammar, prefix + w + suffix
+        )[1]
     for window in reachable:
         if accepts(window):
             fills.append(window)
@@ -978,15 +1002,13 @@ def exact_window_fills(grammar, prefix, k, suffix=(), max_states=1024):
 
 def reachable_windows(grammar, prefix, k, max_states=1024):
     """All length-k token windows reachable after prefix, whether or not they can stop."""
-    parser = EarleyChartParser(grammar)
-    nullable, first = _compute_nullable_and_first(grammar)
     frontier = {()}
     for _ in range(k):
         nxt = {
             win + (token,)
             for win in frontier
             for token in _exact_next_tokens_and_stop(
-                grammar, list(prefix) + list(win), parser, nullable, first,
+                grammar, list(prefix) + list(win)
             )[0]
         }
         if not nxt or len(nxt) > max_states:
@@ -995,14 +1017,31 @@ def reachable_windows(grammar, prefix, k, max_states=1024):
     return [list(window) for window in sorted(frontier)]
 
 
+@dataclass
+class ConstrainedContinuationConfig(GrammarConfig):
+    """Scale reasoning depth without making random CFG branching explode."""
+    random_grammar_prob: float = 1.0
+    prob_resampling_grammar: float = 0.0
+    free_form_grammar_prob: float = 0.0
+    max_slot_checks: int = 32
+
+    def apply_difficulty(self, level):
+        self.n_types += level / 3
+        self.n_terminals += min(level, 3)
+        self.min_num_rules += level
+        self.max_num_rules += level
+        self.max_k += level / 3
+        self.max_options += 10 * level
+        self.max_tokens += 2 * level
+
+
 class ConstrainedContinuation(Task):
     """Recover a unique fixed-length span inside a grammar-constrained sentence."""
     summary = "Complete a uniquely determined fixed-length span using a formal grammar."
+    config_cls = ConstrainedContinuationConfig
 
     def __init__(self, config=None):
-        super().__init__(config=config or GrammarConfig())
-        self.config.prob_resampling_grammar = 0.0  # needed for speed
-        self.config.min_k = max(3, self.config.min_k)
+        super().__init__(config=config)
         self.balancing_key_ratio = 0.25
 
     def generate_entry(self):
@@ -1014,6 +1053,7 @@ class ConstrainedContinuation(Task):
                         depth=self.config.max_prod_depth,
                         min_depth=self.config.min_prod_depth,
                         mode=self.config.gramforge_algorithm,
+                        n_iter=500,
                     ) @ "lang").split()
                 except (ValueError, RecursionError):
                     continue
@@ -1026,7 +1066,7 @@ class ConstrainedContinuation(Task):
                 random.shuffle(slots)
                 slots.sort(key=lambda x: not (x[0] and x[0] + x[1] < len(sent)))
 
-                for start, k in slots[:16]:
+                for start, k in slots[:getattr(self.config, "max_slot_checks", 32)]:
                     prefix = sent[:start]
                     suffix = sent[start + k:]
                     cands, reachable = _window_fill_analysis(
@@ -1054,7 +1094,7 @@ class ConstrainedContinuation(Task):
                         " ".join(target),
                     )
 
-        raise ValueError("Failed to generate constrained continuation after 200 attempts")
+        raise RuntimeError("Failed to generate constrained continuation after 200 attempts")
 
     def render_prompt(self, meta):
         return (
