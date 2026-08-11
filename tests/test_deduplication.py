@@ -66,6 +66,22 @@ def test_analogical_structure_ignores_names_order_and_declared_direction_flips()
     assert first == renamed_reordered_reversed
 
 
+def test_large_analogy_uses_safe_exact_prompt_fallback():
+    from reasoning_core.tasks.formal_analogies import AnalogicalCaseMatching
+    from reasoning_core.template import Entry
+
+    task = AnalogicalCaseMatching()
+    entry = Entry({
+        "query_context": [("r", f"x{i}", f"x{i + 1}") for i in range(17)],
+        "cases": [],
+    }, "None")
+    entry.prompt = "large exact prompt"
+
+    assert task.deduplication_key(entry) == super(
+        AnalogicalCaseMatching, task
+    ).deduplication_key(entry)
+
+
 def test_unification_key_preserves_sharing_but_ignores_declared_surface_changes():
     equations = [
         (("f", "x0"), ("f", "a")),

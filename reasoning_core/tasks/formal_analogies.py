@@ -489,6 +489,11 @@ class AnalogicalCaseMatching(Task):
 
     def deduplication_key(self, problem):
         metadata = problem.metadata
+        # Exact graph canonization has a rare factorial tail on large symmetric
+        # query graphs. Preserve generation scalability and never risk a false
+        # merge by falling back to the exact rendered prompt/answer pair.
+        if len(metadata["query_context"]) > 16:
+            return super().deduplication_key(problem)
         cases = sorted(
             _canonical_case_structure(case["context"], case["consequence"])
             for case in metadata["cases"]

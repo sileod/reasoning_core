@@ -137,6 +137,19 @@ class MyTask(Task):
   Do not store renderer/helper objects in metadata.
 - Metadata is not too large (should not blow up memory).
 
+## Scalability Benchmarking
+
+Use the isolated benchmark before claiming support for a new difficulty level:
+
+```bash
+python scripts/benchmark_task_scaling.py --levels 0-6 --samples 3 \
+  --output-json scaling.json --output-csv scaling.csv
+```
+
+Pass `--tasks task_a task_b` for a focused run and `--fail-on-unsupported` in
+automation. A level is reported as supported only when every requested example
+generates within the per-task ceiling and its reference answer scores `1`.
+
 
 ## Registration and Discovery
 - Any `Task` subclass in `reasoning_core/tasks/*.py` is auto-discovered by AST and lazy-loaded through `reasoning_core.__init__.py`.
