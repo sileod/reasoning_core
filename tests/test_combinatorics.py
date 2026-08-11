@@ -17,6 +17,7 @@ from reasoning_core.tasks.combinatorics import (
     TwoCheckpointPath,
     UnionCount,
     _compile,
+    _evaluate_expression,
     _valid,
 )
 
@@ -111,5 +112,11 @@ def test_generated_metadata_and_answer():
         assert example.metadata.options[example.metadata.correct_option_index]["expression"] == example.answer
         assert example.metadata.correct_features.top_operator
         assert all(option["semantics"] for option in example.metadata.options)
-        assert len({option["value"] for option in example.metadata.options}) == 4
-        assert example.prompt.startswith("Which listed expression counts the outcomes?")
+        assert example.metadata.n_slots >= 2
+        assert example.metadata.n_candidates <= 32
+        assert example.metadata.candidate_expressions.count(example.answer) == 1
+        assert example.metadata.candidate_values.count(
+            str(_evaluate_expression(example.answer))
+        ) == 1
+        assert "Options:" not in example.prompt
+        assert "The answer must have the form:" in example.prompt

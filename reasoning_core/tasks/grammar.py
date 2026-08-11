@@ -21,7 +21,6 @@ from gramforge import gramforge_to_nltk
 from rapidfuzz.distance import Indel, Levenshtein
 from itertools import islice
 from nltk.grammar import CFG, Nonterminal, Production
-from itertools import islice, combinations
 
 
 fake = Faker()
@@ -960,38 +959,28 @@ def exact_window_fills(grammar, prefix, k, suffix=(), max_states=1024):
             if next(parser.parse(prefix + list(w) + suffix), None) is not None]
 
 
-def sample_blanking(target, cands, min_blanks, max_blanks):
-    """Choose a maximum-size blank set uniquely identified by the visible hints."""
-    k = len(target)
-    max_blanks = min(max_blanks, k - 1)
-    if min_blanks > max_blanks:
-        return None
-
-    for n in range(max_blanks, min_blanks - 1, -1):
-        feasible = []
-        for blank_tuple in combinations(range(k), n):
-            blanks = set(blank_tuple)
-            hints = {i: target[i] for i in range(k) if i not in blanks}
-            matches = [c for c in cands
-                       if all(c[i] == tok for i, tok in hints.items())]
-            if matches == [list(target)]:
-                feasible.append(hints)
-        if feasible:
-            return list(target), random.choice(feasible)
-    return None
-
-
-def _format_template(k, hints):
-    return " ".join(hints.get(i, "___") for i in range(k))
+def reachable_windows(grammar, prefix, k, max_states=1024):
+    """All length-k token windows reachable after prefix, whether or not they can stop."""
+    parser = EarleyChartParser(grammar)
+    nullable, first = _compute_nullable_and_first(grammar)
+    frontier = {()}
+    for _ in range(k):
+        nxt = {
+            win + (token,)
+            for win in frontier
+            for token in _exact_next_tokens_and_stop(
+                grammar, list(prefix) + list(win), parser, nullable, first,
+            )[0]
+        }
+        if not nxt or len(nxt) > max_states:
+            return []
+        frontier = nxt
+    return [list(window) for window in sorted(frontier)]
 
 
 class ConstrainedContinuation(Task):
-    """Fill-in-the-blanks over a k-token window placed anywhere in a grammatical
-    sentence. The window is wrapped by a PREFIX (possibly empty) and a SUFFIX
-    (possibly empty); the model fills blanks so PREFIX + filled-TEMPLATE + SUFFIX
-    is grammatical. When the suffix is empty the task is a continuation
-    (Dyck-friendly); when non-empty it is a cloze (works on linear grammars too)."""
-    summary = "Fill in blank tokens within a grammar-constrained sentence with prefix/suffix context."
+    """Recover a unique fixed-length span inside a grammar-constrained sentence."""
+    summary = "Complete a uniquely determined fixed-length span using a formal grammar."
 
     def __init__(self, config=None):
         super().__init__(config=config or GrammarConfig())
@@ -1018,24 +1007,23 @@ class ConstrainedContinuation(Task):
                          for k in range(self.config.min_k, self.config.max_k + 1)
                          for start in range(0, len(sent) - k + 1)]
                 random.shuffle(slots)
+                slots.sort(key=lambda x: not (x[0] and x[0] + x[1] < len(sent)))
+                slots = slots[:16]
 
                 for start, k in slots:
                     prefix = sent[:start]
                     suffix = sent[start + k:]
-                    cands = exact_window_fills(g, prefix, k, suffix)
-                    if not self.config.min_options <= len(cands) <= self.config.max_options:
-                        continue
-
+                    cands = exact_window_fills(
+                        g, prefix, k, suffix, max_states=self.config.max_options,
+                    )
                     target = sent[start:start + k]
-                    if list(target) not in cands:
-                        continue  # defensive: truth should always be a candidate
-                    result = sample_blanking(target, cands,
-                                             self.config.min_blanks,
-                                             self.config.max_blanks)
-                    if result is None:
+                    if cands != [target]:
                         continue
-                    target, hints = result
-                    blanks = sorted(set(range(k)) - set(hints.keys()))
+                    reachable = reachable_windows(
+                        g, prefix, k, max_states=self.config.max_options,
+                    )
+                    if not self.config.min_options <= len(reachable) <= self.config.max_options:
+                        continue
 
                     return Entry(
                         edict(
@@ -1044,41 +1032,26 @@ class ConstrainedContinuation(Task):
                             k=k,
                             prefix=prefix,
                             suffix=suffix,
-                            hints={str(i): tok for i, tok in hints.items()},
-                            template=_format_template(k, hints),
-                            blanks=blanks,
-                            n_blanks=len(blanks),
-                            n_hints=len(hints),
-                            n_options=len(cands),
+                            sentence=" ".join([*prefix, "<HOLE>", *suffix]),
+                            n_candidates=len(cands),
+                            n_reachable=len(reachable),
+                            finite_space_exhaustively_checked=True,
                         ),
-                        " ".join(target[i] for i in blanks),
+                        " ".join(target),
                     )
 
         raise ValueError("Failed to generate constrained continuation after 200 attempts")
 
     def render_prompt(self, meta):
-        pfx = " ".join(meta.prefix) if meta.prefix else "<empty>"
-        sfx = " ".join(meta.suffix) if meta.get("suffix") else "<empty>"
-        nb = meta.n_blanks
-        bw = "blank" if nb == 1 else "blanks"
         return (
-            f"(START)\n{meta.start}\n\n"
-            f"(GRAMMAR)\n{meta.g}\n\n"
-            f"(PREFIX)\n{pfx}\n\n"
-            f"(TEMPLATE)\n{meta.template}\n\n"
-            f"(SUFFIX)\n{sfx}\n\n"
-            f"Fill in the {nb} {bw} (___) so that PREFIX + filled-TEMPLATE + SUFFIX "
-            f"is a grammatical sentence.\n"
-            f"Answer with the blank tokens in order, space-separated."
+            f"Complete <HOLE> according to the grammar.\n\n"
+            f"GRAMMAR:\n{meta.g}\n\n"
+            f"SENTENCE:\n{meta.sentence}\n\n"
+            f"Return only the missing {meta.k} tokens."
         )
 
     def score_answer(self, answer, entry):
-        from rapidfuzz.distance import Levenshtein
-        if not answer:
-            return 0.0
-
-        pred, gold = str(answer).split(), entry["answer"].split()
-        return Levenshtein.normalized_similarity(pred, gold)
+        return float(str(answer).split() == entry["answer"].split())
 
 
 # --- Stress continuation: valid_next(G, prefix) with delayed recursive state ---

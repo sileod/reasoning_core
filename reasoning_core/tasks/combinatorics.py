@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import ast
 import math
 import random
 import re
 from dataclasses import asdict, dataclass, field
+from fractions import Fraction
+from itertools import product
 
 from reasoning_core.template import Config, Entry, Task, edict, render_payload
 
@@ -653,6 +656,96 @@ def _valid(compiled):
     )
 
 
+def _evaluate_expression(expression):
+    source = re.sub(r"(\d+)!", r"F(\1)", expression).replace("^", "**")
+
+    def visit(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            return Fraction(node.value)
+        if isinstance(node, ast.BinOp):
+            left, right = visit(node.left), visit(node.right)
+            if isinstance(node.op, ast.Pow) and (right.denominator != 1 or abs(right) > 100):
+                raise ValueError("exponent outside finite grammar bound")
+            operations = {
+                ast.Add: lambda: left + right,
+                ast.Sub: lambda: left - right,
+                ast.Mult: lambda: left * right,
+                ast.Div: lambda: left / right,
+                ast.Pow: lambda: left ** int(right),
+            }
+            if type(node.op) in operations:
+                value = operations[type(node.op)]()
+                if value.numerator.bit_length() > 4096 or value.denominator.bit_length() > 4096:
+                    raise ValueError("counting value outside finite grammar bound")
+                return value
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            args = [int(visit(arg)) for arg in node.args]
+            functions = {"C": math.comb, "P": math.perm, "F": math.factorial}
+            if node.func.id in functions:
+                return Fraction(functions[node.func.id](*args))
+        raise ValueError("unsupported counting expression")
+
+    return visit(ast.parse(source, mode="eval").body)
+
+
+def _implicit_formula_space(compiled, max_candidates=32):
+    """Factor a correct expression into a small, fully enumerated token grammar."""
+    correct = next(option for option in compiled.options if option.correct)
+    tokenized = [re.findall(r"C|P|\d+|[()+*/^!,-]", option.expression)
+                 for option in compiled.options]
+    tokens = tokenized[next(i for i, option in enumerate(compiled.options) if option.correct)]
+    if "".join(tokens) != correct.expression:
+        return None
+    number_domain = sorted({t for row in tokenized for t in row if t.isdigit()}, key=int)
+    function_domain = sorted({t for row in tokenized for t in row if t in {"C", "P"}})
+    operator_domain = sorted({t for row in tokenized for t in row if t in "+-*/^"})
+    slots = []
+    for i, token in enumerate(tokens):
+        domain = (number_domain if token.isdigit() else function_domain if token in {"C", "P"}
+                  else operator_domain if token in "+-*/^" else [])
+        alternatives = [x for x in domain if x != token]
+        if alternatives:
+            values = [token, *random.sample(alternatives, min(2, len(alternatives)))]
+            random.shuffle(values)
+            slots.append((i, values))
+    random.shuffle(slots)
+    selected, size = [], 1
+    for slot in slots:
+        if size * len(slot[1]) <= max_candidates:
+            selected.append(slot)
+            size *= len(slot[1])
+        if len(selected) == 3:
+            break
+    if len(selected) < 2:
+        return None
+    selected.sort()
+    candidates, values = [], []
+    for replacements in product(*(domain for _, domain in selected)):
+        candidate = list(tokens)
+        for (index, _), replacement in zip(selected, replacements):
+            candidate[index] = replacement
+        expression = "".join(candidate)
+        try:
+            value = _evaluate_expression(expression)
+        except (ArithmeticError, ValueError):
+            return None
+        candidates.append(expression)
+        values.append(value)
+    if len(candidates) < 4:
+        return None
+    matches = [expression for expression, value in zip(candidates, values)
+               if value == correct.value]
+    if matches != [correct.expression]:
+        return None
+    form = list(tokens)
+    rules = []
+    for n, (index, domain) in enumerate(selected, 1):
+        name = f"X{n}"
+        form[index] = name
+        rules.append(f"{name} := {' | '.join(domain)}")
+    return "".join(form), rules, candidates, values
+
+
 def _expression_features(expression):
     depth = 0
     top_ops = []
@@ -695,7 +788,7 @@ def _expression_features(expression):
 
 
 class CombinatoricsFormulaSelection(Task):
-    """Translate a short counting problem into one canonical expression."""
+    """Synthesize the unique expression in a small constrained grammar."""
 
     config_cls = CombinatoricsConfig
 
@@ -762,6 +855,10 @@ class CombinatoricsFormulaSelection(Task):
             compiled = _compile(program, explicit=random.random() < self.config.explicit_rate)
             if not _valid(compiled):
                 continue
+            space = _implicit_formula_space(compiled)
+            if space is None:
+                continue
+            answer_form, slot_rules, candidates, candidate_values = space
             options = list(compiled.options)
             random.shuffle(options)
             correct_index = next(i for i, option in enumerate(options) if option.correct)
@@ -783,26 +880,31 @@ class CombinatoricsFormulaSelection(Task):
                 correct_features=correct_features,
                 mutation_types=[option.mutation for option in options if not option.correct],
                 options=option_rows,
-                finite_menu_exhaustively_checked=True,
-                candidate_values=[option.value for option in options],
+                answer_form=answer_form,
+                slot_rules=slot_rules,
+                n_slots=len(slot_rules),
+                n_candidates=len(candidates),
+                candidate_expressions=candidates,
+                finite_space_exhaustively_checked=True,
+                candidate_values=[str(value) for value in candidate_values],
             )
-            metadata.payload = {
-                "problem": compiled.text,
-                "options": "\n".join(f"{'ABCD'[i]}. {option.expression}" for i, option in enumerate(options)),
-            }
+            metadata.payload = {"problem": compiled.text}
             return Entry(metadata=metadata, answer=answer)
-        raise RuntimeError("failed to generate four numerically distinct combinatorics options")
+        raise RuntimeError("failed to generate a unique constrained counting expression")
 
     def render_prompt(self, metadata):
+        rules = "\n".join(metadata.slot_rules)
         return (
-            "Which listed expression counts the outcomes? Answer with its exact expression.\n"
-            "C(n,k): unordered; P(n,k): ordered.\n\n"
-            f"{render_payload(metadata.payload)}"
+            "Write the counting expression. C(n,k) is unordered; P(n,k) is ordered.\n\n"
+            f"{render_payload(metadata.payload)}\n\n"
+            f"The answer must have the form:\n{metadata.answer_form}\n"
+            f"where:\n{rules}\n"
+            "Answer with the complete expression."
         )
 
     def balancing_key(self, problem):
         return "|".join((
             problem.metadata.family,
             problem.metadata.correct_features.top_operator,
-            problem.metadata.correct_option_label,
+            str(problem.metadata.n_slots),
         ))

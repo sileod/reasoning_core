@@ -18,6 +18,7 @@ import tempfile
 import threading
 import time
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 from urllib.request import urlretrieve
 
@@ -1171,6 +1172,54 @@ def _line_options(lines, answer, max_options=6, template=None, runner=None, extr
     return options
 
 
+def _implicit_line_space(line, context, max_candidates=16, min_slots=1):
+    """A small Cartesian grammar over locally available identifiers."""
+    rhs = line.find(":=") + 2 if ":=" in line else (len("exact ") if line.startswith("exact ") else 0)
+    groups = (r"\bhp\d+\b", r"\bh\d+\b", r"\bp\d+\b", r"\b[a-n]\b", r"\b[s-z]\b")
+    choices = []
+    for pattern in groups:
+        domain = sorted(set(re.findall(pattern, context)))
+        if len(domain) < 2:
+            continue
+        for match in re.finditer(pattern, line):
+            if match.start() >= rhs:
+                values = [match.group(), *random.sample(
+                    [x for x in domain if x != match.group()],
+                    min(3, len(domain) - 1),
+                )]
+                random.shuffle(values)
+                choices.append((match.start(), match.end(), values))
+    random.shuffle(choices)
+    slots, size = [], 1
+    for choice in choices:
+        if any(choice[0] < end and start < choice[1] for start, end, _ in slots):
+            continue
+        if size * len(choice[2]) <= max_candidates:
+            slots.append(choice)
+            size *= len(choice[2])
+        if len(slots) == 3:
+            break
+    if len(slots) < min_slots:
+        return None
+    slots.sort()
+
+    def fill(values):
+        out, offset = line, 0
+        for (start, end, _), value in zip(slots, values):
+            out = out[:start + offset] + value + out[end + offset:]
+            offset += len(value) - (end - start)
+        return out
+
+    candidates = list(dict.fromkeys(fill(values) for values in product(*(s[2] for s in slots))))
+    form, offset, rules = line, 0, []
+    for i, (start, end, values) in enumerate(slots, 1):
+        name = f"X{i}"
+        form = form[:start + offset] + name + form[end + offset:]
+        offset += len(name) - (end - start)
+        rules.append(f"{name} := {' | '.join(values)}")
+    return form, rules, candidates
+
+
 def _valid_missing_indices(lines, level=0):
     candidates = [
         i for i, line in enumerate(lines)
@@ -1619,8 +1668,8 @@ def gen_forward_order_graph(config):
 # ============================================================================
 
 class LeanMissingLine(Task):
-    """Choose the unique listed proof line that fills a Lean-checked hole."""
-    summary = "Select the correct proof line for a hole in a compilation-checked Lean proof."
+    """Synthesize the unique line in a small, exhaustively checked term grammar."""
+    summary = "Complete a Lean proof with a uniquely valid constrained proof line."
 
     def __init__(self, config=None, **kwargs):
         super().__init__(config=config or LeanConfig(use_mathlib=_profile_ready(use_mathlib=True)), timeout=120, **kwargs)
@@ -1642,54 +1691,52 @@ class LeanMissingLine(Task):
                 "  __ANSWER__\n" if i == idx else f"  {line}\n"
                 for i, line in enumerate(script.lines)
             )
-            menu_size = min(8, max(2, int(self.config.n_candidates)))
-            available = _line_options(
-                script.lines,
+            space = _implicit_line_space(
                 correct_line,
-                menu_size,
                 template,
-                runner,
-                getattr(script, "candidate_lines", ()),
+                max_candidates=min(16, max(4, int(self.config.n_candidates) * 2)),
+                min_slots=2 if level >= 2 else 1,
             )
-            if len(available) != menu_size:
+            if space is None:
                 continue
+            answer_form, slot_rules, available = space
             candidate_results = [
                 runner.check(template.replace("__ANSWER__", candidate))[0]
                 for candidate in available
             ]
-            correct_index = available.index(correct_line) + 1
-            compiling = [i + 1 for i, ok in enumerate(candidate_results) if ok]
-            if compiling != [correct_index]:
+            compiling = [line for line, ok in zip(available, candidate_results) if ok]
+            if compiling != [correct_line]:
                 continue
             return Entry(
                 edict(
                     kind=script.kind,
                     template=template,
-                    available_lines=available,
-                    compiling_indices=compiling,
-                    compiling_lines=[correct_line],
+                    answer_form=answer_form,
+                    slot_rules=slot_rules,
+                    candidate_lines=available,
                     candidate_compiles=candidate_results,
-                    finite_menu_exhaustively_checked=True,
+                    compiling_lines=compiling,
+                    n_slots=len(slot_rules),
+                    n_candidates=len(available),
+                    finite_space_exhaustively_checked=True,
                     correct_line=correct_line,
-                    correct_index=correct_index,
                     missing_line=idx + 1,
                     use_mathlib=use_mathlib,
                     used_mathlib=use_mathlib,
                 ),
                 correct_line,
             )
-        raise RuntimeError("failed to generate unique hard Lean line options")
+        raise RuntimeError("failed to generate a unique constrained Lean line")
 
     def render_prompt(self, metadata):
-        options = "\n".join(
-            f"{i}. {line}" for i, line in enumerate(_mget(metadata, "available_lines"), 1)
-        )
         imports = "Mathlib is imported." if _mget(metadata, "use_mathlib") else "Only Lean/Std is imported."
+        rules = "\n".join(_mget(metadata, "slot_rules"))
         return (
-            f"Fill `__ANSWER__` with one listed Lean proof line. {imports}\n"
-            "The answer is the exact text of the selected line.\n\n"
+            f"Fill `__ANSWER__` with a Lean proof line. {imports}\n\n"
             f"THEOREM:\n{_mget(metadata, 'template')}\n"
-            f"LINES:\n{options}"
+            f"The answer must have the form:\n{_mget(metadata, 'answer_form')}\n"
+            f"where:\n{rules}\n"
+            "Answer with the complete Lean line."
         )
 
     def score_answer(self, answer, entry):
