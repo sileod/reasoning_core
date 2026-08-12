@@ -287,6 +287,15 @@
    "accuracy_key": "ts_dpo_mc_cloze_acc",
    "margin_key": "ts_dpo_mc_cloze_margin",
    "limit": 1500
+  },
+  {
+   "name": "tulu3_pref",
+   "path": "tulu3_pref_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "tulu3_pref_nll",
+   "accuracy_key": "tulu3_pref_mc_cloze_acc",
+   "margin_key": "tulu3_pref_mc_cloze_margin",
+   "limit": 1200
   }
  ],
  "disabled_legs": [
@@ -327,5 +336,5 @@
    "_disabled_reason": "no headroom (baseline NLL 0.663)"
   }
  ],
- "_note": "v4 + ts_dpo (tasksource/tasksource_dpo_pairs, validation, 1500 rows stratified over 435 tasks, <=6/task). Structurally UNLIKE HelpSteer2/UltraFeedback: chosen and rejected are short labels from ONE label set, so the pair is length- and register-matched BY CONSTRUCTION and differs only in correctness -- the minimal-pair property that made balanced_copa the sole surviving preference-style leg. Gate 1: leak 0%, gold 15.7 vs distractor 16.0 chars (-0.32), shortest-picker excess -1.8 pts. The 68% option-menu rate is DELIBERATE: the menu is needed for answerability and lists both candidates symmetrically, so it shifts both NLLs together and cancels in the MARGIN. READ THE MARGIN. | v5 exists because v4 is LIVE on 6 G5K jobs -- each arm re-loads the manifest, so v4 must not be edited. Keep BOTH the rc and rg waves on v4 for comparability; v5 is the next wave."
+ "_note": "v4 + ts_dpo (tasksource/tasksource_dpo_pairs, validation, 1500 rows stratified over 435 tasks, <=6/task). Structurally UNLIKE HelpSteer2/UltraFeedback: chosen and rejected are short labels from ONE label set, so the pair is length- and register-matched BY CONSTRUCTION and differs only in correctness -- the minimal-pair property that made balanced_copa the sole surviving preference-style leg. Gate 1: leak 0%, gold 15.7 vs distractor 16.0 chars (-0.32), shortest-picker excess -1.8 pts. The 68% option-menu rate is DELIBERATE: the menu is needed for answerability and lists both candidates symmetrically, so it shifts both NLLs together and cancels in the MARGIN. READ THE MARGIN. | v5 exists because v4 is LIVE on 6 G5K jobs -- each arm re-loads the manifest, so v4 must not be edited. Keep BOTH the rc and rg waves on v4 for comparability; v5 is the next wave. | tulu3_pref (allenai/llama-3.1-tulu-3-8b-preference-mixture, 1200 pairs, 7 sources, T=128 equal-length): PRE-REGISTERED PREDICTION CONFIRMED -- long free-form pairs behave like HS2/UF, r(c,u)=0.878 and acc 0.540 (AT CHANCE, se 0.022). Included for GATE 3 only, per the user's 'imperfect contrast beats no contrast'. ALL FOUR preference sets fail gate 2 at 360M (hs2 inverted 0.423; uf 0.530; tulu3 0.540; ts_dpo 0.530) -- keep every one of them OUT of flat-mean composites until gate 3 shows they MOVE. bcui19/UltraMix was REJECTED: prompt+response only, no chosen/rejected, so it cannot be a contrastive leg at all."
 }
