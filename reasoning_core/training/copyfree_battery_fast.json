@@ -233,7 +233,7 @@
    "kind": "mcq",
    "output_key": "logiqa_nll",
    "limit": 500,
-   "_disabled_reason": "inert (sd 0.44)"
+   "_disabled_reason": "inert: margin SNR 1.1 (nll SNR 5.8 is the answer prior, not discrimination)"
   },
   {
    "name": "hellaswag",
@@ -243,7 +243,7 @@
    "limit": 400,
    "accuracy_key": "hellaswag_mc_cloze_acc",
    "margin_key": "hellaswag_mc_cloze_margin",
-   "_disabled_reason": "inert (sd 0.13 vs 2.90 gsm8k)"
+   "_disabled_reason": "inert: margin SNR 1.1 (nll SNR 4.6 is the answer prior, not discrimination)"
   },
   {
    "name": "anli",
@@ -253,7 +253,7 @@
    "limit": 400,
    "accuracy_key": "anli_mc_cloze_acc",
    "margin_key": "anli_mc_cloze_margin",
-   "_disabled_reason": "at chance (+1.2 over chance, NLL 8.79)"
+   "_disabled_reason": "at chance (+1.2 over chance, NLL 8.79) -- BUT SNR nll 9.8 / margin 8.3, revisit"
   },
   {
    "name": "codealpaca",
@@ -261,8 +261,8 @@
    "kind": "qa_nll",
    "output_key": "codealpaca_nll",
    "limit": 200,
-   "_disabled_reason": "no headroom (baseline NLL 0.663)"
+   "_disabled_reason": "no headroom (baseline NLL 0.663) -- BUT SNR nll 5.7, revisit"
   }
  ],
- "_note": "v3 minus 4 measured-dead/inert legs; mmlu_other_cloze and blimp trimmed to 400. Disabled legs are PARKED in disabled_legs, not deleted -- re-enable by moving back into legs."
+ "_note": "v3 minus 4 measured-dead/inert legs; mmlu_other_cloze and blimp trimmed to 400. Disabled legs are PARKED in disabled_legs, not deleted -- re-enable by moving back into legs. *** 2026-08-12 WARNING, READ BEFORE USING: the parking decisions were made on RAW sd across arms, which is NOT comparable across legs at different scales. Measured properly (SNR = between-task spread / within-task seed noise, 21 rc tasks x 2 seeds): hellaswag margin 1.1 and logiqa margin 1.1 stay parked, but anli reads nll 9.8 / margin 8.3 and codealpaca nll 5.7 -- both SEPARATE TASKS strongly despite failing gate 2. At-chance argmax accuracy does not stop a margin carrying information. Revisit those two before relying on this battery. No run has used it yet. ***"
 }
