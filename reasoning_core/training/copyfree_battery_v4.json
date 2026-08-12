@@ -269,6 +269,15 @@
    "accuracy_key": "uf_pref_mc_cloze_acc",
    "margin_key": "uf_pref_mc_cloze_margin",
    "limit": 300
+  },
+  {
+   "name": "mmlu_math_nomenu",
+   "path": "mmlu_math_nomenu_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "mmlu_math_nomenu_nll",
+   "accuracy_key": "mmlu_math_nomenu_mc_cloze_acc",
+   "margin_key": "mmlu_math_nomenu_mc_cloze_margin",
+   "limit": 600
   }
  ],
  "disabled_legs": [
@@ -309,5 +318,5 @@
    "_disabled_reason": "no headroom (baseline NLL 0.663)"
   }
  ],
- "_note": "fast battery + MENU-FREE margin-scored BBH variants. bbh_dev leak 92%->8% once the option menu is stripped -- the 'leak' WAS the menu. Both nomenu legs are kind=mcq so they emit *_mc_cloze_margin, which is the contrastive metric; read the MARGIN, not the gold _nll. arc_* needed no rebuild (already menu-free, already emits a margin). | PREFERENCE LEGS INCLUDED BY USER DECISION 2026-08-12: hs2_cor_clean, hs2_cor_val, uf_pref. Gates 1-2 measured: HS2 is INVERTED at 360M (acc 0.407 vs 0.500 chance, S_cond<0) and uf_pref is winnable without the prompt (acc_uncond 0.523 vs acc_cond 0.527). They are here so GATE 3 (sensitivity across aux arms) can be measured -- same reason winogrande sits in v3 at chance. READ THE MARGIN, and read HS2 WITH ITS SIGN FLIPPED. Do NOT put them in a flat-mean composite until gate 3 shows they move."
+ "_note": "fast battery + MENU-FREE margin-scored BBH variants. bbh_dev leak 92%->8% once the option menu is stripped -- the 'leak' WAS the menu. Both nomenu legs are kind=mcq so they emit *_mc_cloze_margin, which is the contrastive metric; read the MARGIN, not the gold _nll. arc_* needed no rebuild (already menu-free, already emits a margin). | PREFERENCE LEGS INCLUDED BY USER DECISION 2026-08-12: hs2_cor_clean, hs2_cor_val, uf_pref. Gates 1-2 measured: HS2 is INVERTED at 360M (acc 0.407 vs 0.500 chance, S_cond<0) and uf_pref is winnable without the prompt (acc_uncond 0.523 vs acc_cond 0.527). They are here so GATE 3 (sensitivity across aux arms) can be measured -- same reason winogrande sits in v3 at chance. READ THE MARGIN, and read HS2 WITH ITS SIGN FLIPPED. Do NOT put them in a flat-mean composite until gate 3 shows they move. | mmlu_math_nomenu: mmlu_math_macro is the ONE menu-shaped MMLU leg (100% menu, 0 choices, letter answers); this is its contrastive counterpart, 600 rows / 15 quant subjects, 0% menu, 3% leak, margin-scored. The mmlu_*_cloze legs needed NO rebuild -- already menu-free (0% leak; their 26% 'menu' hit is the phrase 'which of the following' in the stem, not options)."
 }
