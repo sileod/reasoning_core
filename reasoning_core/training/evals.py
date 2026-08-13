@@ -83,7 +83,7 @@ def evaluate_qa_nll(model, tokenizer, examples, max_length):
     with evaluating(model):
         for item in examples:
             example = _example(item)
-            prompt_ids = _token_ids(tokenizer, example.prompt)
+            prompt_ids = _prompt_ids(tokenizer, example.prompt)
             answer_ids = _token_ids(tokenizer, example.answer)
             if len(prompt_ids) + len(answer_ids) > max_length:
                 per_example.append(None)
@@ -149,7 +149,7 @@ def evaluate_mcq(model, tokenizer, examples, max_length):
             if not example.choices or example.answer_index is None:
                 per_example.append(None)
                 continue
-            prompt_ids = _token_ids(tokenizer, example.prompt)
+            prompt_ids = _prompt_ids(tokenizer, example.prompt)
             scores = [
                 _candidate_nll(model, tokenizer, prompt_ids, choice, max_length, device)
                 for choice in example.choices
@@ -208,7 +208,7 @@ def evaluate_generation(model, tokenizer, examples, max_length, max_new_tokens,
     with evaluating(model):
         for item in examples:
             example = _example(item)
-            prompt_ids = _token_ids(tokenizer, example.prompt)
+            prompt_ids = _prompt_ids(tokenizer, example.prompt)
             if not prompt_ids or len(prompt_ids) > max_length:
                 per_example.append(None)
                 continue
@@ -275,6 +275,18 @@ def _example(value):
 def _token_ids(tokenizer, text):
     encoded = tokenizer(text, add_special_tokens=False)
     return encoded.input_ids if hasattr(encoded, "input_ids") else encoded["input_ids"]
+
+
+
+def _prompt_ids(tokenizer, prompt):
+    """Tokenize an eval prompt the way TRAINING formats it.
+
+    data.py format_row (influence_auto_v1 / sft_qa_v1) emits prompt as f"{prompt}\n" and the
+    completion as f"{answer}{eos}". The evaluators used to tokenize example.prompt raw, so the model
+    was scored on a prefix it never saw in training -- a train/eval mismatch on every leg. Normalise
+    trailing newlines so a leg whose stored prompt already ends in one is not double-terminated.
+    """
+    return _token_ids(tokenizer, str(prompt).rstrip("\n") + "\n")
 
 
 def _candidate_nll(model, tokenizer, prompt_ids, candidate, max_length, device):
