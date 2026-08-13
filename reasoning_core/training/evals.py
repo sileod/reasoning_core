@@ -7,7 +7,10 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+import sys
 import torch
+
+DISCARD_WARN_RATE = 0.02   # warn once >2% of a leg's rows are unscorable
 
 
 EVALUATOR_VERSION = 1
@@ -138,6 +141,7 @@ def evaluate_mcq(model, tokenizer, examples, max_length):
 
     correct = total = 0
     gold_nlls, margins, per_example = [], [], []
+    skipped = 0                      # rows dropped because prompt+candidate exceeded max_length
     device = next(model.parameters()).device
     with evaluating(model):
         for item in examples:
@@ -154,8 +158,11 @@ def evaluate_mcq(model, tokenizer, examples, max_length):
             if not -len(scores) <= gold < len(scores) or all(
                 score == float("inf") for score in scores
             ):
+                skipped += 1
                 per_example.append(None)
                 continue
+            if any(score == float("inf") for score in scores):
+                skipped += 1     # partial: some candidates unscorable, margin is computed on the rest
             prediction = min(range(len(scores)), key=scores.__getitem__)
             distractors = [score for index, score in enumerate(scores)
                            if index != gold and score != float("inf")]
@@ -171,10 +178,19 @@ def evaluate_mcq(model, tokenizer, examples, max_length):
                 margins.append(margin)
             per_example.append({"prediction": prediction, "gold_nll": scores[gold],
                                 "margin": margin})
+    # A row whose prompt+candidate exceeds max_length scores inf and is dropped SILENTLY. That is a
+    # data-format bug (prompt too long for the battery's max_length), not a property of the model, and
+    # it biases every metric below toward whichever rows happen to be short. Say so, loudly.
+    if examples and skipped / len(examples) > DISCARD_WARN_RATE:
+        print(f"[eval] WARNING: {skipped}/{len(examples)} rows ({skipped / len(examples):.1%}) exceeded "
+              f"max_length={max_length} and were dropped. Shorten the prompts (cap so that "
+              f"prompt+answer < max_length) or raise max_length; metrics below are computed on the "
+              f"surviving, systematically shorter rows.", file=sys.stderr)
     return {
         "accuracy": correct / total if total else None,
         "examples": len(examples),
         "scored_examples": total,
+        "discarded_examples": skipped,
         "gold_nll": sum(gold_nlls) / len(gold_nlls) if gold_nlls else None,
         "margin": sum(margins) / len(margins) if margins else None,
         "per_example": per_example,
