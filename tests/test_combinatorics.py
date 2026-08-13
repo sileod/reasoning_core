@@ -100,7 +100,7 @@ def test_difficulty_increases_composition_and_reduces_explicitness():
 
 
 def test_generated_metadata_and_answer():
-    task = CombinatoricsFormula()
+    task = CombinatoricsFormula(CombinatoricsConfig(multiple_choice_prob=0))
 
     for _ in range(50):
         example = task.generate_example()
@@ -120,3 +120,16 @@ def test_generated_metadata_and_answer():
         ) == 1
         assert "Options:" not in example.prompt
         assert "The answer must have the form:" in example.prompt
+
+
+def test_multiple_choice_format():
+    assert CombinatoricsConfig().multiple_choice_prob == 0.2
+    task = CombinatoricsFormula(CombinatoricsConfig(multiple_choice_prob=1))
+    example = task.generate_example()
+
+    assert example.metadata.multiple_choice
+    assert example.answer == example.metadata.correct_option_label
+    assert task.score_answer(example.answer, example) == 1
+    assert task.score_answer("not a choice", example) == 0
+    assert "Options:" in example.prompt
+    assert "Answer A-D." in example.prompt

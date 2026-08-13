@@ -326,16 +326,19 @@ class CSPSolver:
     def _key(formulas):
         return tuple(sorted((f.canonical() for f in formulas), key=repr))
 
+    def _expression(self, formula):
+        key = formula.canonical()
+        if key not in self._expression_cache:
+            self._expression_cache[key] = formula.to_z3(self.ctx)
+        return self._expression_cache[key]
+
     def solver(self, clues=None, extra=(), domains=None):
         solver = z3.Solver()
         for v in self.variables:
             values = v.domain if domains is None else domains[v]
             solver.add(z3.Or(*[self.ctx[v.name] == x for x in values]))
         for formula in (*self.base, *(self.clues if clues is None else clues), *extra):
-            key = formula.canonical()
-            if key not in self._expression_cache:
-                self._expression_cache[key] = formula.to_z3(self.ctx)
-            solver.add(self._expression_cache[key])
+            solver.add(self._expression(formula))
         return solver
 
     def is_sat(self, clues=None, extra=()):
@@ -350,11 +353,10 @@ class CSPSolver:
         key = (var, self._key(active), self._key(extra))
         if key in self._values_cache: return list(self._values_cache[key])
         solver = self.solver(active, extra)
-        out = []
-        for value in var.domain:
-            solver.push(); solver.add(self.ctx[var.name] == value)
-            if solver.check() == z3.sat: out.append(value)
-            solver.pop()
+        out = [
+            value for value in var.domain
+            if solver.check(self.ctx[var.name] == value) == z3.sat
+        ]
         self._values_cache[key] = tuple(out)
         return out
 
@@ -876,14 +878,19 @@ def query_leakage_metrics(solver, clues, query):
     }
 
 
-def _query_leaks(solver, clues, query, difficulty):
+def _query_leaks(solver, clues, query, difficulty, family=None):
     leakage = query_leakage_metrics(solver, clues, query)
-    local_limit = 0.5 if difficulty <= 0 or len(solver.variables) < 4 else 0.4
+    local_limit = (
+        2 / 3 if family == "scheduling"
+        else 0.5 if difficulty <= 0 or len(solver.variables) < 4
+        else 0.4
+    )
     if leakage["query_local_fraction"] > local_limit: return True
     if leakage["single_clue_forces_query"]: return True
     if difficulty >= 1 and leakage["query_local_unary_count"]: return True
-    if leakage["maximum_single_clue_reduction"] / len(query.var.domain) > (
-            0.5 if difficulty <= 0 else 0.34): return True
+    reduction_limit = 0.5 if difficulty <= 0 or family == "scheduling" else 0.34
+    if leakage["maximum_single_clue_reduction"] / len(query.var.domain) > reduction_limit:
+        return True
     return False
 
 
@@ -894,8 +901,12 @@ def _quality_ok(metrics, clues, query, family, difficulty):
     }.get(family, 4)
     if metrics["displayed_clue_essentiality"] < 0.8: return False
     if len(metrics["operator_histogram"]) < 2: return False
-    if metrics["variables_touched"] < min(4, metrics.get("total_variables", 4)): return False
-    if metrics["sampled_min_wrong_answer_core_size"] < (3 if strict and medium_scale else 2): return False
+    required_variables = 3 if family == "scheduling" else min(
+        4, metrics.get("total_variables", 4)
+    )
+    if metrics["variables_touched"] < required_variables: return False
+    core_floor = 2 if family == "scheduling" else 3 if strict and medium_scale else 2
+    if metrics["sampled_min_wrong_answer_core_size"] < core_floor: return False
     if strict and medium_scale and metrics["query_forced_round"] == 1: return False
     essential = {
         operator_name(clue) for clue, matters in zip(clues, (
@@ -912,7 +923,9 @@ def _quality_ok(metrics, clues, query, family, difficulty):
     if family == "grid" and strict:
         if not metrics["global_invariant_essential"] or not essential & {"lt", "distance"}: return False
         if not any(len(core["semantic_groups"]) >= 3 for core in metrics["wrong_answer_cores"]): return False
-    if family == "scheduling" and strict and not essential & {"lt", "distance", "linear"}: return False
+    if family == "scheduling" and strict:
+        if not metrics["global_invariant_essential"]: return False
+        if not essential & {"lt", "distance", "linear"}: return False
     if family == "numeric" and strict:
         if any(core["size"] and core["variables_touched"] < 2 for core in metrics["wrong_answer_cores"]): return False
         if len(metrics["operator_histogram"]) < 2: return False
@@ -949,7 +962,7 @@ def select_instance(variables, base, pool, queries, rng, n_orders=6, family="num
         work = [(query, clues, "unique_full_solution")
                 for clues in systems for query in query_order]
     else:
-        for query in query_order[:min(3 if difficulty >= 1 else 2, len(query_order))]:
+        for query in query_order[:min(2, len(query_order))]:
             objective = UniqueValue(query.var, query.answer)
             systems = minimize_for_objective(solver, pool, objective, rng, n_orders)
             work.extend((query, clues, objective.name) for clues in systems
@@ -967,12 +980,15 @@ def select_instance(variables, base, pool, queries, rng, n_orders=6, family="num
         key = (query.var, tuple(sorted(repr(c.canonical()) for c in clues)))
         if key in seen: continue
         seen.add(key)
-        if len(seen) > (6 if difficulty >= 1 else 3): break
-        if _query_leaks(solver, clues, query, difficulty): continue
+        if len(seen) > 3: break
+        if _query_leaks(solver, clues, query, difficulty, family): continue
         if len({operator_name(c) for c in clues}) < 2: continue
-        if len({v for c in clues for v in c.variables()}) < min(4, len(variables)): continue
+        required_variables = 3 if family == "scheduling" else min(4, len(variables))
+        if len({v for c in clues for v in c.variables()}) < required_variables:
+            continue
         values = solver.possible_values(query.var, clues)
-        core_floor = 3 if difficulty >= 2 and len(variables) >= 4 else 2
+        strict_scale = len(variables) >= 4
+        core_floor = 3 if difficulty >= 2 and strict_scale and family != "scheduling" else 2
         if any(
             len(solver.refutation_core(query.var, value, clues)) < core_floor
             for value in query.var.domain if value not in values
@@ -1696,13 +1712,18 @@ def generate_instance(family_name, rng, size, max_tries=64, n_orders=6, max_doma
                 values = solver.possible_values(selected.query.var, changed)
                 if len(values) == 1 and values[0] != selected.query.answer:
                     new_query = replace(selected.query, answer=values[0])
-                    core_floor = 3 if difficulty >= 2 else 2
+                    core_floor = (
+                        2 if family.name == "scheduling"
+                        else 3 if difficulty >= 2
+                        else 2
+                    )
                     cores = [solver.refutation_core(new_query.var, value, changed)
                              for value in new_query.var.domain if value != values[0]]
                     if any(len(core) < core_floor for core in cores): continue
                     if any(len(solver.possible_values(new_query.var, (clue,))) == 1 for clue in changed):
                         continue
-                    if _query_leaks(solver, changed, new_query, difficulty): continue
+                    if _query_leaks(solver, changed, new_query, difficulty, family.name):
+                        continue
                     changed_metrics = analyze(
                         solver, changed, new_query, group_of=world.data.get("group_of"),
                     )

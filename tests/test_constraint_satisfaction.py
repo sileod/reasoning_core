@@ -3,6 +3,7 @@ import random
 import pytest
 
 from reasoning_core.tasks.constraint_satisfaction import ConstraintSatisfaction, ConstraintSatisfactionConfig
+from reasoning_core.tasks._csp_utils import CSPSolver, Eq, Ne, Var
 
 
 def test_constraint_satisfaction_modes_generate_and_score():
@@ -12,6 +13,31 @@ def test_constraint_satisfaction_modes_generate_and_score():
         problem = task.generate_example(max_tokens=0)
         assert problem.metadata.model_mode == mode
         assert task.score_answer(problem.answer, problem) == 1
+
+
+def test_possible_values_uses_exact_non_mutating_checks():
+    x = Var("x", range(4))
+    solver = CSPSolver((x,))
+
+    assert solver.possible_values(x, (Ne(x, 1), Ne(x, 3))) == [0, 2]
+    assert solver.unique_value(x, (Eq(x, 2),)) == 2
+    assert solver.is_sat((Eq(x, 0),))
+
+
+def test_scheduling_depth_counts_relations_and_global_invariant():
+    random.seed(0)
+    config = ConstraintSatisfactionConfig(
+        model_mode="scheduling", counterfactual_prob=0,
+        possibility_prob=0, consistency_prob=0,
+    )
+    config.set_level(2)
+    problem = ConstraintSatisfaction(config).generate_entry()
+    metrics = problem.metadata.metrics
+
+    assert metrics.sampled_min_wrong_answer_core_size >= 2
+    assert metrics.global_invariant_essential
+    assert not metrics.single_clue_forces_query
+    assert metrics.displayed_clue_essentiality >= 0.8
 
 
 def test_constraint_satisfaction_finite_prompts_are_short():

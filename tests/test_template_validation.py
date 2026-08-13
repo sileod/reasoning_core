@@ -1,4 +1,7 @@
-from reasoning_core.template import Entry, Task
+import ctypes
+
+from reasoning_core import template
+from reasoning_core.template import Entry, Task, timeout_retry
 
 
 class ConstantLabelTask(Task):
@@ -24,3 +27,19 @@ def test_validation_does_not_treat_repeated_labels_as_other_answers():
         row.prompt = task.render_prompt(row.metadata)
 
     task._check_validation_examples(rows[0], rows[1:], n_samples=3)
+
+
+def test_timeout_retry_recovers_from_ctypes_wrapped_signal(monkeypatch):
+    calls = 0
+    monkeypatch.setattr(template.time, "sleep", lambda _: None)
+
+    @timeout_retry(seconds=1, attempts=2)
+    def operation():
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ctypes.ArgumentError("argument 1: TimeoutException")
+        return "ok"
+
+    assert operation() == "ok"
+    assert calls == 2

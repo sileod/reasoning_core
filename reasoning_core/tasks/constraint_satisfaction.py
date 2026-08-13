@@ -52,7 +52,6 @@ class ConstraintSatisfactionConfig(Config):
         self.max_domain = sround(self.max_domain + 0.4 * level)
         self.n_constraints = sround(self.n_constraints + 1.1 * level)
         self.coef_bound = sround(self.coef_bound + 0.3 * level)
-        self.minimization_orders = sround(self.minimization_orders + 0.5 * level)
 
 
 CSPConfig = ConstraintSatisfactionConfig
@@ -63,7 +62,7 @@ class ConstraintSatisfaction(Task):
     config_cls = ConstraintSatisfactionConfig
 
     def __init__(self, config=None):
-        super().__init__(config=config or self.config_cls())
+        super().__init__(config=config or self.config_cls(), timeout=4)
         c = self.config
         if c.solve_mode.lower() == "lex_all": c.solve_mode = "all"
         modes = set(FAMILIES) | set(ALIASES) | {"any"}

@@ -1,4 +1,5 @@
 import wrapt
+import ctypes
 import json
 import time
 import functools
@@ -163,6 +164,10 @@ def timeout_retry(seconds=15, attempts=10):
                 )
 
             def handler(signum, frame):
+                module = frame.f_globals.get("__name__", "") if frame else ""
+                if module == "ctypes" or module.startswith("z3"):
+                    signal.alarm(1)
+                    return
                 raise TimeoutException()
 
             for attempt in range(1, attempts + 1):
@@ -174,7 +179,13 @@ def timeout_retry(seconds=15, attempts=10):
                     if on_main:
                         signal.alarm(0)
                     return result
-                except _RETRYABLE as e:
+                except BaseException as e:
+                    converted_timeout = (
+                        isinstance(e, ctypes.ArgumentError)
+                        and "TimeoutException" in str(e)
+                    )
+                    if not isinstance(e, _RETRYABLE) and not converted_timeout:
+                        raise
                     if on_main:
                         signal.alarm(0)
                     
@@ -188,7 +199,9 @@ def timeout_retry(seconds=15, attempts=10):
                     # --------------------------------------------------------------
 
                     if attempt == attempts:
-                        raise e
+                        if converted_timeout:
+                            raise TimeoutException() from e
+                        raise
                     time.sleep(0.5)
                 finally:
                     if on_main:

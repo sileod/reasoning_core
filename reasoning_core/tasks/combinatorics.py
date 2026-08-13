@@ -18,6 +18,7 @@ class CombinatoricsConfig(Config):
     depth_2_rate: float = 0.2
     depth_3_rate: float = 0.05
     explicit_rate: float = 0.9
+    multiple_choice_prob: float = 0.2
     max_tries: int = 100
 
     def apply_difficulty(self, level):
@@ -850,19 +851,19 @@ class CombinatoricsFormula(Task):
         return self._sample_atomic()
 
     def generate_entry(self):
+        multiple_choice = random.random() < self.config.multiple_choice_prob
         for _ in range(int(self.config.max_tries)):
             program = self._sample_program()
             compiled = _compile(program, explicit=random.random() < self.config.explicit_rate)
             if not _valid(compiled):
                 continue
-            space = _implicit_formula_space(compiled)
-            if space is None:
-                continue
-            answer_form, slot_rules, candidates, candidate_values = space
             options = list(compiled.options)
             random.shuffle(options)
             correct_index = next(i for i, option in enumerate(options) if option.correct)
-            answer = options[correct_index].expression
+            answer = "ABCD"[correct_index] if multiple_choice else options[correct_index].expression
+            space = None if multiple_choice else _implicit_formula_space(compiled)
+            if not multiple_choice and space is None:
+                continue
             option_rows = []
             for option in options:
                 row = asdict(option)
@@ -880,19 +881,33 @@ class CombinatoricsFormula(Task):
                 correct_features=correct_features,
                 mutation_types=[option.mutation for option in options if not option.correct],
                 options=option_rows,
-                answer_form=answer_form,
-                slot_rules=slot_rules,
-                n_slots=len(slot_rules),
-                n_candidates=len(candidates),
-                candidate_expressions=candidates,
-                finite_space_exhaustively_checked=True,
-                candidate_values=[str(value) for value in candidate_values],
+                multiple_choice=multiple_choice,
             )
+            if space:
+                answer_form, slot_rules, candidates, candidate_values = space
+                metadata.update(
+                    answer_form=answer_form,
+                    slot_rules=slot_rules,
+                    n_slots=len(slot_rules),
+                    n_candidates=len(candidates),
+                    candidate_expressions=candidates,
+                    finite_space_exhaustively_checked=True,
+                    candidate_values=[str(value) for value in candidate_values],
+                )
             metadata.payload = {"problem": compiled.text}
             return Entry(metadata=metadata, answer=answer)
-        raise RuntimeError("failed to generate a unique constrained counting expression")
+        raise RuntimeError("failed to generate a counting expression")
 
     def render_prompt(self, metadata):
+        if metadata.multiple_choice:
+            options = "\n".join(
+                f"{'ABCD'[i]}. {option['expression']}" for i, option in enumerate(metadata.options)
+            )
+            return (
+                "Which expression counts the outcomes? C(n,k) is unordered; P(n,k) is ordered.\n\n"
+                f"{render_payload(metadata.payload)}\n\nOptions:\n{options}\n"
+                "Answer A-D."
+            )
         rules = "\n".join(metadata.slot_rules)
         return (
             "Write the counting expression. C(n,k) is unordered; P(n,k) is ordered.\n\n"
@@ -906,5 +921,5 @@ class CombinatoricsFormula(Task):
         return "|".join((
             problem.metadata.family,
             problem.metadata.correct_features.top_operator,
-            str(problem.metadata.n_slots),
+            problem.answer if problem.metadata.multiple_choice else str(problem.metadata.n_slots),
         ))

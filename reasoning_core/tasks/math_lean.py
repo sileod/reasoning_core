@@ -353,6 +353,7 @@ class LeanConfig(Config):
     expr_depth: int = 3
     n_hyps: int = 2
     n_candidates: int = 6
+    multiple_choice_prob: float = 0.2
     use_mathlib: bool = True
 
     def apply_difficulty(self, level):
@@ -1678,6 +1679,7 @@ class LeanMissingLine(Task):
         use_mathlib = getattr(self.config, "use_mathlib", True)
         runner = get_runner(use_mathlib=use_mathlib)
         level = int(getattr(self.config, "level", 0))
+        multiple_choice = random.random() < self.config.multiple_choice_prob
         for _ in range(30):
             script = make_proof_script(self.config)
             valid_indices = _valid_missing_indices(script.lines, level)
@@ -1691,6 +1693,25 @@ class LeanMissingLine(Task):
                 "  __ANSWER__\n" if i == idx else f"  {line}\n"
                 for i, line in enumerate(script.lines)
             )
+            if multiple_choice:
+                available = _line_options(
+                    script.lines, correct_line, self.config.n_candidates,
+                    template, runner, getattr(script, "candidate_lines", ()),
+                )
+                if len(available) != max(2, int(self.config.n_candidates)):
+                    continue
+                correct_index = available.index(correct_line) + 1
+                return Entry(
+                    edict(
+                        kind=script.kind, template=template, available_lines=available,
+                        compiling_indices=[correct_index],
+                        compiling_lines=[correct_line], correct_line=correct_line,
+                        correct_index=correct_index,
+                        missing_line=idx + 1, use_mathlib=use_mathlib,
+                        used_mathlib=use_mathlib, multiple_choice=True,
+                    ),
+                    str(correct_index),
+                )
             space = _implicit_line_space(
                 correct_line,
                 template,
@@ -1723,6 +1744,7 @@ class LeanMissingLine(Task):
                     missing_line=idx + 1,
                     use_mathlib=use_mathlib,
                     used_mathlib=use_mathlib,
+                    multiple_choice=False,
                 ),
                 correct_line,
             )
@@ -1730,6 +1752,15 @@ class LeanMissingLine(Task):
 
     def render_prompt(self, metadata):
         imports = "Mathlib is imported." if _mget(metadata, "use_mathlib") else "Only Lean/Std is imported."
+        if _mget(metadata, "multiple_choice"):
+            options = "\n".join(
+                f"{i}. {line}" for i, line in enumerate(_mget(metadata, "available_lines"), 1)
+            )
+            return (
+                f"Which listed Lean proof line fills `__ANSWER__`? {imports}\n\n"
+                f"THEOREM:\n{_mget(metadata, 'template')}\n"
+                f"LINES:\n{options}\nAnswer with the line number."
+            )
         rules = "\n".join(_mget(metadata, "slot_rules"))
         return (
             f"Fill `__ANSWER__` with a Lean proof line. {imports}\n\n"
