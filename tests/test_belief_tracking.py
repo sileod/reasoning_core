@@ -1,4 +1,5 @@
 import json
+import random
 from collections import Counter
 
 import pytest
@@ -320,6 +321,19 @@ def test_generated_example_has_grounded_certificates_and_no_meta_language():
     ] if phrase in prompt})
     for position in entry.metadata.answer_mention_positions:
         assert prompt[position : position + len(entry.answer)] == entry.answer
+
+
+def test_level_zero_hard_generation_escapes_first_order_rejection_tail():
+    task = BeliefTracking()
+    state = random.getstate()
+    try:
+        random.seed(127)  # Exhausted all attempts before the bounded fallback.
+        entry = task.generate_example(level=0)
+    finally:
+        random.setstate(state)
+
+    assert entry.metadata.hard_example
+    assert task.score_answer(entry.answer, entry) == 1
 
 
 def test_counterfactuals_are_emitted_as_an_atomic_certified_pair():

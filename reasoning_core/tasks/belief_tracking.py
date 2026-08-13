@@ -1165,8 +1165,12 @@ class BeliefTracking(Task):
         if _case is not None:
             return _case
         require_hard = random.random() < self.config.hard_fraction
-        for _ in range(self.config.max_tries):
+        for attempt in range(self.config.max_tries):
             knobs = self._sample_knobs()
+            # Preserve sparse first-order hard cases, then leave the rejection
+            # tail by sampling the higher-order chains hard items usually need.
+            if require_hard and attempt >= 32:
+                knobs["modal_depth"] = max(2, knobs["modal_depth"])
             agents, objects, containers, init = self._sample_world(knobs)
             specs, _target_obj, _proof_chain = self._world_specs(
                 knobs, agents, objects, containers, init
