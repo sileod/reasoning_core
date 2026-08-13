@@ -183,6 +183,7 @@ def write_output(results, truth, args):
     payload = {
         "protocol": {
             "model": MODEL, "revision": REVISION, "main_source": args.main_source,
+            "dolci_only": args.dolci_only,
             "warm_steps": args.warm_steps, "max_length": args.max_length,
             "projection": "countsketch_v1", "projection_dimensions": args.projection_dimensions,
             "projection_seed": args.projection_seed, "task_batches": args.batches,
@@ -246,8 +247,10 @@ def main():
     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
     probe = WarmProbe(tokenizer, legs, task_rows, truth, args)
     dataset = load_stream(StreamSpec(
-        args.main_source, "influence_auto_v1", cycle=True,
+        args.main_source, "influence_auto_v1", cycle=not args.dolci_only,
     ), tokenizer)
+    if args.dolci_only:
+        dataset = dataset.filter(lambda row: bool(row["prompt"])).repeat(None)
     trainer = SFTTrainer(
         model=model, processing_class=tokenizer, train_dataset=dataset, callbacks=[probe],
         args=SFTConfig(
@@ -269,6 +272,7 @@ def main():
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--main-source", default="data_cache/fwdolci_main.jsonl")
+    parser.add_argument("--dolci-only", action="store_true")
     parser.add_argument("--task-source", default="task_diagnostics/cache/task_rows/75c0b75b1001")
     parser.add_argument("--historical-results", default="per_task_results/influence_COLL-roster_ROSTER2_S43_S43_T300_M20_fwdolci_pretrained.json")
     parser.add_argument("--battery", default="reasoning_core/training/copyfree_battery_v3.json")
