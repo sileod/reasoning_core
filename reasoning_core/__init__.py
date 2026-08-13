@@ -10,7 +10,7 @@ from itertools import islice, cycle
 from math import ceil
 import json
 from tqdm.auto import tqdm
-import os
+from pathlib import Path
 from .template import _REGISTRY, edict, prepr_task_name
 from . import tasks
 from .zero_shot_eval import evaluate_model
@@ -45,43 +45,44 @@ class _PrettyLazy:
     def __repr__(self):
         return f"<lazy:{self.name}>"
 
-def _discover_tasks():
+def _discover_tasks(tasks_path=None):
     """
     Parses task files to find all Task subclasses and their names without importing them.
     Returns a mapping of {task_name: module_name}.
     """
     task_map = {}
     dev_task_map = {}
-    tasks_path = tasks.__path__[0]
-    for filename in os.listdir(tasks_path):
-        if filename.endswith('.py') and not filename.startswith('_'):
-            module_name = filename[:-3]
-            with open(os.path.join(tasks_path, filename), 'r') as f:
-                tree = ast.parse(f.read(), filename=filename)
+    tasks_path = Path(tasks_path or tasks.__path__[0])
+    for path in sorted(tasks_path.rglob("*.py")):
+        relative = path.relative_to(tasks_path)
+        if (path.name.startswith("_") or "deprecated" in relative.parts
+                or any(part.startswith((".", "_")) for part in relative.parts[:-1])):
+            continue
+        module_name = ".".join(relative.with_suffix("").parts)
+        tree = ast.parse(path.read_text(), filename=str(relative))
 
-
-            for node in ast.walk(tree):
-                if not isinstance(node, ast.ClassDef):
-                    continue
-                bases = {
-                    b.id if isinstance(b, ast.Name) else b.attr
-                    for b in node.bases
-                    if isinstance(b, (ast.Name, ast.Attribute))
-                }
-                if not {'Task', 'DevTask'} & bases:
-                    continue
-                task_name = prepr_task_name(node.name)
-                for body_item in node.body:
-                    if (isinstance(body_item, ast.Assign) and
-                        len(body_item.targets) == 1 and
-                        isinstance(body_item.targets[0], ast.Name) and
-                        body_item.targets[0].id == 'task_name' and
-                        isinstance(body_item.value, ast.Constant) and
-                        isinstance(body_item.value.value, str)):
-                        task_name = body_item.value.value
-                        break
-                target_map = dev_task_map if 'DevTask' in bases else task_map
-                target_map[task_name] = (module_name, node.name)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            bases = {
+                b.id if isinstance(b, ast.Name) else b.attr
+                for b in node.bases
+                if isinstance(b, (ast.Name, ast.Attribute))
+            }
+            if not {'Task', 'DevTask'} & bases:
+                continue
+            task_name = prepr_task_name(node.name)
+            for body_item in node.body:
+                if (isinstance(body_item, ast.Assign) and
+                    len(body_item.targets) == 1 and
+                    isinstance(body_item.targets[0], ast.Name) and
+                    body_item.targets[0].id == 'task_name' and
+                    isinstance(body_item.value, ast.Constant) and
+                    isinstance(body_item.value.value, str)):
+                    task_name = body_item.value.value
+                    break
+            target_map = dev_task_map if 'DevTask' in bases else task_map
+            target_map[task_name] = (module_name, node.name)
     return task_map, dev_task_map
 
 
