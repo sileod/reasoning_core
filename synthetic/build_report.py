@@ -67,18 +67,42 @@ def parse_source_model(data, filename):
     return source, model
 
 
-def collect(results_dir):
-    """Returns rows: list of dicts, one per (task, source, model, seed, metric)."""
+def parse_mix_aux(data, filename):
+    """The filename ALWAYS encodes mix_aux (verified directly against
+    task_influence.py's own run_result_paths(): "..._M{int(mix_aux*100)}_...").
+    Use that as authoritative rather than trusting data.get("mix_aux"), which
+    may not exist in the raw result JSON at all for older runs -- silently
+    trusting an absent field is exactly how two different mix ratios could
+    get blended together undetected."""
+    m = re.search(r"_M(\d+)_", filename)
+    if m:
+        return round(int(m.group(1)) / 100, 4)
+    val = data.get("mix_aux")
+    return round(float(val), 4) if isinstance(val, (int, float)) else None
+
+
+def collect(results_dir, mix_aux_filter=None):
+    """Returns rows: list of dicts, one per (task, source, model, seed, metric).
+    mix_aux_filter: if given, only include result files trained with that exact
+    mix_aux ratio. If None and MULTIPLE distinct mix_aux values are present across
+    the loaded files, raises rather than silently averaging different training
+    configs together as if they were interchangeable seed replicates."""
     rows = []
+    seen_mix_aux = set()
     for path in sorted(Path(results_dir).glob("influence_*.json")):
         data = load_json(path)
         if not isinstance(data, dict) or not isinstance(data.get("tasks"), dict):
             continue
         source, model = parse_source_model(data, path.name)
         seed = data.get("seed")
+        mix_aux = parse_mix_aux(data, path.name)
         if source is None or model is None or seed is None:
             print(f"warning: couldn't parse source/model/seed from {path.name}, skipping", file=sys.stderr)
             continue
+        if mix_aux_filter is not None and mix_aux != mix_aux_filter:
+            continue
+        if mix_aux is not None:
+            seen_mix_aux.add(mix_aux)
         for task_name, rec in data["tasks"].items():
             if task_name not in TASKS or not isinstance(rec, dict):
                 continue
@@ -86,11 +110,21 @@ def collect(results_dir):
                 key = f"{metric}_delta"
                 if key in rec and isinstance(rec[key], (int, float)):
                     rows.append(dict(task=task_name, source=source, model=model, seed=seed,
-                                      metric=metric, value=float(rec[key]), file=path.name))
+                                      metric=metric, value=float(rec[key]), file=path.name,
+                                      mix_aux=mix_aux))
             for extra_key in ("acc0", "acc_final", "solve0", "solve_final"):
                 if extra_key in rec and isinstance(rec[extra_key], (int, float)):
                     rows.append(dict(task=task_name, source=source, model=model, seed=seed,
-                                      metric=extra_key, value=float(rec[extra_key]), file=path.name))
+                                      metric=extra_key, value=float(rec[extra_key]), file=path.name,
+                                      mix_aux=mix_aux))
+
+    if mix_aux_filter is None and len(seen_mix_aux) > 1:
+        raise SystemExit(
+            f"Found result files with DIFFERENT --mix-aux values in {results_dir}: "
+            f"{sorted(seen_mix_aux)}. Averaging these together would silently blend "
+            f"different training configs as if they were interchangeable seed replicates. "
+            f"Pick one explicitly: --mix-aux 0.2 (or whichever value you want)."
+        )
     return rows
 
 
@@ -135,7 +169,7 @@ def fmt(x, digits=4, signed=True):
 def write_csv(rows, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["task", "source", "model", "seed", "metric", "value", "file"])
+        w = csv.DictWriter(f, fieldnames=["task", "source", "model", "seed", "metric", "value", "file", "mix_aux"])
         w.writeheader()
         w.writerows(rows)
 
@@ -216,23 +250,39 @@ def build_agreement_table(agg, models, tasks):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--results-dir", default=str(ROOT / "per_task_results"))
-    ap.add_argument("--out-dir", default=str(ROOT / "task_diagnostics" / "report"))
+    ap.add_argument("--out-dir", default=None,
+                     help="Default: task_diagnostics/report/ (mix_aux=0.2, the original default) "
+                          "or task_diagnostics/report_mix<N>/ for any other --mix-aux, so reports "
+                          "for different mix ratios never overwrite each other.")
+    ap.add_argument("--mix-aux", type=float, default=None,
+                     help="Only include result files trained with this exact --mix-aux ratio. "
+                          "Required (script will tell you) if per_task_results/ contains runs "
+                          "from more than one mix ratio -- prevents silently averaging different "
+                          "training configs together as if they were interchangeable seed replicates.")
     ap.add_argument("--primary-metric", default="bbh",
                      help="Metric used for the scaling table headline (others still get their own table).")
     args = ap.parse_args()
 
-    rows = collect(args.results_dir)
+    rows = collect(args.results_dir, mix_aux_filter=args.mix_aux)
     if not rows:
-        raise SystemExit(f"No usable influence_*.json rows found under {args.results_dir} -- "
-                          f"has run_experiment_grid.py finished any runs yet?")
+        raise SystemExit(f"No usable influence_*.json rows found under {args.results_dir} "
+                          f"(mix_aux filter: {args.mix_aux}) -- has run_experiment_grid.py "
+                          f"finished any runs yet?")
+
+    actual_mix_aux = args.mix_aux if args.mix_aux is not None else rows[0].get("mix_aux")
+    if args.out_dir is None:
+        suffix = "" if actual_mix_aux in (None, 0.2) else f"_mix{int(actual_mix_aux * 100)}"
+        out_dir = ROOT / "task_diagnostics" / f"report{suffix}"
+    else:
+        out_dir = Path(args.out_dir)
 
     agg = aggregate(rows)
     models_present = model_order(sorted({r["model"] for r in rows}))
     sources_present = sorted({r["source"] for r in rows})
     tasks_present = [t for t in TASKS if any(r["task"] == t for r in rows)]
 
-    out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"mix_aux: {actual_mix_aux}  ->  {out_dir}")
 
     write_csv(rows, out_dir / "all_values.csv")
 
