@@ -6,6 +6,7 @@ The public training API has one arm runner:
 - `data.py`: explicit formatting, filtering, mixing, and token-dose helpers
 - `evals.py`: versioned QA, LM, multiple-choice, and generation evaluators
 - `influence.py`: paired baseline/treatment orchestration using `run_arm()`
+- `gradient_influence.py`: cached contrastive gradients and cheap task alignment
 
 Install the optional dependencies with:
 
@@ -78,3 +79,33 @@ For a new or changed task, follow the repository's
 It keeps the baseline fixed and limits task-specific changes to the auxiliary
 stream/filter, its content ID, and the treatment arm ID. Historical measurements
 are published in [`RESULTS.md`](../../task_influence/RESULTS.md).
+
+## Gradient influence proxy
+
+The gradient proxy is separate from paired training: it has no trainer, optimizer,
+checkpoint, callback, `run_arm()`, or changes to model weights. It builds one
+content-addressed aggregate from ordered MC benchmark legs, then scores formatted
+`prompt`/`completion` batches:
+
+```python
+from reasoning_core.training.gradient_influence import (
+    GradientCacheSpec, build_eval_gradient_cache, gradient_objective_id,
+    score_task_gradient,
+)
+
+objective_id = gradient_objective_id(legs, max_length=512)
+spec = GradientCacheSpec("sha256:warmed-state", objective_id, 512)
+cache = build_eval_gradient_cache(model, tokenizer, legs, spec)
+result = score_task_gradient(model, tokenizer, rows, cache, max_length=512)
+print(result.cosine, result.dot, result.task_norm)
+```
+
+Each benchmark leg contributes its unit-normalized gradient. The final aggregate
+is normalized and stored as safetensors plus a provenance manifest under
+`~/.cache/reasoning_core/gradient_influence/`. `score_task()` accepts a seeded
+batch factory and returns independent mean/std/stderr plus aggregate cosine.
+
+Run `scripts/validate_gradient_influence.py --help` to calibrate 1/2/4/8/16/32
+batch estimates against the published 51-task, 300-step measurements. Its pinned
+5M default is a cheap pipeline smoke; pass the actual warmed FW+Dolci checkpoint
+and initialization ID for scientific calibration.

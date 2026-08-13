@@ -9,11 +9,13 @@ from pathlib import Path
 
 import sys
 import torch
+import torch.nn.functional as F
 
 DISCARD_WARN_RATE = 0.02   # warn once >2% of a leg's rows are unscorable
 
 
 EVALUATOR_VERSION = 1
+CONTRASTIVE_MC_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,14 @@ class EvalSuite:
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()[:12]
         return f"{self.name}/eval@v{EVALUATOR_VERSION}:{digest}"
+
+
+@dataclass(frozen=True)
+class DifferentiableEvalLoss:
+    loss: torch.Tensor
+    examples: int
+    tokens: int
+    skipped_examples: int = 0
 
 
 def load_eval_suite(path, eos_token, name=None, limit=None):
@@ -197,6 +207,67 @@ def evaluate_mcq(model, tokenizer, examples, max_length):
     }
 
 
+def contrastive_mc_loss(model, tokenizer, examples, max_length, temperature=1.0):
+    """Differentiable gold-vs-distractor loss using mean answer-token NLLs."""
+
+    if temperature <= 0:
+        raise ValueError("temperature must be positive")
+    losses, tokens, scored, skipped = [], 0, 0, 0
+    device = next(model.parameters()).device
+    for item in examples:
+        example = _example(item)
+        if not example.choices or example.answer_index is None:
+            skipped += 1
+            continue
+        gold = example.answer_index
+        if not -len(example.choices) <= gold < len(example.choices):
+            skipped += 1
+            continue
+        prompt_ids = _prompt_ids(tokenizer, example.prompt)
+        candidates = [
+            _differentiable_candidate_nll(
+                model, tokenizer, prompt_ids, choice, max_length, device,
+            )
+            for choice in example.choices
+        ]
+        if candidates[gold] is None:
+            skipped += 1
+            continue
+        distractors = [value for index, value in enumerate(candidates)
+                       if index != gold and value is not None]
+        if not distractors:
+            skipped += 1
+            continue
+        gold_nll, gold_tokens = candidates[gold]
+        row_losses = [F.softplus((gold_nll - wrong_nll) / temperature)
+                      for wrong_nll, _ in distractors]
+        losses.append(torch.stack(row_losses).mean())
+        tokens += gold_tokens + sum(count for _, count in distractors)
+        scored += 1
+    if not losses:
+        raise RuntimeError("Contrastive MC evaluation scored no examples")
+    return DifferentiableEvalLoss(
+        torch.stack(losses).mean(), scored, tokens, skipped,
+    )
+
+
+def contrastive_mc_objective_id(name, examples, max_length, temperature=1.0):
+    """Content ID for the exact differentiable MC objective."""
+
+    payload = {
+        "loss": f"contrastive_mc@v{CONTRASTIVE_MC_VERSION}",
+        "name": name,
+        "examples": [asdict(_example(item)) for item in examples],
+        "temperature": temperature,
+        "max_length": max_length,
+        "candidate_normalization": "mean_answer_token_nll@v1",
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:16]
+    return f"{name}/contrastive_mc@v{CONTRASTIVE_MC_VERSION}:{digest}"
+
+
 @torch.no_grad()
 def evaluate_generation(model, tokenizer, examples, max_length, max_new_tokens,
                         score=None):
@@ -297,6 +368,19 @@ def _candidate_nll(model, tokenizer, prompt_ids, candidate, max_length, device):
     labels = input_ids.clone()
     labels[0, :len(prompt_ids)] = -100
     return model(input_ids, labels=labels).loss.item()
+
+
+def _differentiable_candidate_nll(model, tokenizer, prompt_ids, candidate,
+                                  max_length, device):
+    answer_ids = _token_ids(tokenizer, str(candidate))
+    if not answer_ids or len(prompt_ids) + len(answer_ids) > max_length:
+        return None
+    input_ids = torch.tensor([prompt_ids + answer_ids], device=device)
+    labels = input_ids.clone()
+    labels[0, :len(prompt_ids)] = -100
+    loss = model(input_ids, labels=labels).loss
+    tokens = int((labels[0, 1:] != -100).sum().item())
+    return (loss, tokens) if tokens else None
 
 
 def _exact_match(prediction, answer):
