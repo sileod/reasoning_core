@@ -6,8 +6,9 @@ import pandas as pd
 
 import reasoning_core.tasks.table_qa as table_qa
 from reasoning_core.tasks.table_qa import (
-    TableEquivalence, TableQA, TableQAConfig, canonical_scalar, canonical_table,
-    corrupt_table, equivalence_display, render_nulls,
+    Predicate, QueryPlan, TableEquivalence, TableQA, TableQAConfig,
+    canonical_scalar, canonical_table, corrupt_table, equivalence_display,
+    legal_extensions, render_nulls, render_query, sample_query_plan,
 )
 
 
@@ -71,24 +72,46 @@ def test_multiple_corruptions_are_certified_inequivalent():
     assert canonical_table(corrupted) != canonical_table(df)
 
 
-def test_table_qa_conditions_data_on_each_query_family(monkeypatch):
-    task = TableQA(TableQAConfig(num_rows=8, num_columns=6, complexity=3))
+def test_query_plan_renders_topk_and_grouped_arithmetic():
+    topk = QueryPlan(projection=["row_id"], order_by=["qty"], limit=3)
+    grouped = QueryPlan(
+        predicates=[Predicate("status", "paid")], projection=["category"],
+        expression='"qty" * "unit_price"', aggregate="sum",
+        group_by=["category"], order_by=["aggregate"], limit=1,
+    )
 
-    for family in ("count", "arithmetic", "grouped_arithmetic"):
-        monkeypatch.setattr(table_qa, "_sample_query_family", lambda _config: family)
+    assert render_query(topk) == (
+        'SELECT "row_id" FROM dataframe WHERE TRUE ORDER BY "qty" DESC LIMIT 3'
+    )
+    assert "GROUP BY" in render_query(grouped)
+    assert "ORDER BY SUM" in render_query(grouped)
+    assert "LIMIT 1" in render_query(grouped)
+
+
+def test_table_qa_conditions_every_sampled_operator():
+    task = TableQA(TableQAConfig(num_rows=12, column_slack=1.5, complexity=4))
+
+    for _ in range(20):
         entry = task.generate_entry()
         spec = entry.metadata["query_spec"]
-        checks = spec["feature_checks"]
-
         assert spec["query_conditioned"]
-        assert all(checks["filters_matter"])
-        assert checks["arithmetic_matters"] is (
-            True if family != "count" else None
-        )
-        assert checks["grouping_matters"] is (
-            True if family == "grouped_arithmetic" else None
-        )
+        assert all(spec["feature_checks"].values())
+        assert len(entry.answer.splitlines()) <= 6
         assert task.score_answer(entry.answer, entry) == 1
+
+
+def test_query_plan_complexity_is_continuous_and_compositional():
+    low = [sample_query_plan(TableQAConfig(complexity=0.5)) for _ in range(300)]
+    high = [sample_query_plan(TableQAConfig(complexity=8.0)) for _ in range(300)]
+    density = lambda plans: np.mean([
+        len(p.predicates) + bool(p.expression) + bool(p.aggregate) + bool(p.group_by)
+        + len(p.order_by) + bool(p.limit) + p.distinct for p in plans
+    ])
+
+    assert density(high) > density(low) + 3
+    assert any(p.limit for p in high)
+    assert any(p.group_by for p in high)
+    assert "group" not in legal_extensions(QueryPlan(projection=["row_id"]))
 
 
 def test_table_qa_difficulty_increases_semantic_complexity():
@@ -98,4 +121,10 @@ def test_table_qa_difficulty_increases_semantic_complexity():
     hard.set_level(4)
 
     assert hard.complexity > easy.complexity
-    assert hard.num_tables == easy.num_tables == 1
+    assert hard.num_rows > easy.num_rows
+    assert hard.column_slack > easy.column_slack
+
+
+def test_table_qa_task_version_is_five():
+    entry = TableQA(TableQAConfig(complexity=0)).generate_example(max_tokens=0)
+    assert entry.metadata._task_version == 5

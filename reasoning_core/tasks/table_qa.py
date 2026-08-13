@@ -8,7 +8,7 @@ from html import escape
 from babel.dates import format_date
 from babel.numbers import format_decimal
 from tabulate import tabulate
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field, replace
 from reasoning_core.template import Task, DevTask, Entry, Config, render_payload, stochastic_rounding as sround
 from reasoning_core.utils import score_scalar
 import csv
@@ -25,22 +25,14 @@ except Exception:
 
 @dataclass
 class TableQAConfig(Config):
-    num_rows: int = 8
-    num_columns: int = 6
-    num_tables: int = 1
-    complexity: int = 1
+    num_rows: int = 10
+    column_slack: float = 1.0
+    complexity: float = 1.0
+
     def apply_difficulty(self, level):
-        # Keep the TABLE small. The old ramp (rows*1.7**level, +level cols, up to 3 shards)
-        # exploded the prompt to ~5k tok at L4 and made this a net-hurter via prompt-length
-        # tax under answer-only training (global -1.98 / bbh -3.01). Shrinking the table to
-        # ~600 tok at L4 flips influence to neutral (global -0.20 / bbh +0.80), confirming
-        # prompt length was the driver. Validated 2026-07-09 (REEVAL_TQSHRINK_OLMO1B); the
-        # neutral run held complexity flat. Query-aware generation below now makes semantic
-        # complexity the length-safe difficulty lever while keeping the table compact.
-        self.num_rows = 4 + 2 * level              # 4, 6, 8, 10, 12
-        self.num_columns = min(3 + level, 6)       # 3, 4, 5, 6, 6
-        self.num_tables = 1                        # never shard
-        self.complexity = sround(min(4, self.complexity + 0.75 * level))
+        self.num_rows = sround(self.num_rows * 1.12 ** level)
+        self.column_slack *= 1.08 ** level
+        self.complexity *= 1.22 ** level
 
 
 @dataclass
@@ -64,12 +56,6 @@ LOCALES = ["en_US", "fr_FR"]
 DATE_FORMATS = ["yyyy-MM-dd", "d MMM yyyy", "MMM d, yyyy", "yyyy/MM/dd"]
 NUMBER_FORMATS = ["#,##0.##", "#,##0.00", "#,##0.##", "#,##0.00", "0.###E0"]
 TABLEQA_NUMBER_FORMATS = ["0.##", "0.00", "0.###"]
-TABLEQA_CORE = [
-    "row_id", "country", "category", "status", "date", "qty", "unit_price",
-]
-TABLEQA_EXTRA = [
-    "customer", "segment", "discount", "gross", "net", "is_refund",
-]
 BOOL_FORMATS = [
     {True: "true", False: "false"},
     {True: "yes", False: "no"},
@@ -89,47 +75,9 @@ def generate_random_table(config):
         ('price', lambda: round(random.uniform(5, 500), 2)),
         ('rating', lambda: round(random.uniform(1, 5), 1))
     ]
-    cols = random.sample(pool, min(config.num_columns, len(pool)))
+    width = getattr(config, "num_columns", sround(4 + config.column_slack))
+    cols = random.sample(pool, min(width, len(pool)))
     return pd.DataFrame({n: [g() for _ in range(config.num_rows)] for n, g in cols})
-
-
-def generate_tableqa_dataframe(config):
-    n = config.num_rows
-    countries = ["France", "Germany", "Spain", "Italy", "Netherlands"]
-    segments = ["consumer", "corporate", "education"]
-    categories = ["Books", "Electronics", "Clothing", "Food", "Office"]
-    statuses = ["paid", "refunded", "pending", "cancelled"]
-
-    df = pd.DataFrame({
-        "row_id": [f"R{i:04d}" for i in range(n)],
-        "customer": [f"C{random.randint(1, max(3, n // 3)):03d}" for _ in range(n)],
-        "country": np.random.choice(countries, n),
-        "segment": np.random.choice(segments, n),
-        "category": np.random.choice(categories, n),
-        "status": np.random.choice(statuses, n, p=[0.62, 0.12, 0.16, 0.10]),
-        "date": [_faker.date_between("-18M", "today") for _ in range(n)],
-        "qty": np.random.randint(1, 12, n),
-        "unit_price": np.round(np.random.lognormal(3.1, 0.65, n), 2),
-        "discount": np.random.choice([0, 0.05, 0.1, 0.2, 0.3], n),
-    })
-    df["gross"] = np.round(df["qty"] * df["unit_price"], 2)
-    df["net"] = np.round(df["gross"] * (1 - df["discount"]), 2)
-    df["is_refund"] = df["status"].eq("refunded")
-    df = apply_tableqa_noise(df, config)
-
-    k = max(len(TABLEQA_CORE), config.num_columns)
-    extras = random.sample(TABLEQA_EXTRA, min(len(TABLEQA_EXTRA), k - len(TABLEQA_CORE)))
-    cols = TABLEQA_CORE + extras
-    random.shuffle(cols)
-    return df[cols]
-
-
-def apply_tableqa_noise(df, config):
-    rate = min(0.18, 0.02 * config.complexity)
-    for c in ["discount", "segment"]:
-        if c in df.columns:
-            df.loc[np.random.rand(len(df)) < rate, c] = np.nan
-    return df
 
 def is_date_series(s):
     xs = s.dropna()
@@ -322,173 +270,315 @@ def literal(x):
     return str(x)
 
 
-def _refresh_derived_columns(df):
-    if "gross" in df:
-        df["gross"] = np.round(df["qty"] * df["unit_price"], 2)
-    if "net" in df:
-        discount = df["discount"].fillna(0) if "discount" in df else 0
-        df["net"] = np.round(df["qty"] * df["unit_price"] * (1 - discount), 2)
-    if "is_refund" in df:
-        df["is_refund"] = df["status"].eq("refunded")
+@dataclass(frozen=True)
+class Predicate:
+    column: str
+    value: object
+
+
+@dataclass
+class QueryPlan:
+    predicates: list[Predicate] = field(default_factory=list)
+    projection: list[str] = field(default_factory=list)
+    expression: str | None = None
+    aggregate: str | None = None
+    group_by: list[str] = field(default_factory=list)
+    order_by: list[str] = field(default_factory=list)
+    descending: bool = True
+    distinct: bool = False
+    limit: int | None = None
+
+    @property
+    def scalar(self):
+        return bool(self.aggregate and not self.group_by)
+
+
+_COLUMN_VALUES = {
+    "row_id": lambda n: [f"R{i:04d}" for i in range(n)],
+    "country": lambda n: np.random.choice(["France", "Germany", "Spain", "Italy"], n),
+    "category": lambda n: np.random.choice(["Books", "Electronics", "Clothing", "Food"], n),
+    "status": lambda n: np.random.choice(["paid", "pending", "cancelled"], n),
+    "customer": lambda n: [f"C{random.randint(1, max(3, n // 3)):03d}" for _ in range(n)],
+    "segment": lambda n: np.random.choice(["consumer", "corporate", "education"], n),
+    "date": lambda n: [_faker.date_between("-18M", "today") for _ in range(n)],
+    "qty": lambda n: np.random.randint(2, 20, n),
+    "unit_price": lambda n: np.round(np.random.lognormal(3.1, 0.65, n), 2),
+    "discount": lambda n: np.random.choice([0, 0.05, 0.1, 0.2, 0.3], n),
+}
+_PREDICATE_VALUES = {
+    "country": ["France", "Germany", "Spain", "Italy"],
+    "status": ["paid", "pending", "cancelled"],
+}
+_OP_COST = {
+    "predicate": 0.8, "expression": 1.0, "aggregate": 1.0,
+    "group": 1.4, "order": 0.7, "limit": 0.5, "distinct": 0.8,
+    "secondary_sort": 0.8, "projection": 0.6,
+}
+
+
+def legal_extensions(plan):
+    out = []
+    if len(plan.predicates) < 2:
+        out.append("predicate")
+    if not plan.expression and not plan.aggregate and not plan.distinct:
+        out.append("expression")
+    if not plan.aggregate and not plan.order_by and not plan.distinct:
+        out.append("aggregate")
+    if plan.aggregate and not plan.group_by:
+        out.append("group")
+    if not plan.order_by and (not plan.aggregate or plan.group_by):
+        out.append("order")
+    if plan.order_by and plan.limit is None:
+        out.append("limit")
+    if not plan.aggregate and not plan.expression and not plan.distinct and not plan.order_by:
+        out.append("distinct")
+    if len(plan.order_by) == 1 and not plan.distinct and not plan.group_by:
+        out.append("secondary_sort")
+    if not plan.aggregate and not plan.expression and len(plan.projection) < 2:
+        out.append("projection")
+    return out
+
+
+def _apply_extension(plan, op):
+    if op == "predicate":
+        used = {p.column for p in plan.predicates}
+        column = random.choice([c for c in _PREDICATE_VALUES if c not in used])
+        plan.predicates.append(Predicate(column, random.choice(_PREDICATE_VALUES[column])))
+    elif op == "expression":
+        plan.expression = f"{ident('qty')} * {ident('unit_price')}"
+    elif op == "aggregate":
+        plan.aggregate = random.choice(["count", "sum", "avg", "max", "min"])
+        if plan.aggregate != "count":
+            plan.expression = plan.expression or ident("qty")
+        plan.projection = []
+    elif op == "group":
+        plan.group_by = plan.projection = ["category"]
+    elif op == "order":
+        plan.order_by = [
+            "aggregate" if plan.group_by else
+            "expression" if plan.expression else
+            plan.projection[0] if plan.distinct else "qty"
+        ]
+        plan.descending = random.choice([False, True])
+    elif op == "limit":
+        plan.limit = random.randint(1, 4)
+    elif op == "distinct":
+        plan.distinct = True
+        if plan.projection == ["row_id"]:
+            plan.projection = [random.choice(["country", "category", "status"])]
+    elif op == "secondary_sort":
+        plan.order_by.append("category" if plan.group_by else "row_id")
+    elif op == "projection":
+        choices = [c for c in ("row_id", "country", "category", "status") if c not in plan.projection]
+        plan.projection.append(random.choice(choices))
+
+
+def sample_query_plan(config):
+    plan = QueryPlan(projection=[random.choice(["row_id", "country", "category", "status"])])
+    budget = np.random.gamma(shape=max(0.5, config.complexity), scale=1.0)
+    while budget > 0:
+        candidates = legal_extensions(plan)
+        if not candidates:
+            break
+        weights = [1.3 if op == "predicate" else 1.0 for op in candidates]
+        op = random.choices(candidates, weights=weights, k=1)[0]
+        cost = _OP_COST[op] * np.random.lognormal(0, 0.18)
+        if random.random() > min(1.0, budget / cost):
+            break
+        _apply_extension(plan, op)
+        budget -= cost
+    return plan
+
+
+def schema_for_plan(plan, config):
+    required = {
+        *(p.column for p in plan.predicates), *plan.projection, *plan.group_by,
+        *(c for c in plan.order_by if c not in {"aggregate", "expression"}),
+        *re.findall(r'"([^"]+)"', plan.expression or ""),
+    }
+    if plan.aggregate:
+        required.add("qty")
+    if not required:
+        required.add("row_id")
+    available = [c for c in _COLUMN_VALUES if c not in required]
+    n_extra = min(np.random.poisson(config.column_slack), max(1, len(required)), len(available))
+    columns = [*required, *random.sample(available, n_extra)]
+    random.shuffle(columns)
+    return columns
+
+
+def minimum_witness_rows(plan):
+    needs = [4, 3 + len(plan.predicates)]
+    if plan.limit:
+        needs.append(2 * plan.limit + len(plan.predicates))
+    if plan.group_by:
+        needs.append(2 * max(3, plan.limit or 2) + len(plan.predicates))
+    if plan.distinct or len(plan.order_by) > 1:
+        needs.append(6)
+    return max(needs)
+
+
+def _condition_dataframe(df, plan):
+    n_match = max(2, (plan.limit or 0) + 2,
+                  2 * max(3, (plan.limit or 0) + 1) if plan.group_by else 0)
+    n_match = min(n_match, len(df) - len(plan.predicates))
+    for predicate in plan.predicates:
+        alternatives = [x for x in _PREDICATE_VALUES[predicate.column] if x != predicate.value]
+        df[predicate.column] = random.choice(alternatives)
+    for i in range(n_match):
+        for predicate in plan.predicates:
+            df.loc[i, predicate.column] = predicate.value
+    for offset, predicate in enumerate(plan.predicates):
+        row = n_match + offset
+        for other in plan.predicates:
+            df.loc[row, other.column] = other.value
+        df.loc[row, predicate.column] = random.choice(
+            [x for x in _PREDICATE_VALUES[predicate.column] if x != predicate.value]
+        )
+
+    if "qty" in df:
+        df["qty"] = np.arange(2, len(df) + 2)
+    if "unit_price" in df:
+        df["unit_price"] = np.round(8 + (np.arange(len(df)) * 7 % 23), 2)
+    for row in range(n_match, n_match + len(plan.predicates)):
+        if "qty" in df:
+            df.loc[row, "qty"] = 100 + row
+        if "unit_price" in df:
+            df.loc[row, "unit_price"] = 100 + 3 * row
+
+    if plan.group_by:
+        groups = ["Books", "Electronics", "Clothing", "Food", "Office"][:max(3, (plan.limit or 0) + 1)]
+        for i in range(n_match):
+            df.loc[i, "category"] = groups[i % len(groups)]
+    if plan.distinct and n_match > 1:
+        for column in plan.projection:
+            df.loc[1, column] = df.loc[0, column]
+    if len(plan.order_by) > 1:
+        if plan.order_by[0] == "expression":
+            df.loc[1, ["qty", "unit_price"]] = df.loc[0, ["qty", "unit_price"]]
+        elif plan.order_by[0] in df:
+            df.loc[1, plan.order_by[0]] = df.loc[0, plan.order_by[0]]
+        if not plan.descending and "row_id" in df:
+            df.loc[0, "row_id"], df.loc[1, "row_id"] = df.loc[1, "row_id"], df.loc[0, "row_id"]
     return df
 
 
-def _sample_query_family(config):
-    complexity = int(config.complexity)
-    families = ["count", "arithmetic", "grouped_arithmetic"]
-    weights = [max(1, 5 - complexity), complexity, max(0, 2 * (complexity - 1))]
-    if config.num_rows < 6:
-        weights[-1] = 0
-    return random.choices(families, weights=weights, k=1)[0]
-
-
-def _condition_table_for_query(config, family, n_predicates):
-    """Build filter witnesses and numeric contrasts for a chosen query plan."""
-    df = generate_tableqa_dataframe(config).copy()
-    predicate_columns = ["country", "status"][:n_predicates]
-    country, other_country = random.sample(["France", "Germany", "Spain", "Italy"], 2)
-    status, other_status = random.sample(["paid", "pending", "cancelled"], 2)
-    anchor = {"country": country, "status": status}
-    alternatives = {"country": other_country, "status": other_status}
-    for column in predicate_columns:
-        df[column] = alternatives[column]
-    if family == "grouped_arithmetic":
-        matched_rows = 3
-    elif family == "count":
-        matched_rows = random.randint(2, min(4, len(df) - n_predicates))
-    else:
-        matched_rows = 2
-    for row in range(min(matched_rows, len(df))):
-        for column in predicate_columns:
-            df.loc[df.index[row], column] = anchor[column]
-    for i, column in enumerate(predicate_columns, start=matched_rows):
-        if i >= len(df):
-            break
-        for other in predicate_columns:
-            df.loc[df.index[i], other] = anchor[other]
-        df.loc[df.index[i], column] = alternatives[column]
-
-    if family == "grouped_arithmetic":
-        winner, quantity_winner = random.sample(
-            ["Books", "Electronics", "Clothing", "Food"], 2
-        )
-        prices = random.sample(range(55, 66), 2)
-        qty_b, price_b = random.randint(8, 10), random.randint(18, 20)
-        values = [(winner, 2, price) for price in prices]
-        values.append((quantity_winner, qty_b, price_b))
-        witness_price = 2 * sum(prices) + 100
-        values += [(quantity_winner, 1, witness_price) for _ in predicate_columns]
-    elif family == "arithmetic":
-        first, second = random.sample(["Books", "Electronics", "Clothing", "Food"], 2)
-        values = [(first, random.randint(2, 5), random.randint(9, 15)),
-                  (second, random.randint(6, 10), random.randint(16, 25))]
-        values += [("Clothing", 3, 17.0) for _ in predicate_columns]
-    else:
-        values = [
-            (random.choice(["Books", "Electronics", "Clothing", "Food"]),
-             random.randint(2, 10), random.randint(9, 25))
-            for _ in range(matched_rows + n_predicates)
-        ]
-    for i, (category, qty, price) in enumerate(values[:len(df)]):
-        df.loc[df.index[i], ["category", "qty", "unit_price"]] = category, qty, price
-    predicates = [f"{ident(column)} = {literal(anchor[column])}" for column in predicate_columns]
-    return _refresh_derived_columns(df), predicates
-
-
-def _render_query(family, predicates, expression=None):
-    where_sql = " AND ".join(predicates) if predicates else "TRUE"
-    if family == "count":
-        return f"SELECT COUNT(*) FROM dataframe WHERE {where_sql}"
-    expression = expression or f"{ident('qty')} * {ident('unit_price')}"
-    if family == "arithmetic":
-        return f"SELECT ROUND(SUM({expression}), 2) FROM dataframe WHERE {where_sql}"
-    return (
-        f"SELECT {ident('category')} FROM dataframe WHERE {where_sql} "
-        f"GROUP BY {ident('category')} ORDER BY SUM({expression}) DESC, "
-        f"{ident('category')} ASC LIMIT 1"
+def realize_table(schema, plan, config):
+    n = max(
+        minimum_witness_rows(plan),
+        sround(config.num_rows * np.exp(np.random.normal(0, 0.12))),
     )
+    df = pd.DataFrame({column: _COLUMN_VALUES[column](n) for column in schema})
+    return _condition_dataframe(df, plan)
 
 
-def interesting_result(result):
-    if result.empty:
+def _aggregate_sql(plan):
+    if plan.aggregate == "count":
+        return "COUNT(*)"
+    return f"{plan.aggregate.upper()}({plan.expression})"
+
+
+def render_query(plan):
+    where = " AND ".join(
+        f"{ident(p.column)} = {literal(p.value)}" for p in plan.predicates
+    ) or "TRUE"
+    if plan.aggregate:
+        aggregate = _aggregate_sql(plan)
+        select = ", ".join(map(ident, plan.projection)) if plan.group_by else (
+            aggregate if plan.aggregate == "count" else f"ROUND({aggregate}, 2)"
+        )
+    else:
+        fields = [ident(c) for c in plan.projection]
+        if plan.expression:
+            fields.append(f"ROUND({plan.expression}, 2) AS value")
+        select = ", ".join(fields)
+    query = f"SELECT {'DISTINCT ' if plan.distinct else ''}{select} FROM dataframe WHERE {where}"
+    if plan.group_by:
+        query += " GROUP BY " + ", ".join(map(ident, plan.group_by))
+    if plan.order_by:
+        keys = [
+            _aggregate_sql(plan) if key == "aggregate" else
+            plan.expression if key == "expression" else ident(key)
+            for key in plan.order_by
+        ]
+        direction = " DESC" if plan.descending else " ASC"
+        query += " ORDER BY " + ", ".join(key + direction for key in keys)
+    if plan.limit is not None:
+        query += f" LIMIT {plan.limit}"
+    return query
+
+
+def semantic_ablations(plan):
+    for i in range(len(plan.predicates)):
+        yield f"predicate_{i}", replace(plan, predicates=plan.predicates[:i] + plan.predicates[i + 1:])
+    if plan.expression and "*" in plan.expression:
+        yield "expression", replace(plan, expression=ident("qty"))
+    if plan.aggregate:
+        aggregate = "sum" if plan.aggregate == "count" else "max" if plan.aggregate != "max" else "min"
+        yield "aggregate", replace(plan, aggregate=aggregate, expression=plan.expression or ident("qty"))
+    if plan.group_by:
+        yield "group", replace(plan, projection=[], group_by=[], order_by=[], limit=None)
+    if plan.order_by:
+        yield "order_direction", replace(plan, descending=not plan.descending)
+    if plan.limit is not None:
+        yield "limit", replace(plan, limit=None)
+    if plan.distinct:
+        yield "distinct", replace(plan, distinct=False)
+    if len(plan.order_by) > 1:
+        yield "secondary_sort", replace(plan, order_by=plan.order_by[:1])
+
+
+def interesting_result(result, plan):
+    if result.empty or (plan.limit is not None and len(result) != plan.limit):
         return False
-    if result.shape != (1, 1):
+    if plan.scalar or result.size == 1:
+        return canonical_scalar(result.iloc[0, 0]) not in {"0", "1", "NULL", "nan", "None"}
+    if len(result) > 6:
         return False
-    if result.shape == (1, 1):
-        x = str(result.iloc[0, 0])
-        return x not in {"0", "0.0", "1", "1.0", "nan", "None"}
-    return False
+    return result.nunique(dropna=False).sum() > 1
 
 
 def sample_query(conn, config, max_tries=80):
     for _ in range(max_tries):
-        family = _sample_query_family(config)
-        n_predicates = min(2, max(1, int(config.complexity)))
-        df, predicates = _condition_table_for_query(config, family, n_predicates)
+        plan = sample_query_plan(config)
+        schema = schema_for_plan(plan, config)
+        df = realize_table(schema, plan, config)
         conn.register("dataframe", df)
-        q = _render_query(family, predicates)
         try:
-            result = conn.execute(q).df()
+            result = conn.execute(render_query(plan)).df()
+            checks = {
+                name: not conn.execute(render_query(ablated)).df().equals(result)
+                for name, ablated in semantic_ablations(plan)
+            }
         except Exception:
             continue
-        filter_checks = []
-        for i in range(len(predicates)):
-            ablated = conn.execute(_render_query(
-                family, predicates[:i] + predicates[i + 1:]
-            )).df()
-            filter_checks.append(not ablated.equals(result))
-        arithmetic_matters = None
-        if family != "count":
-            ablated = conn.execute(_render_query(family, predicates, ident("qty"))).df()
-            arithmetic_matters = not ablated.equals(result)
-        grouping_matters = None
-        if family == "grouped_arithmetic":
-            where_sql = " AND ".join(predicates)
-            ungrouped = conn.execute(
-                f"SELECT {ident('category')} FROM dataframe WHERE {where_sql} "
-                f"ORDER BY {ident('qty')} * {ident('unit_price')} DESC, "
-                f"{ident('category')} ASC LIMIT 1"
-            ).df()
-            grouping_matters = not ungrouped.equals(result)
-        checks = filter_checks + [
-            x for x in (arithmetic_matters, grouping_matters) if x is not None
-        ]
-        if interesting_result(result) and all(checks):
+        if interesting_result(result, plan) and all(checks.values()):
             spec = {
                 "query_conditioned": True,
-                "family": family,
-                "expr_depth": int(family != "count"),
-                "n_predicates": len(predicates),
-                "n_group_keys": int(family == "grouped_arithmetic"),
-                "feature_checks": {
-                    "filters_matter": filter_checks,
-                    "arithmetic_matters": arithmetic_matters,
-                    "grouping_matters": grouping_matters,
-                },
+                "plan": asdict(plan),
+                "n_predicates": len(plan.predicates),
+                "has_expression": plan.expression is not None,
+                "has_aggregate": plan.aggregate is not None,
+                "n_group_keys": len(plan.group_by),
+                "n_order_keys": len(plan.order_by),
+                "has_limit": plan.limit is not None,
+                "distinct": plan.distinct,
+                "is_scalar": plan.scalar,
+                "feature_checks": checks,
+                "num_rows": len(df),
+                "num_columns": len(df.columns),
             }
-            return df, q, result, spec
-    raise RuntimeError("Could not synthesize interesting table QA query")
+            return df, render_query(plan), result, spec
+    raise RuntimeError("Could not synthesize an interesting compositional table query")
 
 
 class TableQA(Task):
     summary = "Answer queries on tabular data by executing SQL queries over dataframes."
+    task_version = 5
+
     def __init__(self, config=None):
         super().__init__(config=config or TableQAConfig())
-        # generate_balanced_batch caps each key at ceil(batch*ratio), so a batch is only fillable
-        # when ratio >= 1/(distinct keys realised). The query spec became data-aware, which made
-        # expr_depth/n_group_keys deterministic functions of `family` -- and at complexity 1 the
-        # family weights give grouped_arithmetic weight 0, so level 0 realises just TWO keys. At
-        # 0.25 that batch is unfillable and the loop, which has no attempt cap, spins forever.
-        # 0.5 is the framework default and exactly the feasibility limit for two keys.
         self.balancing_key_ratio = 0.5
-
-    def _query_family(self, query):
-        q = " ".join(str(query).upper().split())
-        return "+".join([
-            "group" if " GROUP BY " in q else "nogroup",
-            "limit" if " LIMIT " in q else "nolimit",
-            "scalar" if "ROUND(" in q and " GROUP BY " not in q else "table",
-        ])
 
     def _result_bucket(self, result):
         if result.shape != (1, 1):
@@ -518,11 +608,6 @@ class TableQA(Task):
         )
         
         tables = [render_func(index=False)]
-        if self.config.num_tables > 1:
-            tables = [
-                get_renderers(part)[fmt_name](index=False)
-                for part in split_table(display_df, self.config.num_tables)
-            ]
 
         return Entry(
             metadata={
@@ -530,7 +615,6 @@ class TableQA(Task):
                 "tables": tables,
                 "query": q,
                 "query_spec": query_spec,
-                "query_family": self._query_family(q),
                 "result_bucket": self._result_bucket(result),
                 "is_scalar": is_scalar,
                 "scalar_kind": scalar_kind(result.iloc[0, 0]) if is_scalar else None,
@@ -608,9 +692,10 @@ class TableQA(Task):
         m = problem.metadata
         s = m.query_spec
         return (
-            f"depth={s['expr_depth']}:pred={s['n_predicates']}:"
-            f"group={s['n_group_keys']}:scalar={int(m.is_scalar)}:"
-            f"bucket={m.result_bucket}"
+            f"pred={min(s['n_predicates'], 2)}:expr={int(s['has_expression'])}:"
+            f"agg={int(s['has_aggregate'])}:group={int(bool(s['n_group_keys']))}:"
+            f"order={min(s['n_order_keys'], 2)}:limit={int(s['has_limit'])}:"
+            f"distinct={int(s['distinct'])}:rows={min(3, len(problem.answer.splitlines()))}"
         )
 
 EQUIV_RENDERERS = list(TABLE_RENDERER_WEIGHTS)
