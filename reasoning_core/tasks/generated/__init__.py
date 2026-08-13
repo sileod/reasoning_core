@@ -1,1 +1,1 @@
-"""Generated procedural task implementations."""
+"""LLM-generated tasks, discovered through the normal task registry."""
