@@ -9,6 +9,8 @@ from reasoning_core.tasks.code_execution import (
     endpoint_probes,
     function_triviality,
     organic_mutations,
+    run_code,
+    run_candidates,
     runnability_pair,
     sample_problem,
 )
@@ -84,6 +86,25 @@ def test_endpoint_probes_vary_each_annotated_argument():
 
     assert len({x for x, _ in probes}) > 1
     assert len({s for _, s in probes}) > 1
+
+
+def test_run_candidates_matches_individual_batch_execution():
+    cfg = MesopyCodeCfg(timeout=1)
+    candidates = [
+        ("ok", "def endpoint(x: int):\n    return 4 // x\n"),
+        ("error", "def endpoint(x: int):\n    return missing + x\n"),
+    ]
+    probes = [[0], [2]]
+
+    grouped = run_candidates(candidates, probes, cfg)
+    separate = [
+        run_code(code, cfg, call_args=probes, batch=True, reports=True)
+        for _, code in candidates
+    ]
+
+    assert [[(r.ok, r.value, r.error) for r in rs] for rs in grouped] == [
+        [(r.ok, r.value, r.error) for r in rs] for rs in separate
+    ]
 
 
 def test_organic_mutations_are_local_edits_of_generated_code():

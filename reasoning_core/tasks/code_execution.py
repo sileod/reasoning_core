@@ -115,19 +115,21 @@ def kill(p):
             p.join()
 
 
-def _worker(send, code, magnitude, recursionlimit, max_steps, call_args=None, batch=False, reports=False):
+def _limit_worker(cpu_seconds=1):
+    try:
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
+        resource.setrlimit(resource.RLIMIT_AS, (512 * 1024**2, 512 * 1024**2))
+    except Exception:
+        pass
+
+
+def _execute(code, magnitude, recursionlimit, max_steps, call_args=None, batch=False, reports=False):
     out, err = CapIO(), CapIO()
     ns = {"__builtins__": __builtins__}
     steps, t0 = 0, time.perf_counter()
     sys.setrecursionlimit(recursionlimit)
-
-    try:
-        import resource
-
-        resource.setrlimit(resource.RLIMIT_CPU, (1, 1))
-        resource.setrlimit(resource.RLIMIT_AS, (512 * 1024**2, 512 * 1024**2))
-    except Exception:
-        pass
 
     def trace(frame, event, arg):
         nonlocal steps
@@ -161,7 +163,7 @@ def _worker(send, code, magnitude, recursionlimit, max_steps, call_args=None, ba
                 finally:
                     sys.settrace(None)
 
-        r = values if reports else RunReport(
+        return values if reports else RunReport(
             True,
             values if args_list else values[0],
             None,
@@ -174,7 +176,7 @@ def _worker(send, code, magnitude, recursionlimit, max_steps, call_args=None, ba
 
     except StepLimit:
         sys.settrace(None)
-        r = RunReport(
+        return RunReport(
             False,
             None,
             "TimeoutError",
@@ -187,7 +189,7 @@ def _worker(send, code, magnitude, recursionlimit, max_steps, call_args=None, ba
 
     except Exception as e:
         sys.settrace(None)
-        r = RunReport(
+        return RunReport(
             False,
             None,
             type(e).__name__,
@@ -198,8 +200,23 @@ def _worker(send, code, magnitude, recursionlimit, max_steps, call_args=None, ba
             time.perf_counter() - t0,
         )
 
+
+def _worker(send, code, magnitude, recursionlimit, max_steps, call_args=None, batch=False, reports=False):
+    _limit_worker()
     try:
-        send.send(r)
+        send.send(_execute(code, magnitude, recursionlimit, max_steps, call_args, batch, reports))
+    except Exception:
+        pass
+    send.close()
+
+
+def _candidate_worker(send, candidates, magnitude, recursionlimit, max_steps, probes):
+    _limit_worker(2)
+    try:
+        send.send([
+            _execute(code, magnitude, recursionlimit, max_steps, probes, True, True)
+            for _, code in candidates
+        ])
     except Exception:
         pass
     send.close()
@@ -227,6 +244,35 @@ def run_code(code, cfg, recursionlimit=80, call_args=None, batch=False, reports=
         kill(p)
         raise
 
+    finally:
+        recv.close()
+
+
+def run_candidates(candidates, probes, cfg, recursionlimit=80):
+    """Probe related programs together while retaining process isolation."""
+    ctx = mp.get_context("fork")
+    recv, send = ctx.Pipe(duplex=False)
+    p = ctx.Process(
+        target=_candidate_worker,
+        args=(send, candidates, cfg.magnitude, recursionlimit, cfg.max_steps, probes),
+    )
+    p.start()
+    send.close()
+    timeout = min(4.0, cfg.timeout + 0.02 * len(candidates))
+    try:
+        if recv.poll(timeout):
+            try:
+                reports = recv.recv()
+            except EOFError:
+                reports = []
+            p.join(0.05)
+            kill(p)
+            return reports
+        kill(p)
+        return []
+    except KeyboardInterrupt:
+        kill(p)
+        raise
     finally:
         recv.close()
 
@@ -380,9 +426,8 @@ def runnability_pair(cfg):
         perturbed = list(first_by_kind.items()) + mutations[:4]
         random.shuffle(perturbed)
         perturbed.sort(key=lambda item: item[0] in {"operator", "denominator"})
-        candidates = [("organic", base)] + perturbed
-        for kind, code in candidates:
-            reports = run_code(code, cfg, call_args=probes, batch=True, reports=True)
+        candidates = list(dict.fromkeys([("organic", base)] + perturbed))
+        for (kind, code), reports in zip(candidates, run_candidates(candidates, probes, cfg)):
             good = next((r for r in reports if r.ok), None)
             bad = next((r for r in reports if r.error), None)
             if good and bad:
