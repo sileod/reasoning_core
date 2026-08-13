@@ -211,7 +211,8 @@ def trace_prefixes(text):
     prefixes = []
     for line in (line for line in str(text).splitlines() if line.strip()):
         match = re.match(
-            r"^\s*(?:rule\s*)?\[?(\d+)\]?\s*:\s*(.*?)\s*(?:=>|->|→)\s*(.+?)\s*$",
+            r"^\s*(?:rule\s*:?\s*)?\[?(\d+)\]?\s*:\s*"
+            r"(?:inputs?\s*:?\s*)?(.*?)\s*(?:=>|->|→)\s*(.+?)\s*$",
             line,
             flags=re.IGNORECASE,
         )

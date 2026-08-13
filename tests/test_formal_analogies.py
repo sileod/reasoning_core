@@ -19,7 +19,9 @@ def _metadata(answer_format):
 def test_index_prompt_is_compact_and_omits_unused_conclusion():
     prompt = AnalogicalCaseMatching().render_prompt(_metadata("index"))
 
-    assert prompt.startswith("Which case matches Query under consistent entity/relation renaming")
+    assert prompt.startswith("Which case can be embedded into Query?")
+    assert "every fact maps to a Query fact" in prompt
+    assert "Query may contain additional facts" in prompt
     assert "source link target" not in prompt
     assert "M0: b alpha e, a beta e" in prompt
     assert "e alpha b" not in prompt

@@ -136,6 +136,11 @@ def test_logic_derivation_scoring_focuses_on_rule_and_inputs():
         entry,
     ) == 1
     assert task.score_answer(
+        "Rule 2: Input 0, 1 => Alice becomes active.\n"
+        "Rule: 3: Input @0 => Therefore Alice is trusted.",
+        entry,
+    ) == 1
+    assert task.score_answer(
         "2: 0 => Alice becomes active.\n3: @0 => Alice is trusted.",
         entry,
     ) == 0

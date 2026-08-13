@@ -893,7 +893,7 @@ class RegexReasoning(Task):
         # distinguishing
         sd = f1.symmetric_difference(f2)
         witness = _shortest_witness(sd, alpha)
-        if witness is None:
+        if not witness:
             return None
         meta = edict(qtype="distinguishing", regex_a=r1, regex_b=r2)
         return Entry(meta, witness)
@@ -923,8 +923,6 @@ class RegexReasoning(Task):
     def score_answer(self, answer, entry):
         qt = entry.metadata["qtype"]
         answer = str(answer).strip()
-        if answer.lower() in ("ε", "\\epsilon", "ε (the empty string)", '""', "''"):
-            answer = ""
         if qt in ("equivalence", "containment"):
             norm = answer.lower().strip().rstrip(".")
             return float(norm == entry.answer.lower()) if norm in ("yes", "no") else 0.0
@@ -942,6 +940,6 @@ class RegexReasoning(Task):
     def balancing_key(self, problem):
         if problem.metadata.qtype == "distinguishing":
             n = len(problem.answer)
-            bucket = "empty" if n == 0 else "1" if n == 1 else "2" if n == 2 else "3+"
+            bucket = "1" if n == 1 else "2" if n == 2 else "3+"
             return f"distinguishing:len={bucket}"
         return f"{problem.metadata.qtype}:{problem.answer}"

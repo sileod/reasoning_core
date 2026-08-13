@@ -458,19 +458,27 @@ class AnalogicalCaseMatching(Task):
 
     def render_prompt(self, metadata):
         answer_format = metadata.get("answer_format", "fact")
-        rule = "under consistent entity/relation renaming and per-relation direction reversal"
         if answer_format == "index":
             plural = int(self.config.n_gold_cases) > 1
             subject = "cases" if plural else "case"
-            verb = "match" if plural else "matches"
             ids = "their IDs" if plural else "its ID"
-            prompt = f"Which {subject} {verb} Query {rule}? Answer with {ids}"
+            prompt = (
+                f"Which {subject} can be embedded into Query? A case matches when every "
+                "fact maps to a Query fact under one-to-one entity and relation renaming, "
+                "with an optional consistent direction reversal for each relation. Query "
+                f"may contain additional facts. Answer with {ids}"
+            )
             if metadata.get("allow_no_match"):
                 prompt += ", or None."
             else:
                 prompt += "."
         else:
-            prompt = f"Infer Query's missing fact by mapping a case {rule}. Answer with one fact"
+            prompt = (
+                "Infer Query's missing fact by embedding a case's known facts under "
+                "one-to-one entity and relation renaming, with an optional consistent "
+                "direction reversal for each relation. Query may contain additional facts. "
+                "Answer with one fact"
+            )
             if metadata.get("allow_no_match"):
                 prompt += ", or None if no case matches."
             else:

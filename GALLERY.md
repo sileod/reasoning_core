@@ -548,21 +548,21 @@ bruno, david
 
 ## [logic_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/logic_derivation.py)
 
-<!-- behavior-hash: a99f22a5612d1966 -->
+<!-- behavior-hash: 910fcba0f7acd357 -->
 
 Produce a canonical forward proof trace for a logical target.
 
 **Prompt:**
 ```
 Premise:
-0: clara advises david.
-1: david trusts clara.
-2: david is careful.
-3: Advises relations followed by trusts relations imply helps relations.
-4: From x helps z, it follows that x is active.
+0: clara advises bruno.
+1: bruno helps david.
+2: david helps alice.
+3: Whenever x advises y and y helps z, x trusts z.
+4: Whenever x trusts z, x is verified.
 
 Target:
-clara is active.
+clara is verified.
 
 Give derivation lines as Rule: Input... => Deduction.
 Use premise IDs and @0, @1, ... for derived lines.
@@ -570,8 +570,8 @@ Use premise IDs and @0, @1, ... for derived lines.
 
 **Answer:**
 ```
-3: 0 1 => clara helps clara
-4: @0 => clara is active
+3: 0 1 => clara trusts david
+4: @0 => clara is verified
 ```
 
 ---
@@ -886,33 +886,33 @@ Queries:
 
 ## [regex_following](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/regex.py)
 
-<!-- behavior-hash: 9f753ce41c94c3e6 -->
+<!-- behavior-hash: d6859e492a128066 -->
 
 Produce a string that matches a specified regular expression pattern.
 
 **Prompt:**
 ```
-The answer is the shortest non-empty visible non-whitespace ASCII string that fully matches this regular expression, with lexicographic tie-breaks: \d{3,5}
+The answer is the shortest non-empty visible non-whitespace ASCII string that fully matches this regular expression, with lexicographic tie-breaks: ^artistQ?
 ```
 
 **Answer:**
 ```
-000
+artist
 ```
 
 ---
 
 ## [regex_reasoning](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/regex.py)
 
-<!-- behavior-hash: 9f753ce41c94c3e6 -->
+<!-- behavior-hash: d6859e492a128066 -->
 
 Reason about regular expression equivalence, containment, and witnesses.
 
 **Prompt:**
 ```
-A = ac|c+
-B = aab|b|ab
-Do A and B accept exactly the same set of strings?
+A = b|b+
+B = (bcba)
+Is every string accepted by A also accepted by B?
 The answer is Yes or No.
 ```
 
@@ -925,30 +925,30 @@ No
 
 ## [analogical_case_matching](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/formal_analogies.py)
 
-<!-- behavior-hash: d4425f50bb96730a -->
+<!-- behavior-hash: ed0ad5234d7bf6bc -->
 
 Retrieve analogical cases matching query objects, links, and logical facts.
 
 **Prompt:**
 ```
-Which case matches Query under consistent entity/relation renaming and per-relation direction reversal? Answer with its ID.
+Which case can be embedded into Query? A case matches when every fact maps to a Query fact under one-to-one entity and relation renaming, with an optional consistent direction reversal for each relation. Query may contain additional facts. Answer with its ID.
 
-M0: c alpha a, c alpha d, b beta a, d beta a
-M1: a alpha b, c alpha d, a beta c, c beta d
-M2: b alpha e, d beta b, a gamma e, e gamma b
-Query: y delta v, v epsilon u, x epsilon v, u gamma v, z gamma v, z gamma x
+M0: c alpha a, c alpha d, c alpha e, b beta a
+M1: b alpha c, b alpha d, d alpha a, a beta d
+M2: e alpha b, b beta e, d beta a, d beta b
+Query: u epsilon v, v epsilon x, v gamma z, y gamma v, y gamma x, y gamma z
 ```
 
 **Answer:**
 ```
-M1
+M0
 ```
 
 ---
 
 ## [parsing_derivation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
-<!-- behavior-hash: f304ba7ec278a653 -->
+<!-- behavior-hash: fc496aa462366030 -->
 
 Determine the derivation production rule sequence parsing a given string.
 
@@ -958,15 +958,16 @@ Determine the derivation production rule sequence parsing a given string.
 S
 
 (GRAMMAR)
-R0: A -> B
-R1: S -> A
-R2: B -> 'bank' S
-R3: B -> S 'subject'
-R4: B -> 'bank'
-R5: S -> B 'dinner'
+R0: D -> 'traditional'
+R1: C -> D
+R2: B -> C
+R3: A -> B
+R4: S -> 'four'
+R5: S -> A
+R6: D -> D S
 
 (STRING)
-bank bank
+traditional four four traditional
 
 (QUESTION)
 The answer is the rule labels used in the leftmost derivation of STRING, in order, separated by spaces.
@@ -974,14 +975,14 @@ The answer is the rule labels used in the leftmost derivation of STRING, in orde
 
 **Answer:**
 ```
-R1 R0 R2 R1 R0 R4
+R5 R3 R2 R1 R6 R6 R6 R0 R4 R4 R5 R3 R2 R1 R0
 ```
 
 ---
 
 ## [syntax_error_detection](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
-<!-- behavior-hash: f304ba7ec278a653 -->
+<!-- behavior-hash: fc496aa462366030 -->
 
 Locate syntax errors or grammatical perturbations in generated sentences.
 
@@ -992,16 +993,16 @@ start
 
 (GRAMMAR)
 expr ::= '(' seq ')'
-seq ::=
+start ::= seq
 seq ::= expr seq
 expr ::= '<' seq '>'
-start ::= seq
 expr ::= '[' seq ']'
+seq ::=
 
 (STRING)
-[ < > ] ( ) <
+( <
 
-Answer OK, INCOMPLETE, or ERROR token for the first invalid token. If that token repeats in STRING, append its 1-based occurrence as @occurrence.
+Answer OK, INCOMPLETE, or ERROR token for the first invalid token.
 ```
 
 **Answer:**
@@ -1013,7 +1014,7 @@ INCOMPLETE
 
 ## [constrained_continuation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/grammar.py)
 
-<!-- behavior-hash: f304ba7ec278a653 -->
+<!-- behavior-hash: fc496aa462366030 -->
 
 Complete a uniquely determined fixed-length span using a formal grammar.
 
@@ -1022,20 +1023,20 @@ Complete a uniquely determined fixed-length span using a formal grammar.
 Complete <HOLE> according to the grammar.
 
 GRAMMAR:
-S ::= '[' S ']'
-A ::= B
+S ::= '<' S '>'
+B ::= 'statement'
 S ::= A
-B ::= 'candidate'
+A ::= B
 
 SENTENCE:
-[ <HOLE> ] ] ]
+< < <HOLE>
 
-Return only the missing 5 tokens.
+Return only the missing 3 tokens.
 ```
 
 **Answer:**
 ```
-[ [ [ candidate ]
+statement > >
 ```
 
 ---

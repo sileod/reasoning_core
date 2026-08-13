@@ -51,5 +51,13 @@ def test_distinguishing_answer_is_lexicographically_first_shortest(monkeypatch):
     _assert_stored_answer_is_shortlex_minimum(monkeypatch, "b|c", "a", "abc")
 
 
-def test_distinguishing_answer_can_be_empty_string(monkeypatch):
-    _assert_stored_answer_is_shortlex_minimum(monkeypatch, "a*", "a+", "ab")
+def test_distinguishing_answer_is_nonempty(monkeypatch):
+    fa, fb = gparse("a*").to_fsm(), gparse("a+").to_fsm()
+    monkeypatch.setattr(
+        regex_module, "_sample_pair", lambda *args: ("a*", fa, "a+", fb)
+    )
+    monkeypatch.setattr(regex_module.random, "choice", lambda choices: "distinguishing")
+
+    task = RegexReasoning(RegexReasoningConfig(n_alpha=2))
+
+    assert task.generate_entry() is None
