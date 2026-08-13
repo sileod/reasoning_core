@@ -63,40 +63,91 @@ METRICS = ["bbh", "mmlu_math", "mmlu_logic", "mbpp", "dolci", "fw"]
 PRIMARY_METRICS = ["bbh", "mmlu_math", "mmlu_logic"]  # the reasoning-transfer metrics
 
 
-def load_rows(csv_path):
+def load_and_merge_rows(csv_paths):
+    """Loads and concatenates rows from multiple all_values.csv files -- for
+    deliberately pooling different --mix-aux runs (e.g. mix=0.2 and mix=0.5)
+    into one combined dose-response comparison. Unlike load_rows(), this does
+    NOT refuse on multiple mix_aux values -- that's the explicit point here.
+    paired_vectors() keeps each dose level as its own separate pair per task
+    rather than averaging them, so nothing gets silently blended."""
     rows = []
+    mix_aux_by_file = {}
+    for path in csv_paths:
+        this_file_mix_aux = set()
+        with open(path, newline="") as f:
+            for r in csv.DictReader(f):
+                try:
+                    r["value"] = float(r["value"])
+                except (KeyError, ValueError):
+                    continue
+                if r.get("mix_aux") not in (None, ""):
+                    this_file_mix_aux.add(r["mix_aux"])
+                rows.append(r)
+        mix_aux_by_file[str(path)] = sorted(this_file_mix_aux)
+    return rows, mix_aux_by_file
+
+
+def load_rows(csv_path, mix_aux_filter=None):
+    rows = []
+    seen_mix_aux = set()
     with open(csv_path, newline="") as f:
         for r in csv.DictReader(f):
             try:
                 r["value"] = float(r["value"])
             except (KeyError, ValueError):
                 continue
+            mix_aux = r.get("mix_aux")
+            if mix_aux not in (None, ""):
+                seen_mix_aux.add(mix_aux)
+            if mix_aux_filter is not None and mix_aux != mix_aux_filter:
+                continue
             rows.append(r)
+    if mix_aux_filter is None and len(seen_mix_aux) > 1:
+        raise SystemExit(
+            f"{csv_path} contains rows from more than one --mix-aux value: {sorted(seen_mix_aux)}. "
+            f"Pairing these together would mix different training configs. Pick one explicitly "
+            f"with --mix-aux-filter <value>."
+        )
     return rows
 
 
 def task_means(rows, metric, model, source):
-    """{task: mean(value)} across whatever seeds exist, for one (metric, model, source)."""
-    by_task = defaultdict(list)
+    """{(task, mix_aux): mean(value)} across whatever seeds exist, for one
+    (metric, model, source). Keying by (task, mix_aux) rather than just task
+    means that when rows from more than one --mix-aux value are present
+    (deliberately merged, see --merge-csv), each dose level contributes its
+    OWN separate pair per task rather than being blended into one mean --
+    exactly the distinction that matters for a dose-response comparison."""
+    by_key = defaultdict(list)
     for r in rows:
         if r["metric"] == metric and r["model"] == model and r["source"] == source:
-            by_task[r["task"]].append(r["value"])
-    return {t: sum(v) / len(v) for t, v in by_task.items()}
+            by_key[(r["task"], r.get("mix_aux") or "")].append(r["value"])
+    return {k: sum(v) / len(v) for k, v in by_key.items()}
 
 
 def paired_vectors(rows, metric, models):
-    """Returns (tasks, proc_vals, synth_vals) for the given metric, pooling
-    across the given list of models -- one pair per (task, model) combo
-    present in BOTH sources."""
-    tasks, proc_vals, synth_vals = [], [], []
+    """Returns (labels, proc_vals, synth_vals) for the given metric, pooling
+    across the given list of models -- one pair per (task, model, mix_aux)
+    combo present in BOTH sources. For normal single-dose data this is
+    identical to one pair per (task, model), same as before; when multiple
+    mix_aux values are present, each task contributes one pair PER dose
+    level, doubling (or more) the number of paired observations rather than
+    averaging doses together."""
+    all_mix_aux = {r.get("mix_aux") or "" for r in rows}
+    show_mix = len(all_mix_aux) > 1
+    labels, proc_vals, synth_vals = [], [], []
     for model in models:
         proc = task_means(rows, metric, model, "procedural")
         synth = task_means(rows, metric, model, "llm_synth")
-        for task in sorted(set(proc) & set(synth)):
-            tasks.append(f"{task}@{model.split('/')[-1]}")
-            proc_vals.append(proc[task])
-            synth_vals.append(synth[task])
-    return tasks, proc_vals, synth_vals
+        for key in sorted(set(proc) & set(synth)):
+            task, mix_aux = key
+            label = f"{task}@{model.split('/')[-1]}"
+            if show_mix:
+                label += f"@mix{mix_aux}"
+            labels.append(label)
+            proc_vals.append(proc[key])
+            synth_vals.append(synth[key])
+    return labels, proc_vals, synth_vals
 
 
 def run_tests(proc_vals, synth_vals):
@@ -180,22 +231,43 @@ def print_block(title, tasks, proc_vals, synth_vals, res):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--csv", default="task_diagnostics/report/all_values.csv")
+    ap.add_argument("--csv", default="task_diagnostics/report/all_values.csv",
+                     help="Single all_values.csv (one --mix-aux value). Ignored if --merge-csv is given.")
+    ap.add_argument("--merge-csv", nargs="+", default=None,
+                     help="Pool multiple all_values.csv files together (e.g. mix=0.2 and mix=0.5 "
+                          "reports) into one combined dose-response comparison. Each dose level "
+                          "contributes its OWN separate pair per task -- never averaged together "
+                          "-- so n roughly doubles (or more) per extra file merged, rather than "
+                          "the different configs being blended into one number.")
     ap.add_argument("--models", nargs="+", default=[
         "HuggingFaceTB/SmolLM2-135M", "HuggingFaceTB/SmolLM2-360M", "HuggingFaceTB/SmolLM2-1.7B",
     ])
     ap.add_argument("--out", default="task_diagnostics/report/paired_stats.md")
+    ap.add_argument("--mix-aux-filter", type=str, default=None,
+                     help="Only used as a safety check: if the CSV contains rows from more than "
+                          "one --mix-aux value, you must pick one explicitly here (e.g. '0.2'). "
+                          "Not used with --merge-csv, where multiple values are the whole point.")
     args = ap.parse_args()
 
-    rows = load_rows(args.csv)
+    if args.merge_csv:
+        rows, mix_aux_by_file = load_and_merge_rows(args.merge_csv)
+        mix_summary = "; ".join(f"{Path(p).name}: mix_aux={vs}" for p, vs in mix_aux_by_file.items())
+        print(f"Merged {len(args.merge_csv)} files -- {mix_summary}")
+        n_note_extra = (f"\n**This run pools multiple dose levels** ({mix_summary}) -- each dose "
+                         f"level contributes its own separate pair per task (never averaged "
+                         f"together), so n is correspondingly larger than a single-dose run.\n")
+    else:
+        rows = load_rows(args.csv, mix_aux_filter=args.mix_aux_filter)
+        n_note_extra = ""
     if not rows:
-        raise SystemExit(f"No usable rows found in {args.csv}")
+        raise SystemExit(f"No usable rows found")
 
     md = ["# Paired Statistical Comparison — Procedural vs. LLM-Synthetic\n",
           f"n note: each test below pairs task-level means (averaged across seeds already "
-          f"collected per task); per-model tests have n=7 (one per task), pooled-across-model "
-          f"tests have n up to 21. Treat these as indicative given the small n, not as strict "
-          f"significance in the large-sample sense.\n"]
+          f"collected per task); per-model tests have n=7 (one per task) times the number of "
+          f"dose levels merged, pooled-across-model tests scale accordingly. Treat these as "
+          f"indicative given the small n, not as strict significance in the large-sample sense."
+          f"{n_note_extra}\n"]
 
     print("PRIMARY (reasoning-transfer) METRICS — per model scale")
     for metric in PRIMARY_METRICS:
