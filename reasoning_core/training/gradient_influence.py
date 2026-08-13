@@ -120,11 +120,13 @@ def gradient_objective_id(legs, max_length, temperature=1.0, weights=None):
 
 def build_eval_gradient_cache(model, tokenizer, legs, spec, *, temperature=1.0,
                               weights=None, cache_dir=None, model_id=None,
-                              model_revision=None):
+                              model_revision=None, eval_batch_size=1):
     """Build, normalize, and persist one aggregate benchmark gradient."""
 
     if not spec.initialization_id:
         raise ValueError("initialization_id is required")
+    if eval_batch_size < 1:
+        raise ValueError("eval_batch_size must be positive")
     legs = _materialize_legs(legs)
     weights = _weights(legs, weights)
     actual_id = gradient_objective_id(legs, spec.max_length, temperature, weights)
@@ -135,10 +137,22 @@ def build_eval_gradient_cache(model, tokenizer, legs, spec, *, temperature=1.0,
     with evaluating(model):
         for (name, examples), weight in zip(legs, weights):
             model.zero_grad(set_to_none=True)
-            result = contrastive_mc_loss(
-                model, tokenizer, examples, spec.max_length, temperature,
-            )
-            result.loss.backward()
+            leg_examples = leg_tokens = leg_skipped = 0
+            for start in range(0, len(examples), eval_batch_size):
+                chunk = examples[start:start + eval_batch_size]
+                try:
+                    result = contrastive_mc_loss(
+                        model, tokenizer, chunk, spec.max_length, temperature,
+                    )
+                except RuntimeError as error:
+                    if "scored no examples" not in str(error):
+                        raise
+                    leg_skipped += len(chunk)
+                    continue
+                (result.loss * result.examples).backward()
+                leg_examples += result.examples
+                leg_tokens += result.tokens
+                leg_skipped += result.skipped_examples
             norm = _model_grad_norm(model)
             if not norm:
                 raise RuntimeError(f"Benchmark leg {name!r} produced a zero gradient")
@@ -146,12 +160,12 @@ def build_eval_gradient_cache(model, tokenizer, legs, spec, *, temperature=1.0,
                 if parameter.grad is not None:
                     value = parameter.grad.detach().float().cpu().mul_(weight / norm)
                     aggregate.setdefault(parameter_name, torch.zeros_like(value)).add_(value)
-            total_examples += result.examples
-            total_tokens += result.tokens
+            total_examples += leg_examples
+            total_tokens += leg_tokens
             leg_manifest.append({
                 "name": name, "weight": weight, "gradient_norm": norm,
-                "examples": result.examples, "tokens": result.tokens,
-                "skipped_examples": result.skipped_examples,
+                "examples": leg_examples, "tokens": leg_tokens,
+                "skipped_examples": leg_skipped,
             })
     model.zero_grad(set_to_none=True)
     for parameter_name, parameter in model.named_parameters():
