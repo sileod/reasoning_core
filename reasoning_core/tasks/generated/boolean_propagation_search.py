@@ -2,7 +2,7 @@ import itertools
 import random
 from dataclasses import dataclass
 
-from reasoning_core.template import Entry, Config, edict, stochastic_rounding as sround
+from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
 from ._base import GeneratedMixin
 
 
@@ -80,7 +80,7 @@ def _clause_text(clause):
     return "(" + " or ".join(("" if lit > 0 else "not ") + f"x{abs(lit)}" for lit in clause) + ")"
 
 
-class BooleanPropagationSearchMixin(GeneratedMixin):
+class BooleanPropagationSearch(GeneratedMixin, Task):
     summary = "Find the canonical first Boolean model under propagation and backtracking."
     config_cls = BooleanPropagationSearchConfig
 

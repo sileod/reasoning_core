@@ -2,12 +2,8 @@ from reasoning_core.template import _module_behavior_hash
 
 
 class GeneratedMixin:
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-
     def behavior_hash(self):
-        module = next(cls.__module__ for cls in type(self).__mro__ if cls.__name__.endswith("Mixin"))
-        return _module_behavior_hash(module)
+        return _module_behavior_hash(type(self).__module__)
 
 
 def exact(answer, entry):

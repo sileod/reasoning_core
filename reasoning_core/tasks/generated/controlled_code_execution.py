@@ -2,7 +2,7 @@ import ast
 import random
 from dataclasses import dataclass
 
-from reasoning_core.template import Entry, Config, edict, stochastic_rounding as sround
+from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
 from ._base import GeneratedMixin, exact
 
 
@@ -96,7 +96,7 @@ def _controlled_program(cfg):
     return "\n".join(lines) + "\n", phenomena
 
 
-class ControlledCodeExecutionMixin(GeneratedMixin):
+class ControlledCodeExecution(GeneratedMixin, Task):
     summary = "Execute Python programs generated to require controlled semantic phenomena."
     config_cls = ControlledCodeExecutionConfig
 

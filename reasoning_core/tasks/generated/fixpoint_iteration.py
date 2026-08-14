@@ -2,7 +2,7 @@ import ast
 import random
 from dataclasses import dataclass
 
-from reasoning_core.template import Entry, Config, edict, stochastic_rounding as sround
+from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
 from ._base import GeneratedMixin, exact
 
 
@@ -51,7 +51,7 @@ def _set_text(xs):
     return "{" + ",".join(map(str, sorted(xs))) + "}"
 
 
-class FixpointIterationMixin(GeneratedMixin):
+class FixpointIteration(GeneratedMixin, Task):
     summary = "Compute a least fixpoint of monotone finite-set propagation rules."
     config_cls = FixpointIterationConfig
 

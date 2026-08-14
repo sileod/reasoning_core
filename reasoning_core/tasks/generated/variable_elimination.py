@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import sympy as sp
 
-from reasoning_core.template import Entry, Config, edict, stochastic_rounding as sround
+from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
 from ._base import GeneratedMixin
 
 
@@ -67,7 +67,7 @@ def _equation_text(row, names):
     return ("".join(lhs) or "0") + f" = {row[-1]}"
 
 
-class VariableEliminationMixin(GeneratedMixin):
+class VariableElimination(GeneratedMixin, Task):
     summary = "Execute deterministic fraction-free elimination and report a compact residual equation."
     config_cls = VariableEliminationConfig
 
