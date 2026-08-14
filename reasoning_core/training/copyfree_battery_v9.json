@@ -1,0 +1,336 @@
+{
+ "name": "copyfree_battery_v8",
+ "max_length": 512,
+ "legs": [
+  {
+   "name": "dolci",
+   "path": "dolci_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "dolci_nll",
+   "limit": 200
+  },
+  {
+   "name": "fw",
+   "path": "fw_eval.jsonl",
+   "kind": "lm_nll",
+   "output_key": "fw_nll",
+   "limit": 200,
+   "max_chars": 1500
+  },
+  {
+   "name": "flan",
+   "path": "flan_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "flan_nll",
+   "limit": 200
+  },
+  {
+   "name": "mbpp",
+   "path": "mbpp_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "mbpp_nll",
+   "limit": 257
+  },
+  {
+   "name": "mmlu_logic_cloze",
+   "path": "mmlu_logic_cloze_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "mmlu_logic_cloze_nll",
+   "accuracy_key": "mmlu_logic_mc_cloze_acc",
+   "margin_key": "mmlu_logic_mc_cloze_margin",
+   "limit": 126
+  },
+  {
+   "name": "drop",
+   "path": "drop_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "drop_nll",
+   "limit": 300
+  },
+  {
+   "name": "gsm8k",
+   "path": "gsm8k_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "gsm8k_nll",
+   "limit": 300
+  },
+  {
+   "name": "arc_easy",
+   "path": "arc_easy_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "arc_easy_nll",
+   "limit": 500
+  },
+  {
+   "name": "arc_challenge",
+   "path": "arc_challenge_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "arc_challenge_nll",
+   "limit": 500
+  },
+  {
+   "name": "blimp",
+   "path": "blimp_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "blimp_nll",
+   "limit": 400
+  },
+  {
+   "name": "folio",
+   "path": "folio_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "folio_nll",
+   "limit": 203
+  },
+  {
+   "name": "mmlu_other_cloze",
+   "path": "mmlu_other_cloze_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "mmlu_other_cloze_nll",
+   "limit": 400
+  },
+  {
+   "name": "mmlu_math_macro",
+   "path": "mmlu_math_macro_cloze_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "mmlu_math_macro_nll",
+   "limit": 500
+  },
+  {
+   "name": "bbh_dev",
+   "path": "bbh_dev_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "bbh_dev_nll",
+   "limit": 240
+  },
+  {
+   "name": "bbh_dev_cloze",
+   "path": "bbh_dev_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "bbh_dev_cloze_nll",
+   "accuracy_key": "bbh_dev_mc_cloze_acc",
+   "margin_key": "bbh_dev_mc_cloze_margin",
+   "limit": 240
+  },
+  {
+   "name": "bbh_test",
+   "path": "bbh_test_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "bbh_test_nll",
+   "limit": 220
+  },
+  {
+   "name": "bbh_test_cloze",
+   "path": "bbh_test_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "bbh_test_cloze_nll",
+   "accuracy_key": "bbh_test_mc_cloze_acc",
+   "margin_key": "bbh_test_mc_cloze_margin",
+   "limit": 220
+  },
+  {
+   "name": "bbh_open",
+   "path": "bbh_open_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "bbh_open_nll",
+   "limit": 160
+  },
+  {
+   "name": "bbh_test_open",
+   "path": "bbh_test_open_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "bbh_test_open_nll",
+   "limit": 200
+  },
+  {
+   "name": "commonsenseqa",
+   "path": "commonsenseqa_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "commonsenseqa_nll",
+   "limit": 400,
+   "accuracy_key": "commonsenseqa_mc_cloze_acc",
+   "margin_key": "commonsenseqa_mc_cloze_margin"
+  },
+  {
+   "name": "sciq",
+   "path": "sciq_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "sciq_nll",
+   "limit": 400,
+   "accuracy_key": "sciq_mc_cloze_acc",
+   "margin_key": "sciq_mc_cloze_margin"
+  },
+  {
+   "name": "svamp",
+   "path": "svamp_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "svamp_nll",
+   "limit": 300
+  },
+  {
+   "name": "asdiv",
+   "path": "asdiv_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "asdiv_nll",
+   "limit": 400
+  },
+  {
+   "name": "fw_recent",
+   "path": "fw_recent_eval.jsonl",
+   "kind": "lm_nll",
+   "output_key": "fw_recent_nll",
+   "limit": 200,
+   "max_chars": 1500
+  },
+  {
+   "name": "triviaqa",
+   "path": "triviaqa_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "triviaqa_nll",
+   "limit": 400
+  },
+  {
+   "name": "balanced_copa",
+   "path": "balanced_copa_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "balanced_copa_nll",
+   "accuracy_key": "balanced_copa_mc_cloze_acc",
+   "margin_key": "balanced_copa_mc_cloze_margin",
+   "limit": 500
+  },
+  {
+   "name": "winogrande",
+   "path": "winogrande_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "winogrande_nll",
+   "accuracy_key": "winogrande_mc_cloze_acc",
+   "margin_key": "winogrande_mc_cloze_margin",
+   "limit": 600
+  },
+  {
+   "name": "bbh_dev_nomenu",
+   "path": "bbh_dev_nomenu_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "bbh_dev_nomenu_nll",
+   "accuracy_key": "bbh_dev_nomenu_mc_cloze_acc",
+   "margin_key": "bbh_dev_nomenu_mc_cloze_margin",
+   "limit": 240
+  },
+  {
+   "name": "bbh_test_nomenu",
+   "path": "bbh_test_nomenu_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "bbh_test_nomenu_nll",
+   "accuracy_key": "bbh_test_nomenu_mc_cloze_acc",
+   "margin_key": "bbh_test_nomenu_mc_cloze_margin",
+   "limit": 140
+  },
+  {
+   "name": "uf_short",
+   "path": "uf_short_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "uf_short_nll",
+   "accuracy_key": "uf_short_mc_cloze_acc",
+   "margin_key": "uf_short_mc_cloze_margin",
+   "limit": 1200
+  },
+  {
+   "name": "mmlu_math_nomenu",
+   "path": "mmlu_math_nomenu_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "mmlu_math_nomenu_nll",
+   "accuracy_key": "mmlu_math_nomenu_mc_cloze_acc",
+   "margin_key": "mmlu_math_nomenu_mc_cloze_margin",
+   "limit": 600
+  },
+  {
+   "name": "ts_dpo",
+   "path": "ts_dpo_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "ts_dpo_nll",
+   "accuracy_key": "ts_dpo_mc_cloze_acc",
+   "margin_key": "ts_dpo_mc_cloze_margin",
+   "limit": 1500
+  },
+  {
+   "name": "tulu3_short",
+   "path": "tulu3_short_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "tulu3_short_nll",
+   "accuracy_key": "tulu3_short_mc_cloze_acc",
+   "margin_key": "tulu3_short_mc_cloze_margin",
+   "limit": 1200
+  },
+  {
+   "name": "ultramix_short",
+   "path": "ultramix_short_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "ultramix_short_nll",
+   "accuracy_key": "ultramix_short_mc_cloze_acc",
+   "margin_key": "ultramix_short_mc_cloze_margin",
+   "limit": 905
+  },
+  {
+   "name": "themis_py",
+   "path": "themis_py_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "themis_py_nll",
+   "accuracy_key": "themis_py_mc_cloze_acc",
+   "margin_key": "themis_py_mc_cloze_margin",
+   "limit": 1200
+  },
+  {
+   "name": "python_dpo",
+   "path": "python_dpo_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "python_dpo_nll",
+   "accuracy_key": "python_dpo_mc_cloze_acc",
+   "margin_key": "python_dpo_mc_cloze_margin",
+   "limit": 153
+  }
+ ],
+ "disabled_legs": [
+  {
+   "name": "logiqa",
+   "path": "logiqa_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "logiqa_nll",
+   "limit": 500,
+   "_disabled_reason": "inert (sd 0.44)"
+  },
+  {
+   "name": "hellaswag",
+   "path": "hellaswag_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "hellaswag_nll",
+   "limit": 400,
+   "accuracy_key": "hellaswag_mc_cloze_acc",
+   "margin_key": "hellaswag_mc_cloze_margin",
+   "_disabled_reason": "inert (sd 0.13 vs 2.90 gsm8k)"
+  },
+  {
+   "name": "anli",
+   "path": "anli_eval.jsonl",
+   "kind": "mcq",
+   "output_key": "anli_nll",
+   "limit": 400,
+   "accuracy_key": "anli_mc_cloze_acc",
+   "margin_key": "anli_mc_cloze_margin",
+   "_disabled_reason": "at chance (+1.2 over chance, NLL 8.79)"
+  },
+  {
+   "name": "codealpaca",
+   "path": "codealpaca_eval.jsonl",
+   "kind": "qa_nll",
+   "output_key": "codealpaca_nll",
+   "limit": 200,
+   "_disabled_reason": "no headroom (baseline NLL 0.663)"
+  }
+ ],
+ "_note": "v7 = v6 with the preference legs REBUILT as SHORT COMPLETE TURNS and with the train/eval format mismatch fixed in evals.py. (1) Preference legs now FILTER for pairs whose responses are naturally <=96 tokens and prompts <=256 \u2014 no mid-sentence truncation, no tail-capped prompts. Discard is brutal by design (HelpSteer2 keeps 127 of 10162 pairs; its responses are inherently long) \u2014 a truncated turn ends mid-sentence and is not something the model ever saw. (2) evals.py now tokenises eval prompts as f'{prompt}\\n', matching data.py format_row, so the model is scored on the prefix shape it was TRAINED on. That changes EVERY leg's absolute numbers, so v7 results are NOT comparable to v6/earlier \u2014 this is a fresh baseline by design. (3) evaluate_mcq now reports discarded_examples and warns above 2%; the prompt cap is derived from max_length instead of guessed. hs2_cor_val dropped (62 rows, 6.4pt floor). | v8 = v7 + two CODE preference legs. `themis_py` (project-themis/Themis-CodePreference, language=1 Python, aspect=3 FUNCTIONAL CORRECTNESS; 71031 pairs -> 8701 short-turn -> 1200) is the best-shaped preference leg built so far: leak 2%, gold 198 vs distractor 200 chars (-3), shortest-picker excess +1.1 pts, and pair similarity median 0.974 with 87% above 0.8 \u2014 chosen and rejected are the SAME program with a bug fixed, an objective minimal pair. NEVER truncate this source: the first differing token is at median 40 but p90 190, so cutting to 96 tokens makes 24% of pairs BYTE-IDENTICAL; use short-turn FILTERING only (the builder now also guards with a `degenerate` counter). `python_dpo` (NextWealth/Python-DPO, chosen_code vs rejected_code-1, 153 rows) is included ON REQUEST but FAILS GATE 1: gold 454 vs distractor 188 chars (+266) and a shortest-picker excess of -41.8 pts, i.e. 'pick the longest' wins ~92%; pair similarity 0.179 so they are not minimal pairs at all. KEEP IT OUT OF COMPOSITES \u2014 it is a verbosity axis.",
+ "retired_legs": {
+  "mmlu_math_cloze": "high-school maths only (270 rows) despite the name; r=0.88 with mmlu_math_macro",
+  "hs2_short": "SNR 0.53 and rho(alone, full battery) = -0.008; only 127 pairs survive the short-turn filter, so it cannot be rebuilt bigger",
+  "openbookqa": "r=0.88 with commonsenseqa; pure duplication at high SNR"
+ }
+}
