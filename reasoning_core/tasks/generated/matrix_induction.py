@@ -152,7 +152,7 @@ class MatrixInduction(GeneratedMixin, Task):
     def score_answer(self, answer, entry):
         def parse(text):
             out = {}
-            for name in entry.metadata.attributes:
+            for name in entry.metadata["attributes"]:
                 m = re.search(rf"\b{name}\s*=\s*([A-Za-z0-9_-]+)", str(text), re.I)
                 if not m:
                     return None
