@@ -111,7 +111,7 @@ class SpatialFolding(GeneratedMixin, Task):
     def score_answer(self, answer, entry):
         pairs = re.findall(r"(\d+)\s*,\s*(\d+)", str(answer))
         parsed = [(int(r), int(c)) for r, c in pairs]
-        gold = [(r + 1, c + 1) for r, c in entry.metadata.holes]
+        gold = [(r + 1, c + 1) for r, c in entry.metadata["holes"]]
         return float(len(parsed) == len(gold) and set(parsed) == set(gold))
 
     def balancing_key(self, problem):
