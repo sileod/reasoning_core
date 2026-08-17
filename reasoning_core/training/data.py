@@ -46,6 +46,26 @@ def format_row(row, eos_token, formatter, prompt_prefix=""):
     return {"prompt": f"{prompt_prefix}{prompt}\n", "completion": f"{answer}{eos_token}"}
 
 
+def completion_mask(tokenizer, prompt, completion):
+    """Token ids + completion mask for one prompt/completion pair, split at the TRUE divergence.
+
+    TRL derives the mask from `len(prompt_ids)` (`sft_trainer.py:1159-1169`) and only warns when that
+    disagrees with the tokenization of prompt+completion. When the prompt's trailing "\\n" merges with
+    the answer's first characters into one BPE token, that merged token sits at `len(prompt_ids)-1`
+    and is masked out -- so the first token of the answer is silently dropped from the loss. Measured
+    on fwdolci: 21% of dolci prompt/answer rows, always a 1-token shift (aux task rows: 0%).
+
+    Splitting at the longest common prefix instead puts the merged token in the COMPLETION, so the
+    answer's first token is supervised. Text is unchanged; only the mask moves.
+    """
+    p = tokenizer(prompt)["input_ids"]
+    pc = tokenizer(prompt + completion)["input_ids"]
+    n = 0
+    while n < min(len(p), len(pc)) and p[n] == pc[n]:
+        n += 1
+    return {"input_ids": pc, "completion_mask": [0] * n + [1] * (len(pc) - n)}
+
+
 def load_stream(spec, tokenizer, max_length=None, chars_per_token=4.0, max_tokens=None):
     """Load a replayable local or HF stream and apply a versioned formatter."""
 
