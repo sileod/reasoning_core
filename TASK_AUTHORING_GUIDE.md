@@ -172,6 +172,13 @@ missing dependency. But writing one self-contained symbolic generator under
 `reasoning_core/tasks/generated/` needs almost none of that stack.
 
 ```bash
+scripts/install_authoring.sh          # in a clone
+scripts/install_authoring.sh --pypi   # no clone; released wheel, still minimal
+```
+
+or by hand, which is all the script does:
+
+```bash
 pip install -e . --no-deps
 pip install -r requirements/task-authoring.txt
 ```
