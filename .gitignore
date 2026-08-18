@@ -106,6 +106,9 @@ ROADMAP.md
 .test/
 data-gym-cache/
 
+# DeepSeek Harness agent private workspace (untracked by design)
+.dsh/
+
 # Local research scratch space; task implementations belong in reasoning_core/tasks/.
 /tasks/dev/
 
@@ -119,3 +122,7 @@ paper_exports/
 # local sync utility (references private storage paths)
 sync_results.sh
 task_diagnostics/
+
+# Internal-only: infra paths + unpublished analysis. Public repo -- keep out of git.
+docs/GRID5000.md
+reasoning_core/reports/
