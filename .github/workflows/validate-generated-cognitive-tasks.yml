@@ -1,0 +1,33 @@
+name: Validate generated cognitive tasks
+
+on:
+  push:
+    branches:
+      - agent/validate-cognitive-generated-tasks
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: |
+          python -m pip install -e .
+          python -m pip install 'xxhash<4'
+      - name: Validate tasks at levels 0-5
+        run: |
+          python - <<'PY'
+          from reasoning_core.tasks.generated.spatial_folding import SpatialFolding
+          from reasoning_core.tasks.generated.matrix_induction import MatrixInduction
+          from reasoning_core.tasks.generated.rule_switching import RuleSwitching
+
+          for cls in (SpatialFolding, MatrixInduction, RuleSwitching):
+              for level in range(6):
+                  task = cls()
+                  task.config.set_level(level)
+                  task.validate(n_samples=20)
+                  print(f'{cls.__name__} level {level}: OK')
+          PY
