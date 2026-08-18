@@ -1,5 +1,17 @@
 # Task Implementation Guide
 
+## Setup
+
+Writing one generator does not need the full stack. Light install:
+
+```bash
+scripts/install_authoring.sh        # or: pip install -e . --no-deps && pip install -r requirements/task-authoring.txt
+```
+
+`pip install reasoning-core` is unchanged and still batteries-included; this is the contributor path.
+Then run `Task().validate()` before opening a PR -- it is the contract, and a PR that could not run
+it is a PR nobody can review. See "Authoring without the full stack" at the end for details.
+
 ## Goal
 Craft verifiable procedural data generator targetting speficic capabilities.
 The data should be useful to learn cognitive primitives for language understanding and processing skill.
@@ -163,49 +175,21 @@ generates within the per-task ceiling and its reference answer scores `1`.
 - Use `--taskrow-cache task_diagnostics/cache/task_rows/<cache_id>` to reuse diagnostics TaskRow examples before generating missing entries.
 - The cache is keyed per task and level, and keeps only the latest record for each key.
 
-
 ## Authoring without the full stack
 
-`pip install reasoning-core` is batteries-included by design and does not change: the package is a
-collection of heterogeneous generators, and a user instantiating an arbitrary task should not hit a
-missing dependency. But writing one self-contained symbolic generator under
-`reasoning_core/tasks/generated/` needs almost none of that stack.
+Details of the light install above.
 
-```bash
-scripts/install_authoring.sh          # in a clone
-scripts/install_authoring.sh --pypi   # no clone; released wheel, still minimal
-```
+`template.py` is kept importable on a five-package substrate (easydict, inflection, wrapt, xxhash,
+appdirs): `tiktoken`, `psutil` and `tqdm` are lazy, `nfsdict` and `pandas` were already
+function-local, `tqdm` degrades to a pass-through and token accounting falls back. **If you add a
+dependency to `template.py`, import it inside the function that uses it**, or this path silently
+regresses.
 
-or by hand, which is all the script does:
+`validate()` covers the invariants an agent editing `tasks/generated/` breaks first: the
+generate/render/score round-trip, gold scoring 1.0, garbage not crashing the scorer, difficulty
+actually changing the config, no global-RNG reseeding, metadata JSON round-trip, and a stable dedup
+key. Checks needing heavier machinery (parquet, cache behaviour) activate only when their
+dependencies are present.
 
-```bash
-pip install -e . --no-deps
-pip install -r requirements/task-authoring.txt
-```
-
-Then the real contract check runs, with no torch and no planning stacks:
-
-```python
-from reasoning_core.tasks.generated.pattern_induction import PatternInduction
-t = PatternInduction()
-t.validate()
-for level in range(6):
-    t.config.level = level
-    e = t.generate_example()
-    assert t.score_answer(e.answer, e) == 1.0, level
-```
-
-Run this **before** opening a PR. A PR that says "could not run validate() in this runtime" is a PR
-nobody can review -- `validate()` is the contract.
-
-`template.py` is kept importable on that small substrate: `tiktoken`, `psutil` and `tqdm` are lazy
-(`nfsdict` and `pandas` already were), `tqdm` degrades to a pass-through, and token accounting falls
-back when `tiktoken` is absent. **If you add a dependency to `template.py`, import it inside the
-function that uses it**, or this workflow silently regresses.
-
-Checks needing heavier machinery (parquet serialization, cache behaviour) activate only when their
-dependencies are present; a 200-line symbolic generator should not need pandas to prove it obeys the
-contract.
-
-Note on packaging: a `[minimal]` extra is deliberately NOT provided. Extras are additive, so
-`reasoning-core[minimal]` would install the full stack PLUS the small list -- exactly backwards.
+No `[minimal]` extra is provided on purpose: extras are additive, so `reasoning-core[minimal]` would
+install the full stack PLUS the small list. `--no-deps` is the only mechanism that installs less.
