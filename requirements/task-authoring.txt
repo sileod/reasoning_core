@@ -1,0 +1,15 @@
+# Authoring substrate: just enough to import reasoning_core.template and run task.validate()
+# on a self-contained symbolic generator. Deliberately NOT the package's dependency list.
+#
+#   pip install -e . --no-deps
+#   pip install -r requirements/task-authoring.txt
+#
+# `pip install reasoning-core` is unchanged and still batteries-included. This is a contributor
+# environment, not a distribution: an extra cannot express "fewer than the default" (extras are
+# additive, so a [minimal] extra would install the full stack PLUS these), and a second lite package
+# would be real packaging complexity for what is a dev-environment problem.
+easydict
+inflection
+wrapt
+xxhash
+appdirs

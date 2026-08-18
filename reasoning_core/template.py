@@ -27,13 +27,40 @@ import signal
 from contextlib import contextmanager
 from contextvars import ContextVar
 from inflection import underscore
-import tiktoken
 from appdirs import user_cache_dir
 import os
-import psutil
 import xxhash
-from tqdm.auto import tqdm 
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
+
+# Lazily imported so `from reasoning_core.template import Task` works in an authoring environment
+# installed with `pip install -e . --no-deps` plus requirements/task-authoring.txt. Each of these is
+# used once or twice and none is needed to establish that a generator obeys the core contract.
+def _tiktoken():
+    import tiktoken
+    return tiktoken
+
+
+def _psutil():
+    import psutil
+    return psutil
+
+
+def tqdm(iterable=None, *a, **k):
+    """tqdm if installed, otherwise a transparent pass-through."""
+    try:
+        from tqdm.auto import tqdm as _t
+    except ImportError:
+        return iterable if iterable is not None else _NullBar()
+    return _t(iterable, *a, **k) if iterable is not None else _t(*a, **k)
+
+
+class _NullBar:
+    def update(self, *a, **k): pass
+    def close(self): pass
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+
 
 #template.py
 
@@ -191,10 +218,10 @@ def timeout_retry(seconds=15, attempts=10):
                     
                     # --- CRITICAL: Kill external subprocesses (vampire/udocker) ---
                     try:
-                        children = psutil.Process().children(recursive=True)
+                        children = _psutil().Process().children(recursive=True)
                         for child in children:
                             child.kill()
-                        psutil.wait_procs(children, timeout=1)
+                        _psutil().wait_procs(children, timeout=1)
                     except: pass 
                     # --------------------------------------------------------------
 
@@ -329,7 +356,7 @@ def _load_tokenizer():
             return str(text).split()
 
     try:
-        return tiktoken.get_encoding("o200k_base")
+        return _tiktoken().get_encoding("o200k_base")
     except Exception:
         return _WhitespaceTokenizerFallback()
     
