@@ -849,7 +849,11 @@ def corrupt_duplicate_count(dataframe):
     return pd.concat([dataframe, row], ignore_index=True), "duplicate_row"
 
 
-class TableEquivalence(Task):
+# DevTask, not Task: prompts run to a median of 1931 characters (max 3052 over 18 sampled examples,
+# levels 0/2/4) against a roster median near 340 -- 5-6x every other task, for a 2-character answer.
+# Prompt length that far out competes with the aux budget rather than teaching anything the answer
+# needs, so it stays available for development and out of list_tasks()/the roster.
+class TableEquivalence(DevTask):
     summary = "Decide if two rendered tables are semantically equivalent under mutations."
     def __init__(self, config=None):
         super().__init__(config=config or TableQAConfig())

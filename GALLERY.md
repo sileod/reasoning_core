@@ -1,8 +1,8 @@
 # 📖 Task Gallery
 
-66 tasks
+65 tasks
 
-[`arithmetics`](#arithmetics) · [`math_word_problem`](#math_word_problem) · [`equation_system`](#equation_system) · [`combinatorics_formula`](#combinatorics_formula) · [`function_manipulation`](#function_manipulation) · [`lean_missing_line`](#lean_missing_line) · [`lean_candidate_compilation`](#lean_candidate_compilation) · [`planar_geometry_relations`](#planar_geometry_relations) · [`metamath_entailment`](#metamath_entailment) · [`metamath_core_select`](#metamath_core_select) · [`lambda_reduction`](#lambda_reduction) · [`rewrite_system`](#rewrite_system) · [`unification_entailment`](#unification_entailment) · [`most_probable_evidence`](#most_probable_evidence) · [`most_probable_outcome`](#most_probable_outcome) · [`multistep_nli`](#multistep_nli) · [`defeasible_nli`](#defeasible_nli) · [`multistep_evidence_retrieval`](#multistep_evidence_retrieval) · [`multistep_abduction`](#multistep_abduction) · [`logic_qa`](#logic_qa) · [`logic_derivation`](#logic_derivation) · [`planning`](#planning) · [`set_missing_element`](#set_missing_element) · [`set_expression`](#set_expression) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`grid_navigation`](#grid_navigation) · [`reference_tracking`](#reference_tracking) · [`belief_tracking`](#belief_tracking) · [`coreference`](#coreference) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_successors`](#graph_successors) · [`regex_following`](#regex_following) · [`regex_reasoning`](#regex_reasoning) · [`analogical_case_matching`](#analogical_case_matching) · [`parsing_derivation`](#parsing_derivation) · [`syntax_error_detection`](#syntax_error_detection) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_equivalence`](#table_equivalence) · [`table_statistics`](#table_statistics) · [`string_transduction`](#string_transduction) · [`game_best_move`](#game_best_move) · [`game_forced_win`](#game_forced_win) · [`qualitative_causal_reasoning`](#qualitative_causal_reasoning) · [`code_analysis`](#code_analysis) · [`code_runnability`](#code_runnability) · [`code_execution`](#code_execution) · [`program_synthesis`](#program_synthesis) · [`backtracking_search`](#backtracking_search) · [`boolean_propagation_search`](#boolean_propagation_search) · [`controlled_code_execution`](#controlled_code_execution) · [`dynamic_programming`](#dynamic_programming) · [`fixpoint_iteration`](#fixpoint_iteration) · [`matrix_induction`](#matrix_induction) · [`pattern_induction`](#pattern_induction) · [`schema_bound_query`](#schema_bound_query) · [`conditional_response_contract`](#conditional_response_contract) · [`protected_span_transformation`](#protected_span_transformation) · [`rule_switching`](#rule_switching) · [`shift_reduce_parsing`](#shift_reduce_parsing) · [`spatial_folding`](#spatial_folding) · [`typed_relation_extraction`](#typed_relation_extraction) · [`evidence_sufficiency`](#evidence_sufficiency) · [`variable_elimination`](#variable_elimination)
+[`arithmetics`](#arithmetics) · [`math_word_problem`](#math_word_problem) · [`equation_system`](#equation_system) · [`combinatorics_formula`](#combinatorics_formula) · [`function_manipulation`](#function_manipulation) · [`lean_missing_line`](#lean_missing_line) · [`lean_candidate_compilation`](#lean_candidate_compilation) · [`planar_geometry_relations`](#planar_geometry_relations) · [`metamath_entailment`](#metamath_entailment) · [`metamath_core_select`](#metamath_core_select) · [`lambda_reduction`](#lambda_reduction) · [`rewrite_system`](#rewrite_system) · [`unification_entailment`](#unification_entailment) · [`most_probable_evidence`](#most_probable_evidence) · [`most_probable_outcome`](#most_probable_outcome) · [`multistep_nli`](#multistep_nli) · [`defeasible_nli`](#defeasible_nli) · [`multistep_evidence_retrieval`](#multistep_evidence_retrieval) · [`multistep_abduction`](#multistep_abduction) · [`logic_qa`](#logic_qa) · [`logic_derivation`](#logic_derivation) · [`planning`](#planning) · [`set_missing_element`](#set_missing_element) · [`set_expression`](#set_expression) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`grid_navigation`](#grid_navigation) · [`reference_tracking`](#reference_tracking) · [`belief_tracking`](#belief_tracking) · [`coreference`](#coreference) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_successors`](#graph_successors) · [`regex_following`](#regex_following) · [`regex_reasoning`](#regex_reasoning) · [`analogical_case_matching`](#analogical_case_matching) · [`parsing_derivation`](#parsing_derivation) · [`syntax_error_detection`](#syntax_error_detection) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_statistics`](#table_statistics) · [`string_transduction`](#string_transduction) · [`game_best_move`](#game_best_move) · [`game_forced_win`](#game_forced_win) · [`qualitative_causal_reasoning`](#qualitative_causal_reasoning) · [`code_analysis`](#code_analysis) · [`code_runnability`](#code_runnability) · [`code_execution`](#code_execution) · [`program_synthesis`](#program_synthesis) · [`backtracking_search`](#backtracking_search) · [`boolean_propagation_search`](#boolean_propagation_search) · [`controlled_code_execution`](#controlled_code_execution) · [`dynamic_programming`](#dynamic_programming) · [`fixpoint_iteration`](#fixpoint_iteration) · [`matrix_induction`](#matrix_induction) · [`pattern_induction`](#pattern_induction) · [`schema_bound_query`](#schema_bound_query) · [`conditional_response_contract`](#conditional_response_contract) · [`protected_span_transformation`](#protected_span_transformation) · [`rule_switching`](#rule_switching) · [`shift_reduce_parsing`](#shift_reduce_parsing) · [`spatial_folding`](#spatial_folding) · [`typed_relation_extraction`](#typed_relation_extraction) · [`evidence_sufficiency`](#evidence_sufficiency) · [`variable_elimination`](#variable_elimination)
 
 ---
 
@@ -1053,7 +1053,7 @@ it > >
 
 ## [table_qa](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
 
-<!-- behavior-hash: 8e7b4b92489b4c3e -->
+<!-- behavior-hash: 351260bfa72210ec -->
 
 Answer queries on tabular data by executing SQL queries over dataframes.
 
@@ -1062,105 +1062,57 @@ Answer queries on tabular data by executing SQL queries over dataframes.
 Execute this SQL query on the table named dataframe:
 
 Table 1:
-discount,qty
-0.30,2
-0.00,3
-0.20,4
-0.20,5
-0.20,6
-0.00,7
-0.10,8
-0.30,9
-0.00,10
-0.00,11
-0.05,12
-0.00,13
+row_id,category,date,qty
+R0000,Electronics,23 juil. 2025,2
+R0001,Clothing,23 sept. 2025,3
+R0002,Food,21 févr. 2025,4
+R0003,Books,29 juil. 2026,5
+R0004,Food,19 juil. 2026,6
+R0005,Books,16 avr. 2025,7
+R0006,Clothing,6 janv. 2026,8
+R0007,Electronics,11 juil. 2025,9
+R0008,Electronics,29 août 2025,10
+R0009,Food,7 oct. 2025,11
 
 
 In this table, — represents SQL NULL.
 
-SQL: SELECT ROUND(SUM("qty"), 2) FROM dataframe WHERE TRUE
+SQL: SELECT "category" FROM dataframe WHERE TRUE ORDER BY "qty" DESC LIMIT 3
 
-The answer is the result as a single number without display formatting.
+The answer is the result as CSV format (rows separated by newlines, values by commas). Do not include column headers..
 ```
 
 **Answer:**
 ```
-90.0
-```
-
----
-
-## [table_equivalence](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
-
-<!-- behavior-hash: 8e7b4b92489b4c3e -->
-
-Decide if two rendered tables are semantically equivalent under mutations.
-
-**Prompt:**
-```
-Do these tables contain the same data?
-Ignore row order, column order, and table syntax; match values by column name.
-Treat numeric grouping and trailing zeros as formatting, ISO and English month-name dates as dates, and — and NULL as missing. Repeated rows count.
-
-Table A:
-event_date    amount    country         rating    customer
-Oct 18, 2025  2,111.98  Bulgaria        4.90      Kimberly Lawrence
-Dec 14, 2025  1,744.19  Cuba            4.90      Brian Davis
-Oct 21, 2024  1,714.95  New Zealand     2.70      Cheryl Long
-Sep 08, 2024  754.69    Nauru           1.80      Gerald Maynard
-Nov 16, 2024  1,000.62  Iceland         1.60      Mary Pham
-Oct 03, 2024  1,644.70  Moldova         4.50      Angela Holder
-Feb 24, 2025  1,770.16  Comoros         3.60      Catherine Harris
-Jun 14, 2026  2,239.30  Gambia          4.50      Adam Moore
-NULL          2,260.59  American Samoa  4.70      Carol Hurley
-Oct 18, 2025  2,111.98  Bulgaria        4.90      Kimberly Lawrence
-
-Table B:
-event_date	country	customer	rating
-2024-09-08	Nauru	Gerald Maynard	1.8
-—	American Samoa	Carol Hurley	4.7
-2025-12-14	Cuba	Brian Davis	4.9
-2024-10-03	Moldova	Angela Holder	4.5
-2024-10-21	New Zealand	Cheryl Lone	2.7
-2025-10-18	Bulgaria	Kimberly Lawrence	4.9
-2024-11-16	Iceland	Mary Pham	1.6
-2025-10-18	Bulgaria	Kimberly Lawrence	4.9
-2025-02-24	Comoros	Catherine Harris	3.6
-
-
-Answer Yes or No.
-```
-
-**Answer:**
-```
-No
+Food
+Electronics
+Electronics
 ```
 
 ---
 
 ## [table_statistics](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
 
-<!-- behavior-hash: 8e7b4b92489b4c3e -->
+<!-- behavior-hash: 351260bfa72210ec -->
 
 Select rows or columns using associations, conditioning, group robustness, and shifts.
 
 **Prompt:**
 ```
 Table:
-label|J|Y|X|T
-L0|L2|L0|L0|L0
-L0|L0|L0|L0|L0
-L2|L2|L0|L2|L2
-L1|L2|L1|L1|L1
-L2|L0|L0|L2|L1
-L2|L2|L2|L2|L2
-L1|L1|L1|L1|L0
-L1|L1|L1|L1|L1
-L2|L0|L2|L2|L2
-L0|L0|L2|L0|L2
-L0|L0|L1|L0|L0
-L1|L1|L1|L1|L0
+label,L,E,N,B
+L1,L1,L1,L0,L2
+L2,L2,L1,L2,L1
+L2,L2,L1,L1,L0
+L0,L0,L1,L0,L0
+L1,L1,L1,L1,L1
+L0,L0,L2,L0,L0
+L2,L2,L0,L2,L0
+L1,L1,L1,L2,L2
+L1,L1,L1,L0,L1
+L2,L2,L2,L1,L2
+L0,L0,L0,L0,L1
+L0,L0,L0,L1,L0
 
 
 Find:
@@ -1174,7 +1126,7 @@ Answer with only the identifier.
 
 **Answer:**
 ```
-X
+L
 ```
 
 ---
