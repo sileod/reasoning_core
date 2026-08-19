@@ -2,7 +2,6 @@ import random
 from dataclasses import dataclass
 
 from reasoning_core.template import Config, Entry, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 PRIMITIVES = {
@@ -63,7 +62,7 @@ class RuleSwitchingConfig(Config):
         self.min_dependency_depth = sround(self.min_dependency_depth + 0.6 * level)
 
 
-class RuleSwitching(GeneratedMixin, Task):
+class RuleSwitching(Task):
     summary = "Track symbolic state while identical opcodes change meaning across active rule modes."
     config_cls = RuleSwitchingConfig
 

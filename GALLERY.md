@@ -2,7 +2,7 @@
 
 65 tasks
 
-[`arithmetics`](#arithmetics) · [`math_word_problem`](#math_word_problem) · [`equation_system`](#equation_system) · [`combinatorics_formula`](#combinatorics_formula) · [`function_manipulation`](#function_manipulation) · [`lean_missing_line`](#lean_missing_line) · [`lean_candidate_compilation`](#lean_candidate_compilation) · [`planar_geometry_relations`](#planar_geometry_relations) · [`metamath_entailment`](#metamath_entailment) · [`metamath_core_select`](#metamath_core_select) · [`lambda_reduction`](#lambda_reduction) · [`rewrite_system`](#rewrite_system) · [`unification_entailment`](#unification_entailment) · [`most_probable_evidence`](#most_probable_evidence) · [`most_probable_outcome`](#most_probable_outcome) · [`multistep_nli`](#multistep_nli) · [`defeasible_nli`](#defeasible_nli) · [`multistep_evidence_retrieval`](#multistep_evidence_retrieval) · [`multistep_abduction`](#multistep_abduction) · [`logic_qa`](#logic_qa) · [`logic_derivation`](#logic_derivation) · [`planning`](#planning) · [`set_missing_element`](#set_missing_element) · [`set_expression`](#set_expression) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`grid_navigation`](#grid_navigation) · [`reference_tracking`](#reference_tracking) · [`belief_tracking`](#belief_tracking) · [`coreference`](#coreference) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_successors`](#graph_successors) · [`regex_following`](#regex_following) · [`regex_reasoning`](#regex_reasoning) · [`analogical_case_matching`](#analogical_case_matching) · [`parsing_derivation`](#parsing_derivation) · [`syntax_error_detection`](#syntax_error_detection) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_statistics`](#table_statistics) · [`string_transduction`](#string_transduction) · [`game_best_move`](#game_best_move) · [`game_forced_win`](#game_forced_win) · [`qualitative_causal_reasoning`](#qualitative_causal_reasoning) · [`code_analysis`](#code_analysis) · [`code_runnability`](#code_runnability) · [`code_execution`](#code_execution) · [`program_synthesis`](#program_synthesis) · [`backtracking_search`](#backtracking_search) · [`boolean_propagation_search`](#boolean_propagation_search) · [`controlled_code_execution`](#controlled_code_execution) · [`dynamic_programming`](#dynamic_programming) · [`fixpoint_iteration`](#fixpoint_iteration) · [`matrix_induction`](#matrix_induction) · [`pattern_induction`](#pattern_induction) · [`schema_bound_query`](#schema_bound_query) · [`conditional_response_contract`](#conditional_response_contract) · [`protected_span_transformation`](#protected_span_transformation) · [`rule_switching`](#rule_switching) · [`shift_reduce_parsing`](#shift_reduce_parsing) · [`spatial_folding`](#spatial_folding) · [`typed_relation_extraction`](#typed_relation_extraction) · [`evidence_sufficiency`](#evidence_sufficiency) · [`variable_elimination`](#variable_elimination)
+[`arithmetics`](#arithmetics) · [`math_word_problem`](#math_word_problem) · [`equation_system`](#equation_system) · [`combinatorics_formula`](#combinatorics_formula) · [`function_manipulation`](#function_manipulation) · [`lean_missing_line`](#lean_missing_line) · [`lean_candidate_compilation`](#lean_candidate_compilation) · [`planar_geometry_relations`](#planar_geometry_relations) · [`metamath_entailment`](#metamath_entailment) · [`metamath_core_select`](#metamath_core_select) · [`lambda_reduction`](#lambda_reduction) · [`rewrite_system`](#rewrite_system) · [`unification_entailment`](#unification_entailment) · [`most_probable_evidence`](#most_probable_evidence) · [`most_probable_outcome`](#most_probable_outcome) · [`multistep_nli`](#multistep_nli) · [`defeasible_nli`](#defeasible_nli) · [`multistep_evidence_retrieval`](#multistep_evidence_retrieval) · [`multistep_abduction`](#multistep_abduction) · [`logic_qa`](#logic_qa) · [`logic_derivation`](#logic_derivation) · [`planning`](#planning) · [`set_missing_element`](#set_missing_element) · [`set_expression`](#set_expression) · [`sequential_induction`](#sequential_induction) · [`qualitative_reasoning`](#qualitative_reasoning) · [`grid_navigation`](#grid_navigation) · [`reference_tracking`](#reference_tracking) · [`belief_tracking`](#belief_tracking) · [`coreference`](#coreference) · [`constraint_satisfaction`](#constraint_satisfaction) · [`graph_pathfinding`](#graph_pathfinding) · [`graph_successors`](#graph_successors) · [`regex_following`](#regex_following) · [`regex_reasoning`](#regex_reasoning) · [`analogical_case_matching`](#analogical_case_matching) · [`parsing_derivation`](#parsing_derivation) · [`syntax_error_detection`](#syntax_error_detection) · [`constrained_continuation`](#constrained_continuation) · [`table_qa`](#table_qa) · [`table_equivalence`](#table_equivalence) · [`table_statistics`](#table_statistics) · [`string_transduction`](#string_transduction) · [`game_best_move`](#game_best_move) · [`game_forced_win`](#game_forced_win) · [`qualitative_causal_reasoning`](#qualitative_causal_reasoning) · [`code_analysis`](#code_analysis) · [`code_runnability`](#code_runnability) · [`code_execution`](#code_execution) · [`program_synthesis`](#program_synthesis) · [`backtracking_search`](#backtracking_search) · [`boolean_propagation_search`](#boolean_propagation_search) · [`controlled_code_execution`](#controlled_code_execution) · [`dynamic_programming`](#dynamic_programming) · [`fixpoint_iteration`](#fixpoint_iteration) · [`matrix_induction`](#matrix_induction) · [`pattern_induction`](#pattern_induction) · [`schema_bound_query`](#schema_bound_query) · [`conditional_response_contract`](#conditional_response_contract) · [`protected_span_transformation`](#protected_span_transformation) · [`rule_switching`](#rule_switching) · [`shift_reduce_parsing`](#shift_reduce_parsing) · [`spatial_folding`](#spatial_folding) · [`typed_relation_extraction`](#typed_relation_extraction) · [`variable_elimination`](#variable_elimination)
 
 ---
 
@@ -1053,7 +1053,7 @@ it > >
 
 ## [table_qa](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
 
-<!-- behavior-hash: 351260bfa72210ec -->
+<!-- behavior-hash: 8e7b4b92489b4c3e -->
 
 Answer queries on tabular data by executing SQL queries over dataframes.
 
@@ -1062,71 +1062,117 @@ Answer queries on tabular data by executing SQL queries over dataframes.
 Execute this SQL query on the table named dataframe:
 
 Table 1:
-row_id,category,date,qty
-R0000,Electronics,23 juil. 2025,2
-R0001,Clothing,23 sept. 2025,3
-R0002,Food,21 févr. 2025,4
-R0003,Books,29 juil. 2026,5
-R0004,Food,19 juil. 2026,6
-R0005,Books,16 avr. 2025,7
-R0006,Clothing,6 janv. 2026,8
-R0007,Electronics,11 juil. 2025,9
-R0008,Electronics,29 août 2025,10
-R0009,Food,7 oct. 2025,11
+discount	status	country
+0	paid	France
+0.1	cancelled	France
+0.05	paid	Italy
+0.2	pending	Italy
+0.3	pending	Italy
+0.1	paid	Italy
+0.2	cancelled	Italy
+0.05	pending	Italy
+0	pending	Italy
 
 
 In this table, — represents SQL NULL.
 
-SQL: SELECT "category" FROM dataframe WHERE TRUE ORDER BY "qty" DESC LIMIT 3
+SQL: SELECT "status" FROM dataframe WHERE "country" = 'France'
 
 The answer is the result as CSV format (rows separated by newlines, values by commas). Do not include column headers..
 ```
 
 **Answer:**
 ```
-Food
-Electronics
-Electronics
+paid
+cancelled
+```
+
+---
+
+## [table_equivalence](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
+
+<!-- behavior-hash: 8e7b4b92489b4c3e -->
+
+Decide if two rendered tables are semantically equivalent under mutations.
+
+**Prompt:**
+```
+Do these tables contain the same data?
+Ignore row order, column order, and table syntax; match values by column name.
+Treat numeric grouping and trailing zeros as formatting, ISO and English month-name dates as dates, and — and NULL as missing. Repeated rows count.
+
+Table A:
+event_date    amount    country         rating    customer
+Oct 18, 2025  2,111.98  Bulgaria        4.90      Kimberly Lawrence
+Dec 14, 2025  1,744.19  Cuba            4.90      Brian Davis
+Oct 21, 2024  1,714.95  New Zealand     2.70      Cheryl Long
+Sep 08, 2024  754.69    Nauru           1.80      Gerald Maynard
+Nov 16, 2024  1,000.62  Iceland         1.60      Mary Pham
+Oct 03, 2024  1,644.70  Moldova         4.50      Angela Holder
+Feb 24, 2025  1,770.16  Comoros         3.60      Catherine Harris
+Jun 14, 2026  2,239.30  Gambia          4.50      Adam Moore
+NULL          2,260.59  American Samoa  4.70      Carol Hurley
+Oct 18, 2025  2,111.98  Bulgaria        4.90      Kimberly Lawrence
+
+Table B:
+event_date	country	customer	rating
+2024-09-08	Nauru	Gerald Maynard	1.8
+—	American Samoa	Carol Hurley	4.7
+2025-12-14	Cuba	Brian Davis	4.9
+2024-10-03	Moldova	Angela Holder	4.5
+2024-10-21	New Zealand	Cheryl Lone	2.7
+2025-10-18	Bulgaria	Kimberly Lawrence	4.9
+2024-11-16	Iceland	Mary Pham	1.6
+2025-10-18	Bulgaria	Kimberly Lawrence	4.9
+2025-02-24	Comoros	Catherine Harris	3.6
+
+
+Answer Yes or No.
+```
+
+**Answer:**
+```
+No
 ```
 
 ---
 
 ## [table_statistics](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/table_qa.py)
 
-<!-- behavior-hash: 351260bfa72210ec -->
+<!-- behavior-hash: 8e7b4b92489b4c3e -->
 
 Select rows or columns using associations, conditioning, group robustness, and shifts.
 
 **Prompt:**
 ```
 Table:
-label,L,E,N,B
-L1,L1,L1,L0,L2
-L2,L2,L1,L2,L1
-L2,L2,L1,L1,L0
-L0,L0,L1,L0,L0
-L1,L1,L1,L1,L1
-L0,L0,L2,L0,L0
-L2,L2,L0,L2,L0
-L1,L1,L1,L2,L2
-L1,L1,L1,L0,L1
-L2,L2,L2,L1,L2
-L0,L0,L0,L0,L1
-L0,L0,L0,L1,L0
+W,K,A,H,T
+-4.03,-3.75,-1.35,-0.93,2.48
+-1.77,-4.55,0.68,-3.39,0.56
+-3.61,-3.39,0.42,-2.47,0.16
+0.08,0.6,-0.13,-0.14,-2.57
+0.08,-1.77,0.65,-1.35,0.95
+-1.24,-0.32,-0.56,0.31,0.66
+0.94,0.37,1.1,-0.57,0.06
+2.44,0.23,2.31,0.47,0.9
+2.07,3.73,-0.24,1.69,0.62
+-2.99,-3.49,-0.31,0.71,-0.48
+-2.09,-3.27,0.42,-1.82,-1.46
+1.4,1.38,0.68,1.01,1.89
 
 
 Find:
-categorical column name most associated with column label
+column name most associated with column W while controlling for K
 
 Metric:
-normalized mutual information
+absolute partial Pearson correlation
 
 Answer with only the identifier.
 ```
 
 **Answer:**
 ```
-L
+A
 ```
 
 ---
@@ -1357,48 +1403,48 @@ def f(s: str) -> str:
 
 ## [backtracking_search](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/backtracking_search.py)
 
-<!-- behavior-hash: 11d7b08c6b0a299c -->
+<!-- behavior-hash: 794eed9f3f6f8c78 -->
 
 Find the first finite-domain solution under deterministic backtracking with forward checking.
 
 **Prompt:**
 ```
 Variables X1..X5 each range over 1..4.
-Constraints: X4 + X5 != 4; X3 > X4; X1 < X2; X2 > X5; X2 > X4; X1 + X5 != 4; X3 != X5
+Constraints: X1 < X3; X3 != X4; X2 - X3 != 1; X3 + X4 != 5; X3 + X5 != 2; X3 > X4; X1 < X4
 Search variables in order X1,X2,... and values in increasing order. After each assignment, remove from every later domain values that violate a constraint with the new assignment; backtrack immediately if a domain becomes empty.
 What is the first complete solution found? The answer is the space-separated values of X1..Xn.
 ```
 
 **Answer:**
 ```
-1 2 2 1 1
+1 1 4 2 1
 ```
 
 ---
 
 ## [boolean_propagation_search](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/boolean_propagation_search.py)
 
-<!-- behavior-hash: 3203b1b8abfb1291 -->
+<!-- behavior-hash: 78cb65ce574c1bb8 -->
 
 Find the canonical first Boolean model under propagation and backtracking.
 
 **Prompt:**
 ```
-Formula: (x2 or x3) and (x5 or not x3) and (x4 or not x3) and (x4 or not x1) and (x4 or x5 or x1) and (x1 or x4) and (x2 or not x5) and (not x3 or not x2 or not x4)
+Formula: (x2 or not x3) and (not x5 or x2) and (x5 or not x1) and (not x4 or not x1 or x2) and (x3 or not x4) and (not x5 or not x2) and (x4 or x2 or x1)
 Choose unassigned variables x1,x2,... in order and try False before True. Before each choice, repeatedly assign any value forced by a one-unassigned-literal clause; if several are forced, use the smallest variable first. Backtrack on contradiction.
 What is the first satisfying assignment found? The answer is 5 space-separated T/F values for x1..x5.
 ```
 
 **Answer:**
 ```
-F T F T F
+F T F F F
 ```
 
 ---
 
 ## [controlled_code_execution](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/controlled_code_execution.py)
 
-<!-- behavior-hash: 5e4062b1950e244d -->
+<!-- behavior-hash: 2dee25442d3b594b -->
 
 Execute Python programs generated to require controlled semantic phenomena.
 
@@ -1407,13 +1453,15 @@ Execute Python programs generated to require controlled semantic phenomena.
 Predict the value returned by this Python call.
 ```python
 def endpoint():
-    state = [3, 0, 3]
-    for v0 in [-2, 2, -4, 4]:
-        state[1] = -1 * state[1] + v0
-        state[2] += state[1]
-    alias1 = state
-    alias1[0] += -1
-    state[1] += alias1[0]
+    state = [-2, 2, -2]
+    alias0 = state
+    alias0[2] += -4
+    state[0] += alias0[2]
+    bias1 = 1
+    def f1(x):
+        return x + bias1 + state[2]
+    bias1 += 2
+    state[0] = f1(state[0])
     return state
 ```
 Call: `endpoint()`
@@ -1422,64 +1470,64 @@ The answer is the exact Python `repr` of the returned value.
 
 **Answer:**
 ```
-[2, 14, 9]
+[-11, 2, -6]
 ```
 
 ---
 
 ## [dynamic_programming](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/dynamic_programming.py)
 
-<!-- behavior-hash: ca6239a0d6efd933 -->
+<!-- behavior-hash: 66849ade8e988eb7 -->
 
 Evaluate a max-sum dynamic program and reconstruct its optimal state sequence.
 
 **Prompt:**
 ```
 States: A B C
-Observations: 1 2 0 0 0
-Start: A=-2 B=2 C=2
+Observations: 1 2 2 2 1
+Start: A=1 B=2 C=1
 Transitions (rows=from, columns=A B C):
-A: 0 1 2
-B: 1 3 3
-C: 0 1 -3
+A: 3 1 -2
+B: -1 0 2
+C: 3 1 -2
 Emissions (rows=state, columns=0..2):
-A: 1 -3 -3
-B: 2 -3 3
-C: 2 -1 -1
+A: -2 -3 -2
+B: -3 3 2
+C: 0 1 1
 Score a state sequence by start + emissions + transitions. Find the maximum-score sequence; ties are lexicographic. The answer is the space-separated state labels.
 ```
 
 **Answer:**
 ```
-B B B B B
+B C B C B
 ```
 
 ---
 
 ## [fixpoint_iteration](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/fixpoint_iteration.py)
 
-<!-- behavior-hash: ba95de4d73245047 -->
+<!-- behavior-hash: 51bcd6d4cbb7ab36 -->
 
 Compute a least fixpoint of monotone finite-set propagation rules.
 
 **Prompt:**
 ```
-Universe: 0..6. Start: X0={1}; X1={}; X2={}; X3={0}
-Rules: X2 |= shift(X1,-1) & {0,2,3,4,5,6}; X1 |= shift(X0,+1); X0 |= shift(X3,+2); X2 |= shift(X1,-1); X1 |= shift(X2,+1); X0 |= shift(X3,+0); X3 |= shift(X2,-1)
+Universe: 0..6. Start: X0={2,4}; X1={}; X2={2,3}; X3={2,3,6}
+Rules: X0 |= shift(X1,+0); X3 |= shift(X1,-2) & {3,4,6}; X3 |= shift(X2,+0) & {3,4,5,6}; X0 |= shift(X3,+2); X2 |= shift(X1,+2); X1 |= shift(X2,+0); X1 |= shift(X3,+2)
 Apply the rules repeatedly in listed order until no set changes. shift(S,d) = {x+d in the universe : x in S}.
 What is X1 at the fixed point? The answer is a sorted set like {0,2,5}.
 ```
 
 **Answer:**
 ```
-{1,2,3,4,5,6}
+{2,3,4,5,6}
 ```
 
 ---
 
 ## [matrix_induction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/matrix_induction.py)
 
-<!-- behavior-hash: 5173b5434e025d10 -->
+<!-- behavior-hash: 57ada1dea937871f -->
 
 Infer a missing multi-attribute matrix cell under a certified finite rule family.
 
@@ -1489,9 +1537,9 @@ Complete the missing cell of the 3x3 matrix. Each attribute is independent and u
 Domains:
 - count: 1, 2, 3, 4
 Matrix:
-count=4 | count=4 | count=4
-count=4 | count=1 | count=1
-count=4 | count=1 | ?
+count=3 | count=4 | count=4
+count=3 | count=1 | count=1
+count=3 | count=1 | ?
 The answer is the missing cell written with exactly the displayed attribute names as name=value pairs.
 ```
 
@@ -1504,7 +1552,7 @@ count=1
 
 ## [pattern_induction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/pattern_induction.py)
 
-<!-- behavior-hash: 011e3eb8818f04d3 -->
+<!-- behavior-hash: 432c29d6e83dcf99 -->
 
 Infer a shared symbolic sequence rule from examples and predict a uniquely determined continuation.
 
@@ -1518,21 +1566,21 @@ Allowed rule family:
 - Direction is either straight, or uses one shared turn period p in {2, 3}. Straight uses occurrence multipliers 0,1,2,...; turn p uses 0,1,...,p,p-1,...,1,0,... periodically.
 - Repeat every emitted letter r times, with r in 1..2. Rows share r and the turn choice.
 Examples:
-1. F F E E D D C -> C B B
-Query: A A F F E
+1. A F F A E B F -> A A F
+Query: B C A D F
 The answer is the next 2 letters, space-separated.
 ```
 
 **Answer:**
 ```
-E D
+E A
 ```
 
 ---
 
 ## [schema_bound_query](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/response_contracts.py)
 
-<!-- behavior-hash: 0e1bfe20c36193b7 -->
+<!-- behavior-hash: b50cca7bfb835ccc -->
 
 Execute a record query while satisfying a sampled exact nested JSON schema.
 
@@ -1541,38 +1589,38 @@ Execute a record query while satisfying a sampled exact nested JSON schema.
 Records:
 R1: group=B, value=5
 R2: group=B, value=8
-R3: group=B, value=-1
-R4: group=A, value=3
-R5: group=C, value=2
-R6: group=C, value=-4
+R3: group=C, value=-2
+R4: group=C, value=0
+R5: group=A, value=-5
+R6: group=A, value=-6
 
-Select records with group=C and value >= -7, preserving input order.
+Select records with group=A and value >= -9, preserving input order.
 Answer as JSON matching exactly this schema, with no extra keys or prose:
-{"matches":[{"id":string,"value":integer},...],"total":integer}
+{"ids":[string,...],"count":integer,"total":integer}
 ```
 
 **Answer:**
 ```
-{"matches":[{"id":"R5","value":2},{"id":"R6","value":-4}],"total":-2}
+{"ids":["R5","R6"],"count":2,"total":-11}
 ```
 
 ---
 
 ## [conditional_response_contract](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/response_contracts.py)
 
-<!-- behavior-hash: 0e1bfe20c36193b7 -->
+<!-- behavior-hash: b50cca7bfb835ccc -->
 
 Solve a selection problem and execute output transformations whose activation depends on the semantic result.
 
 **Prompt:**
 ```
 Records:
-R1: score=0, eligible=yes, group=C, flag=yes
-R2: score=11, eligible=no, group=B, flag=yes
-R3: score=11, eligible=yes, group=C, flag=yes
-R4: score=2, eligible=yes, group=B, flag=no
-R5: score=5, eligible=yes, group=A, flag=no
-R6: score=9, eligible=yes, group=B, flag=yes
+R1: score=9, eligible=yes, group=A, flag=yes
+R2: score=11, eligible=yes, group=C, flag=no
+R3: score=12, eligible=yes, group=A, flag=no
+R4: score=9, eligible=no, group=C, flag=no
+R5: score=9, eligible=yes, group=B, flag=no
+R6: score=0, eligible=no, group=B, flag=yes
 
 Choose the eligible record with the largest score; break ties by lexicographically smallest ID. Start the answer as that ID. Then apply these rules in order to the current answer:
 1. If the winner's score is even, append token EVEN; otherwise do nothing.
@@ -1582,43 +1630,44 @@ The answer is the final transformed string and nothing else.
 
 **Answer:**
 ```
-GROUP R3
+R3 EVEN
 ```
 
 ---
 
 ## [protected_span_transformation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/response_contracts.py)
 
-<!-- behavior-hash: 0e1bfe20c36193b7 -->
+<!-- behavior-hash: b50cca7bfb835ccc -->
 
 Select and transform records while preserving opaque protected spans byte-for-byte.
 
 **Prompt:**
 ```
 Items:
-<x00:u-1> value=-8
-<V01:g-5> value=3
-<M02:J-6> value=7
-<p03:j-3> value=2
-<d04:x-7> value=-5
-<r05:S-8> value=-5
+<B00:q-5> value=-8
+<D01:F-8> value=4
+<G02:M-6> value=-8
+<l03:Y-7> value=-2
+<m04:z-7> value=-8
+<d05:S-5> value=-1
 
-Keep exactly the items whose absolute original value is odd. For each kept item compute -2*value + 7. Sort kept items by the computed value ascending, then by protected span. Each answer line is PROTECTED_SPAN=COMPUTED_VALUE. Copy every protected span exactly, including case and punctuation.
+Keep exactly the items whose absolute original value is even. For each kept item compute -3*value + 3. Sort kept items by the computed value ascending, then by protected span. Each answer line is PROTECTED_SPAN=COMPUTED_VALUE. Copy every protected span exactly, including case and punctuation.
 ```
 
 **Answer:**
 ```
-<M02:J-6>=-7
-<V01:g-5>=1
-<d04:x-7>=17
-<r05:S-8>=17
+<D01:F-8>=-9
+<l03:Y-7>=9
+<B00:q-5>=27
+<G02:M-6>=27
+<m04:z-7>=27
 ```
 
 ---
 
 ## [rule_switching](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/rule_switching.py)
 
-<!-- behavior-hash: 61d7f4b1d0295c2b -->
+<!-- behavior-hash: 36cb3d8da189c40b -->
 
 Track symbolic state while identical opcodes change meaning across active rule modes.
 
@@ -1626,60 +1675,60 @@ Track symbolic state while identical opcodes change meaning across active rule m
 ```
 Maintain the register values while executing the program. The current mode determines each opcode's meaning. For an instruction on registers (a,b,c): rotate-left maps their values to (b,c,a); rotate-right to (c,a,b); swap-first-two to (b,a,c); swap-last-two to (a,c,b); and swap-outer to (c,b,a). Mode changes affect following instructions.
 Modes:
-M1: X=rotate-left, Y=rotate-right, Z=swap-outer
-M2: X=rotate-right, Y=swap-last-two, Z=swap-first-two
+M1: X=rotate-left, Y=swap-last-two, Z=swap-outer
+M2: X=swap-first-two, Y=swap-outer, Z=rotate-right
 Initial state: r1=A r2=B r3=C r4=D r5=E
 Start mode: M1
 Program:
-Y r5 r2 r1
-X r5 r1 r4
+Z r3 r5 r4
+X r5 r2 r3
 mode M2
-X r2 r5 r4
-X r3 r2 r1
-mode M1
-Y r2 r5 r1
-X r1 r5 r2
-mode M2
+X r5 r4 r1
 Z r4 r5 r2
-What value is in r4 after the program? The answer is one value label.
+mode M1
+Y r1 r2 r4
+X r1 r2 r5
+mode M2
+Y r1 r5 r3
+What value is in r3 after the program? The answer is one value label.
 ```
 
 **Answer:**
 ```
-A
+D
 ```
 
 ---
 
 ## [shift_reduce_parsing](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/shift_reduce_parsing.py)
 
-<!-- behavior-hash: b16f66c189fc8ee0 -->
+<!-- behavior-hash: eae75112036e50bb -->
 
 Execute a deterministic shift-reduce parser and report one compact stack state.
 
 **Prompt:**
 ```
 Rules:
-R0: N0 -> a
-R1: N1 -> e
-R2: N2 -> N0 N0 N0
-R3: N3 -> N0 N2
-R4: N4 -> N1 N2
-Input: e a a a
+R0: N0 -> d
+R1: N1 -> b
+R2: N2 -> N0 N1 N1
+R3: N3 -> d
+R4: N4 -> N3 N2
+Input: d d b b
 Shift tokens left to right. After every shift, repeatedly reduce the longest stack suffix matching a rule RHS; ties use the lowest rule number.
 What is the stack after consuming 3 tokens? The answer is the stack symbols from bottom to top, space-separated.
 ```
 
 **Answer:**
 ```
-N1 N0 N0
+N0 N0 N1
 ```
 
 ---
 
 ## [spatial_folding](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/spatial_folding.py)
 
-<!-- behavior-hash: 790600e4b897acb9 -->
+<!-- behavior-hash: 82c53586c052ccc4 -->
 
 Track hole positions while folding and unfolding a square grid.
 
@@ -1687,93 +1736,65 @@ Track hole positions while folding and unfolding a square grid.
 ```
 A 4x4 square sheet is divided into unit cells. Rows are numbered top-to-bottom and columns left-to-right, starting at 1. After every fold, renumber the visible folded rectangle from its new top-left corner.
 Folds, in order:
-1. fold the right half over the left half.
-After all folds the sheet is 4x2. Punch holes through cells: 4,1.
+1. fold the top half over the bottom half.
+After all folds the sheet is 2x4. Punch holes through cells: 1,4.
 Unfold the sheet completely. The answer is all punched cells as row,column pairs separated by semicolons, in row-major order.
 ```
 
 **Answer:**
 ```
-4,1; 4,4
+2,4; 3,4
 ```
 
 ---
 
 ## [typed_relation_extraction](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/structured_extraction.py)
 
-<!-- behavior-hash: 3db43377a60ed0ec -->
+<!-- behavior-hash: f597e57e2e8902b6 -->
 
 Extract the complete set of typed relations with sentence provenance while ignoring negated and irrelevant statements.
 
 **Prompt:**
 ```
 Statements:
-1. Lumi reports to Hana.
-2. Cleo follows Lumi.
-3. Ari manages Fara.
-4. Hana does not visit Cleo.
-5. Hana receives support from Cleo.
-6. Hana reports to Fara.
+1. Dara is visited by Cleo.
+2. Fara supports Dara.
+3. Fara does not precede Cleo.
+4. Dara precedes Fara.
+5. Enzo supports Cleo.
+6. Ivo manages Fara.
+7. Dara supports Enzo.
 
 Extract every affirmative supports, manages, and precedes relation. Interpret reversed wording semantically. Ignore negated statements and all other relation types. The answer is a JSON array in evidence-sentence order. Each object has exactly the keys relation, source, target, evidence, where evidence is the sentence number.
 ```
 
 **Answer:**
 ```
-[{"relation":"manages","source":"Hana","target":"Lumi","evidence":1},{"relation":"precedes","source":"Lumi","target":"Cleo","evidence":2},{"relation":"manages","source":"Ari","target":"Fara","evidence":3},{"relation":"supports","source":"Cleo","target":"Hana","evidence":5},{"relation":"manages","source":"Fara","target":"Hana","evidence":6}]
-```
-
----
-
-## [evidence_sufficiency](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/structured_extraction.py)
-
-<!-- behavior-hash: 3db43377a60ed0ec -->
-
-Distinguish sufficient, contradictory, and merely related evidence and identify the exact witness sentences.
-
-**Prompt:**
-```
-Evidence:
-1. Gio is not vivid.
-2. The evidence states that Gio is calm.
-3. The evidence states that Ari is not gentle.
-4. The evidence states that Gio is not gentle.
-5. The evidence states that Ari is not careful.
-6. Kian is not gentle.
-7. Gio is eager.
-8. Ari is vivid.
-
-Claim: Ari is focused and Ari is careful.
-Use only the supplied evidence. The verdict is supported iff every conjunct is explicitly affirmed; contradicted iff at least one conjunct is explicitly negated; otherwise it is insufficient. The answer is JSON with exactly keys verdict and evidence. For supported, evidence lists every sentence needed for the conjuncts; for contradicted, it lists the single smallest-numbered contradicting sentence; for insufficient, it is [].
-```
-
-**Answer:**
-```
-{"verdict":"contradicted","evidence":[5]}
+[{"relation":"supports","source":"Fara","target":"Dara","evidence":2},{"relation":"precedes","source":"Dara","target":"Fara","evidence":4},{"relation":"supports","source":"Enzo","target":"Cleo","evidence":5},{"relation":"manages","source":"Ivo","target":"Fara","evidence":6},{"relation":"supports","source":"Dara","target":"Enzo","evidence":7}]
 ```
 
 ---
 
 ## [variable_elimination](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/generated/variable_elimination.py)
 
-<!-- behavior-hash: b3f097bd00647ebd -->
+<!-- behavior-hash: 88fdc7c1321f9eb9 -->
 
 Execute deterministic fraction-free elimination and report a compact residual equation.
 
 **Prompt:**
 ```
 Equations:
-4*x1 - x3 - 2*x4 = -2
--x2 + 3*x3 + 4*x4 = -3
-x2 - 5*x3 - 5*x4 = -8
--5*x2 - 4*x3 + 5*x4 = -6
+-x2 + 3*x3 - 3*x4 = -7
+-5*x1 - 5*x2 - 5*x3 + 3*x4 = 6
+-x1 + 2*x2 - 5*x3 = 4
+-4*x2 + 2*x3 - x4 = 5
 Eliminate x1, x2 in that order. For each variable, use the first remaining equation with a nonzero coefficient as pivot. For every later row with coefficient b and pivot coefficient a, replace it by a*row - b*pivot; then divide the entire row by the gcd of its integer coefficients and make its first nonzero coefficient positive.
 After these eliminations, what is row 3? The answer is one simplified equation.
 ```
 
 **Answer:**
 ```
-2*x3 + x4 = 11
+25*x3 - 48*x4 = -91
 ```
 
 ---

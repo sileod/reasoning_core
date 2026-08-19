@@ -3,7 +3,6 @@ import random
 from dataclasses import dataclass
 
 from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin, exact
 
 
 @dataclass
@@ -96,7 +95,7 @@ def _controlled_program(cfg):
     return "\n".join(lines) + "\n", phenomena
 
 
-class ControlledCodeExecution(GeneratedMixin, Task):
+class ControlledCodeExecution(Task):
     summary = "Execute Python programs generated to require controlled semantic phenomena."
     config_cls = ControlledCodeExecutionConfig
 
@@ -121,7 +120,7 @@ class ControlledCodeExecution(GeneratedMixin, Task):
             b = ast.literal_eval(str(entry.answer).strip())
             return float(a == b)
         except Exception:
-            return exact(answer, entry)
+            return super().score_answer(answer, entry)
 
     def balancing_key(self, problem):
         return tuple(problem.metadata.phenomena[:2])

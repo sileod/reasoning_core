@@ -3,7 +3,6 @@ import re
 from dataclasses import dataclass
 
 from reasoning_core.template import Config, Entry, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 FOLD_TEXT = {
@@ -60,7 +59,7 @@ def _format_points(points):
     return "; ".join(f"{row + 1},{col + 1}" for row, col in sorted(points))
 
 
-class SpatialFolding(GeneratedMixin, Task):
+class SpatialFolding(Task):
     summary = "Track hole positions while folding and unfolding a square grid."
     config_cls = SpatialFoldingConfig
 

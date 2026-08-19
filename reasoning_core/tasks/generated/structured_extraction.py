@@ -2,8 +2,7 @@ import json
 import random
 from dataclasses import dataclass
 
-from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
+from reasoning_core.template import Entry, Config, Task, DevTask, edict, stochastic_rounding as sround
 
 
 _NAMES = ("Ari", "Bela", "Cleo", "Dara", "Enzo", "Fara", "Gio", "Hana", "Ivo", "Juna", "Kian", "Lumi")
@@ -54,7 +53,7 @@ class TypedRelationExtractionConfig(Config):
         self.max_attempts = sround(self.max_attempts + 10 * level)
 
 
-class TypedRelationExtraction(GeneratedMixin, Task):
+class TypedRelationExtraction(Task):
     summary = "Extract the complete set of typed relations with sentence provenance while ignoring negated and irrelevant statements."
     config_cls = TypedRelationExtractionConfig
 
@@ -111,7 +110,13 @@ class EvidenceSufficiencyConfig(Config):
         self.claim_atoms = sround(self.claim_atoms + 0.3 * level)
 
 
-class EvidenceSufficiency(GeneratedMixin, Task):
+# DevTask, not Task: difficulty does not scale. Measured over 6 draws at every level 0-5, the
+# instance is identical in shape -- 8 evidence sentences, a 2-conjunct claim, ~740 prompt chars at
+# every rung -- so the six levels are six copies of one difficulty. On top of that ~430 of those 740
+# characters are a fixed rubric repeated verbatim in every row, and the surface variation
+# ("X is steady." vs "The evidence states that X is steady.") carries no structural content, which
+# is the opposite of the stated priority: structural variety, not lexical.
+class EvidenceSufficiency(DevTask):
     summary = "Distinguish sufficient, contradictory, and merely related evidence and identify the exact witness sentences."
     config_cls = EvidenceSufficiencyConfig
 

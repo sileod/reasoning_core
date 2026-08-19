@@ -4,7 +4,6 @@ import string
 from dataclasses import dataclass
 
 from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 def _json(obj):
@@ -34,7 +33,7 @@ class SchemaBoundQueryConfig(Config):
         self.max_attempts = sround(self.max_attempts + 10 * level)
 
 
-class SchemaBoundQuery(GeneratedMixin, Task):
+class SchemaBoundQuery(Task):
     summary = "Execute a record query while satisfying a sampled exact nested JSON schema."
     config_cls = SchemaBoundQueryConfig
 
@@ -137,7 +136,7 @@ def _rule_text(rule):
     return f"If {cond}, {effect}; otherwise do nothing."
 
 
-class ConditionalResponseContract(GeneratedMixin, Task):
+class ConditionalResponseContract(Task):
     summary = "Solve a selection problem and execute output transformations whose activation depends on the semantic result."
     config_cls = ConditionalResponseContractConfig
 
@@ -209,7 +208,7 @@ def _protected_token(i):
     return f"<{a}{i:02d}:{b}-{random.randint(0, 9)}>"
 
 
-class ProtectedSpanTransformation(GeneratedMixin, Task):
+class ProtectedSpanTransformation(Task):
     summary = "Select and transform records while preserving opaque protected spans byte-for-byte."
     config_cls = ProtectedSpanTransformationConfig
 

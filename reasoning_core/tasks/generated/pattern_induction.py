@@ -5,7 +5,6 @@ from functools import lru_cache
 from itertools import product
 
 from reasoning_core.template import Config, Entry, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -145,7 +144,7 @@ class PatternInductionConfig(Config):
         self.prediction_horizon = sround(self.prediction_horizon + 0.35 * level)
 
 
-class PatternInduction(GeneratedMixin, Task):
+class PatternInduction(Task):
     summary = "Infer a shared symbolic sequence rule from examples and predict a uniquely determined continuation."
     config_cls = PatternInductionConfig
 

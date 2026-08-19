@@ -2,7 +2,6 @@ import random
 from dataclasses import dataclass
 
 from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 @dataclass
@@ -124,7 +123,7 @@ def _render_constraint(c):
     }[kind]
 
 
-class BacktrackingSearch(GeneratedMixin, Task):
+class BacktrackingSearch(Task):
     summary = "Find the first finite-domain solution under deterministic backtracking with forward checking."
     config_cls = BacktrackingSearchConfig
 

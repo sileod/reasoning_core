@@ -2,7 +2,6 @@ import random
 from dataclasses import dataclass
 
 from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 @dataclass
@@ -36,7 +35,7 @@ def _rows(labels, matrix):
     return "\n".join(f"{s}: " + " ".join(map(str, row)) for s, row in zip(labels, matrix))
 
 
-class DynamicProgramming(GeneratedMixin, Task):
+class DynamicProgramming(Task):
     summary = "Evaluate a max-sum dynamic program and reconstruct its optimal state sequence."
     config_cls = DynamicProgrammingConfig
 

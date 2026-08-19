@@ -3,7 +3,6 @@ import re
 from dataclasses import dataclass
 
 from reasoning_core.template import Config, Entry, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 ATTRIBUTES = {
@@ -75,7 +74,7 @@ class MatrixInductionConfig(Config):
         self.hard_rule_p = min(0.9, self.hard_rule_p + 0.1 * level)
 
 
-class MatrixInduction(GeneratedMixin, Task):
+class MatrixInduction(Task):
     summary = "Infer a missing multi-attribute matrix cell under a certified finite rule family."
     config_cls = MatrixInductionConfig
 

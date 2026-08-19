@@ -2,7 +2,6 @@ import random
 from dataclasses import dataclass
 
 from reasoning_core.template import Entry, Config, Task, edict, stochastic_rounding as sround
-from ._base import GeneratedMixin
 
 
 @dataclass
@@ -73,7 +72,7 @@ def _expand_symbol(symbol, rules, depth):
     return out
 
 
-class ShiftReduceParsing(GeneratedMixin, Task):
+class ShiftReduceParsing(Task):
     summary = "Execute a deterministic shift-reduce parser and report one compact stack state."
     config_cls = ShiftReduceParsingConfig
 
