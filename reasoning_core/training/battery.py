@@ -2,6 +2,8 @@
 
 import hashlib
 import json
+import os
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -119,7 +121,26 @@ def evaluate_battery(model, tokenizer, battery, eos_token):
     return BatteryResult(metrics, details)
 
 
-def paper_battery(data_dir="data_cache", max_length=512):
+DATA_DIR = os.environ.get("EVAL_DATA_DIR", "data_cache")
+# Leg identity is sha256 of the file bytes, so legs ship rather than rebuild. Outside the package:
+# neither wheel nor sdist carries them.
+_ARCHIVE = Path(__file__).resolve().parents[2] / "eval_data" / "battery_legs.zip"
+
+
+def ensure_eval_data(data_dir=DATA_DIR):
+    """Unpack the shipped legs into ``data_dir``; no-op if present or not shipped."""
+
+    root = Path(data_dir).expanduser()
+    if _ARCHIVE.exists():
+        with zipfile.ZipFile(_ARCHIVE) as archive:
+            missing = [n for n in archive.namelist() if not (root / n).exists()]
+            if missing:
+                archive.extractall(root, members=missing)
+                print(f"[battery] unpacked {len(missing)} eval legs into {root}")
+    return root
+
+
+def paper_battery(data_dir=DATA_DIR, max_length=512):
     """The ordered held-out battery used by the influence paper."""
 
     manifest = Path(__file__).with_name("paper_battery.json")
@@ -131,7 +152,7 @@ def load_battery_manifest(path, data_dir=None, max_length=None):
 
     path = Path(path).expanduser()
     payload = json.loads(path.read_text())
-    root = Path(data_dir) if data_dir is not None else path.parent
+    root = ensure_eval_data(DATA_DIR if data_dir is None else data_dir)
     legs = tuple(EvalLeg(
         **{**row, "path": str(root / row["path"])
            if not Path(row["path"]).is_absolute() else row["path"]}

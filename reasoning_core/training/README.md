@@ -14,6 +14,14 @@ Install the optional dependencies with:
 pip install 'reasoning-core[training]'
 ```
 
+## Eval data
+
+The battery legs ship in `eval_data/battery_legs.zip` and unpack themselves into `data_cache/`
+(override with `EVAL_DATA_DIR`) the first time a battery loads. They are shipped rather than rebuilt
+because a leg's identity is the sha256 of its bytes: a regenerated leg is a *different* leg, and
+results across differing battery IDs must never be pooled. The archive lives outside the package, so
+it is in the git repo but not in the PyPI wheel or sdist.
+
 An influence experiment is a baseline `ArmPlan` plus one or more treatment
 plans. Dataset factories are called independently, and the same supplied model
 state is cloned once and restored before every arm:
