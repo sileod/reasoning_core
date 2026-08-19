@@ -60,7 +60,10 @@ def task_module(name):
 
 
 def task_source(name):
-    return TASKS_DIR / f"{task_module(name)}.py"
+    # Tasks under reasoning_core/tasks/generated/ report their module as "generated.<name>", so the
+    # dotted path has to become a directory separator. Joining it verbatim yields
+    # tasks/generated.<name>.py, which does not exist, and the build dies on the first such task.
+    return TASKS_DIR.joinpath(*task_module(name).split(".")).with_suffix(".py")
 
 
 @functools.lru_cache(maxsize=None)
