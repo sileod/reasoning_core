@@ -53,6 +53,22 @@ def test_multistep_nli_registers_and_generates():
     assert sum(task._case_state["label_counts"].values()) == 12
 
 
+def test_multistep_nli_retries_exhausted_search(monkeypatch):
+    import reasoning_core.tasks.logic_depth as logic_depth
+
+    real_generate_case = logic_depth.generate_case
+    calls = 0
+
+    def flaky_generate_case(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return (None, None) if calls < 3 else real_generate_case(*args, **kwargs)
+
+    monkeypatch.setattr(logic_depth, "generate_case", flaky_generate_case)
+    assert get_task("multistep_nli").generate_entry().answer in {"Yes", "No", "Maybe"}
+    assert calls == 3
+
+
 def test_multistep_nli_groups_entities_without_changing_facts():
     facts = [Atom("quiet", ("mary",)), Atom("quiet", ("paul",)), Atom("quiet", ("clara",), False)]
     theory = Theory(facts, [], [], {}, {"person": ("mary", "paul", "clara")})

@@ -36,6 +36,10 @@ Every task should provide:
   - `render_prompt(self, metadata) -> str`
   - `score_answer(self, answer, entry) -> float | Reward` (or rely on default exact match)
 
+Tasks may also implement `distractor_candidates(entry)` to yield realistic reasoning mistakes in
+the task's canonical answer format; `Task` handles fallback generation, correctness filtering,
+deduplication, and ranking. Do not repeat correctness checks in task-specific implementations.
+
 `Entry` must include:
 - `metadata` (dict/easydict),
 - `answer` (ground-truth string),

@@ -8,6 +8,13 @@ import reasoning_core.tasks.planning as planning
 from reasoning_core.tasks.planning import translate
 
 
+def test_random_solve_phases_out_by_level_three():
+    config = planning.PlanningConfig()
+    assert [config.set_level(level).pure_random_proba for level in range(5)] == pytest.approx(
+        [0.12, 0.08, 0.04, 0, 0]
+    )
+
+
 def test_translate_uses_closed_world_initial_state():
     item = UserType("item")
     problem = Problem("closed-world-state")

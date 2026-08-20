@@ -777,6 +777,7 @@ class PlanningConfig(Config):
         self.min_na += level
         self.max_na += level
         self.arity_weight += level
+        self.pure_random_proba *= max(0, 1 - level / 3)
 
 class Planning(Task):
     summary = "Generate action plans to achieve goals in domains like Blocksworld."

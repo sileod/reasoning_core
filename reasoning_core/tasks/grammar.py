@@ -538,12 +538,24 @@ def labeled_rules(meta):
     }
 
 
+@dataclass
+class ParsingDerivationConfig(GrammarConfig):
+    target_num_rules: int = 8
+    min_prod_depth: int = 3
+    max_prod_depth: int = 5
+    max_tokens: int = 12
+
+    def apply_difficulty(self, level):
+        super().apply_difficulty(level)
+        self.target_num_rules += level
+        self.min_prod_depth += .5 * level
+        self.max_prod_depth += level
+
+
 class ParsingDerivation(Task):
     summary = "Determine the derivation production rule sequence parsing a given string."
     def __init__(self, config=None):
-        super().__init__(config=config or GrammarConfig(
-            target_num_rules=8, min_prod_depth=3, max_prod_depth=5, max_tokens=12,
-        ))
+        super().__init__(config=config or ParsingDerivationConfig())
         self.config.perturbation_rate = 0.0
 
     def generate_entry(self):

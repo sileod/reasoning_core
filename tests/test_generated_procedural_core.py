@@ -1,4 +1,5 @@
 from reasoning_core import get_task, list_tasks
+import pytest
 
 
 TASKS = [
@@ -23,3 +24,14 @@ def test_generated_tasks_smoke():
         assert example.prompt
         assert task.score_answer(example.answer, example) == 1
         assert task.score_answer("definitely wrong", example) != 1
+
+
+@pytest.mark.parametrize(("name", "level"), [
+    ("fixpoint_iteration", 6),
+    ("spatial_folding", 0),
+    ("spatial_folding", 5),
+    ("spatial_folding", 6),
+    ("variable_elimination", 0),
+])
+def test_balanced_batch_completes_at_previously_missing_levels(name, level):
+    assert len(get_task(name).generate_balanced_batch(16, level=level, max_tokens=0)) == 16

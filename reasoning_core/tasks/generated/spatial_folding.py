@@ -114,4 +114,4 @@ class SpatialFolding(Task):
         return float(len(parsed) == len(gold) and set(parsed) == set(gold))
 
     def balancing_key(self, problem):
-        return len(problem.metadata.holes)
+        return len(problem.metadata.holes), tuple(problem.metadata.folds)

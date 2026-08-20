@@ -110,4 +110,4 @@ class VariableElimination(Task):
         return float(norm(answer) == norm(entry.answer))
 
     def balancing_key(self, problem):
-        return problem.metadata.eliminate
+        return problem.metadata.eliminate, problem.metadata.target

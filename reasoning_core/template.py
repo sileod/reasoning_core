@@ -24,6 +24,7 @@ import random
 import copy
 import math
 import signal
+from difflib import SequenceMatcher
 from contextlib import contextmanager
 from contextvars import ContextVar
 from inflection import underscore
@@ -363,6 +364,8 @@ def _load_tokenizer():
 
 class Task(ProceduralDataset):
     config_cls = None
+    _distractor_reservoir_size = 64
+    _distractor_saturation_patience = 8
 
     def __init_subclass__(cls):
         cls.task_name = getattr(cls, 'task_name', prepr_task_name(cls.__name__))
@@ -385,6 +388,7 @@ class Task(ProceduralDataset):
         self.balancing_key_ratio = 0.5
         self.tokenizer = _load_tokenizer()
         self._config_level_seen = getattr(self.config, "level", None)
+        self._answer_reservoir = []
 
     def generate_entry(self):
         """To override in new tasks, return one Entry."""
@@ -418,6 +422,103 @@ class Task(ProceduralDataset):
         if answer==reference:
             return 1
         return 0
+
+    def distractor_candidates(self, entry):
+        """Yield task-specific plausible wrong answers in canonical answer format."""
+        return ()
+
+    def _remember_answer(self, answer):
+        if answer is None:
+            return
+        answer = str(answer)
+        if answer in self._answer_reservoir:
+            return
+        self._answer_reservoir.append(answer)
+        del self._answer_reservoir[:-self._distractor_reservoir_size]
+
+    @staticmethod
+    def _distractor_similarity(candidate, gold):
+        """Cheap surface similarity; correctness belongs exclusively to score_answer."""
+        candidate, gold = str(candidate), str(gold)
+        char_similarity = SequenceMatcher(None, candidate, gold, autojunk=False).ratio()
+
+        def ngrams(text, n=3):
+            if len(text) < n:
+                return {text} if text else set()
+            return {text[i:i + n] for i in range(len(text) - n + 1)}
+
+        candidate_ngrams, gold_ngrams = ngrams(candidate), ngrams(gold)
+        union = candidate_ngrams | gold_ngrams
+        ngram_similarity = (
+            len(candidate_ngrams & gold_ngrams) / len(union) if union else 1.0
+        )
+        longest = max(len(candidate), len(gold))
+        length_similarity = min(len(candidate), len(gold)) / longest if longest else 1.0
+        return 0.55 * char_similarity + 0.35 * ngram_similarity + 0.10 * length_similarity
+
+    def generate_distractors(self, entry, n=16, max_candidates=64):
+        """Return up to ``n`` distinct, scorer-validated wrong answers.
+
+        Task-provided candidates are preferred. Observed answers from this task and,
+        when needed, newly generated same-task answers provide a bounded fallback.
+        """
+        n, max_candidates = max(0, int(n)), max(0, int(max_candidates))
+        if not n or not max_candidates:
+            return []
+
+        inspected = 0
+        valid_candidates = {}
+        seen_candidates = set()
+
+        def inspect(values):
+            nonlocal inspected
+            values = iter(values)
+            while inspected < max_candidates:
+                try:
+                    value = next(values)
+                except StopIteration:
+                    break
+                inspected += 1
+                if value is None:
+                    continue
+                candidate = str(value)
+                if candidate in seen_candidates:
+                    continue
+                seen_candidates.add(candidate)
+                try:
+                    valid = self.score_answer(candidate, entry) < 1
+                except Exception:
+                    valid = False
+                if valid:
+                    valid_candidates[candidate] = len(valid_candidates)
+
+        inspect(self.distractor_candidates(entry))
+        if inspected < max_candidates and len(valid_candidates) < n:
+            inspect(tuple(self._answer_reservoir))
+
+        # Repeated answers indicate a small observed vocabulary. Stop once that
+        # vocabulary saturates instead of spending the whole budget on duplicates.
+        stale = 0
+        while inspected < max_candidates and len(valid_candidates) < n:
+            before = tuple(self._answer_reservoir)
+            try:
+                generated = self.generate_example()
+            except (Exception, TimeoutException):
+                break
+            inspect((generated.answer,))
+            stale = stale + 1 if tuple(self._answer_reservoir) == before else 0
+            if stale >= self._distractor_saturation_patience:
+                break
+
+        gold = str(entry.answer)
+        ranked = sorted(
+            valid_candidates,
+            key=lambda candidate: (
+                -self._distractor_similarity(candidate, gold),
+                valid_candidates[candidate],
+            ),
+        )
+        return ranked[:n]
         
     def __call__(self, *args, **kwargs):
         return self.generate_example(*args, **kwargs)
@@ -453,12 +554,12 @@ class Task(ProceduralDataset):
         ys = [self.generate_example() for _ in range(n_samples)]
         self._check_validation_examples(x, ys, n_samples)
 
-        # Serialization round-trip smoke test
+        # Strict JSON round-trip: production writers do not provide a fallback encoder.
         rt = copy.copy(x)
-        rt.metadata = deserialize(serialize(dict(x.metadata)))
+        rt.metadata = edict(json.loads(json.dumps(dict(x.metadata))))
         assert self.score_answer(x.answer, rt) == 1, "score_answer must survive serialize/deserialize round-trip"
         from reasoning_core import score_answer as dispatch_score
-        wire = edict({**x.to_dict(), "metadata": json.dumps(dict(x.metadata), default=str)})
+        wire = edict({**x.to_dict(), "metadata": json.dumps(dict(x.metadata))})
         assert dispatch_score(x.answer, wire) == 1, "score_answer must survive JSON metadata dispatch"
         
         self.score_answer('reajrjrje9595!',x) # should not error out
@@ -481,6 +582,7 @@ class Task(ProceduralDataset):
 
     def _check_validation_examples(self, x, ys, n_samples):
         assert isinstance(x, Entry), f"Generated example must be of type Entry, got {type(x)}"
+        json.dumps(dict(x.metadata))
         assert self.score_answer(x.answer, x)==1, "The generated answer must be correct"
         assert x.prompt, "Generated example must have a non-empty prompt"
         assert len({y.prompt for y in ys})!=1 or n_samples==1, "Examples should not be identical"
@@ -617,6 +719,7 @@ class Task(ProceduralDataset):
                         separators=(",", ":"), default=str)
                     )
                 )
+                self._remember_answer(problem.answer)
                 return problem
         return inner()
 

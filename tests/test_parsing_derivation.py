@@ -23,6 +23,9 @@ def test_parsing_derivation_uses_shorter_defaults():
     config = ParsingDerivation().config
     assert (config.target_num_rules, config.min_prod_depth, config.max_prod_depth, config.max_tokens) == (8, 3, 5, 12)
 
+    config.set_level(6)
+    assert (config.target_num_rules, config.min_prod_depth, config.max_prod_depth, config.max_tokens) == (14, 6, 11, 24)
+
 
 def test_grammar_rendering_supports_configured_bnf_operator():
     grammar = CFG.fromstring("S -> A\nA -> 'a'")

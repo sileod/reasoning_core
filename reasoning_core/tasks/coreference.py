@@ -1,6 +1,6 @@
 import os
 import random
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import z3
 
@@ -331,7 +331,7 @@ class Coreference(Task):
                 mentions.append({
                     'idx': idx, 'sentence': sentence, 'position': position,
                     'surface': f"position {position + 1}",
-                    'entity': by_eid[entity_id],
+                    'entity_eid': entity_id,
                 })
             return Group(variables, tuple(latent), sentence)
 
@@ -493,9 +493,9 @@ class Coreference(Task):
             'query_position': query_position + 1,
             'answer_eid': gold,
             'answer_domain_eids': sorted(active_ids),
-            'entities': [*active, *distractors],
+            'entities': [asdict(entity) for entity in (*active, *distractors)],
             'mentions': mentions,
-            'factors': factors,
+            'factors': [asdict(factor) for factor in factors],
             'support_factor_indices': support,
             'necessary_factor_indices': necessary,
             'permutations': permutations,

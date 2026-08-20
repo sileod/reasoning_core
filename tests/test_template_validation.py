@@ -1,5 +1,7 @@
 import ctypes
 
+import pytest
+
 from reasoning_core import template
 from reasoning_core.template import Entry, Task, timeout_retry
 
@@ -20,6 +22,12 @@ class ConstantLabelTask(Task):
         return float(str(answer) == entry.answer)
 
 
+class NonJsonMetadataTask(ConstantLabelTask):
+    def generate_entry(self):
+        self.index += 1
+        return Entry({"index": self.index, "bad": object()}, "True")
+
+
 def test_validation_does_not_treat_repeated_labels_as_other_answers():
     task = ConstantLabelTask()
     rows = [Entry({"index": i}, "True") for i in range(4)]
@@ -27,6 +35,11 @@ def test_validation_does_not_treat_repeated_labels_as_other_answers():
         row.prompt = task.render_prompt(row.metadata)
 
     task._check_validation_examples(rows[0], rows[1:], n_samples=3)
+
+
+def test_validation_rejects_non_json_metadata():
+    with pytest.raises(TypeError, match="JSON serializable"):
+        NonJsonMetadataTask().validate(n_samples=1)
 
 
 def test_timeout_retry_recovers_from_ctypes_wrapped_signal(monkeypatch):

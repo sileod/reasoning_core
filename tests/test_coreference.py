@@ -1,3 +1,5 @@
+import json
+
 import pytest
 import z3
 
@@ -82,7 +84,7 @@ def test_backward_family_requires_later_evidence():
     entry = Coreference(CoreferenceConfig(
         family='permutation_backward')).generate_entry()
     assert entry.metadata.prefix_entailed is False
-    assert any(factor.sentence >= entry.metadata.query_sentence
+    assert any(factor['sentence'] >= entry.metadata.query_sentence
                for factor in entry.metadata.factors)
 
 
@@ -90,7 +92,7 @@ def test_branching_family_uses_both_branches_and_elimination():
     entry = Coreference(CoreferenceConfig(
         family='branching_elimination', target_depth=4,
         n_entities=5)).generate_entry()
-    kinds = [entry.metadata.factors[index].kind
+    kinds = [entry.metadata.factors[index]['kind']
              for index in entry.metadata.support_factor_indices]
     assert kinds.count('permutation') >= 2
     assert kinds.count('equal') == 4
@@ -118,6 +120,11 @@ def test_generate_example_and_wrong_answer_scoring():
     entry = task.generate_example()
     assert task.score_answer(entry.answer, entry) == 1
     assert task.score_answer('DefinitelyWrong', entry) == 0
+
+
+def test_metadata_is_strictly_json_serializable():
+    entry = Coreference().generate_entry()
+    assert json.loads(json.dumps(dict(entry.metadata)))['answer_eid'] == entry.metadata.answer_eid
 
 
 def test_compile_z3_rejects_duplicate_all_different_values():

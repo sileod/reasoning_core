@@ -114,4 +114,4 @@ class FixpointIteration(Task):
             return super().score_answer(answer, entry)
 
     def balancing_key(self, problem):
-        return min(4, problem.metadata.passes)
+        return min(4, problem.metadata.passes), problem.metadata.target

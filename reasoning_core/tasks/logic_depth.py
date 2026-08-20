@@ -2034,8 +2034,10 @@ class MultistepNLI(Task):
         self._case_state = {}
 
     def generate_entry(self):
-        case, key = generate_case(self.config, state=self._case_state)
-        if case:
+        for _ in range(3):
+            case, key = generate_case(self.config, state=self._case_state)
+            if not case:
+                continue
             meta = case_metadata(case, key)
             premise = group_entity_facts(case.theory, meta.premise, self.config.group_entities)
             meta.payload = {"premise": "\n".join(premise), "hypothesis": meta.hypothesis}
