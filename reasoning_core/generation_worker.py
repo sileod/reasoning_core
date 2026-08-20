@@ -33,26 +33,55 @@ def serialize_example(example):
         row['metadata'] = json.dumps(metadata)
     return row
 
+def log_batch(out_path, name, level, dt, n, status):
+    '''One line per BATCH attempt, including the ones that produce no rows.
+
+    Row-level `_time` only covers accepted rows, so it silently omits rejected candidates and
+    entirely-failed batches -- i.e. exactly the tasks that are expensive. This is the honest cost.
+    '''
+    try:
+        with open(Path(out_path).parent / 'batches.jsonl', 'a') as f:
+            f.write(json.dumps({'task': name, 'level': level, 'batch_time_s': round(dt, 4),
+                                'rows': n, 'status': status, 'ts': time.time()}) + '\n')
+    except Exception:
+        pass
+
+
 def run_task(name, idx, level, out_path, batch_size, max_tokens):
-    """Run a single task batch, return (success, message)."""
+    '''Run a single task batch, return (success, message).'''
+    t0 = time.perf_counter()
     try:
         T = get_task(name)
         T.timeout = 20 * (1 + level) ** 2
         random.seed(None)
         np.random.seed(None)
-        
+
         examples = T.generate_balanced_batch(batch_size=batch_size, max_tokens=max_tokens, level=level)
-        
-        if examples:
-            dest = Path(out_path) / f'{name}-{idx}.jsonl'
-            with open(dest, 'w') as f:
-                for x in examples:
-                    f.write(json.dumps(serialize_example(x)) + '\n')
-            return True, "OK"
-        return False, "EMPTY"
+        dt = time.perf_counter() - t0
+
+        if not examples:
+            log_batch(out_path, name, level, dt, 0, 'EMPTY')
+            return False, 'EMPTY'
+
+        for x in examples:
+            m = x.metadata if isinstance(x.metadata, dict) else None
+            if m is not None:
+                m['_batch_time_s'] = round(dt, 4)
+                m['_batch_n'] = len(examples)
+                m['_batch_time_per_row_s'] = round(dt / len(examples), 5)
+
+        # Serialise EVERYTHING before creating the file. The old code opened the file and then
+        # serialised row by row, so a raise mid-write (coreference: 'Object of type Entity is not
+        # JSON serializable') left a 0-byte .jsonl indistinguishable from a real empty batch --
+        # and because the file existed, the worker never retried that batch.
+        payload = ''.join(json.dumps(serialize_example(x)) + '\n' for x in examples)
+        (Path(out_path) / f'{name}-{idx}.jsonl').write_text(payload)
+        log_batch(out_path, name, level, dt, len(examples), 'OK')
+        return True, 'OK'
     except BaseException as e:
         # Catch BaseException to handle TimeoutException (inherits from BaseException)
-        return False, f"ERR: {type(e).__name__}: {e}"
+        log_batch(out_path, name, level, time.perf_counter() - t0, 0, 'ERR:' + type(e).__name__)
+        return False, f'ERR: {type(e).__name__}: {e}'
 
 def main(args):
     out_path = Path(args.out_path) / args.version
