@@ -115,6 +115,28 @@ def _strip_docstrings(node):
     return node
 
 
+def _stable_dump(node):
+    """Canonical AST text that does NOT change with the Python version.
+
+    `ast.dump` is version-dependent -- 3.12 added fields such as `type_params` -- so the same file
+    bytes hashed differently on the generation fleet (3.10) and a dev box (3.12), and every task read
+    as permanently drifted no matter how synced the code was. Emitting only fields that carry
+    content, dropping None and empty collections, makes the two agree while keeping the whitespace,
+    comment and docstring insensitivity that the AST form exists for.
+    """
+    if isinstance(node, ast.AST):
+        parts = []
+        for f in node._fields:
+            v = getattr(node, f, None)
+            if v is None or (isinstance(v, (list, tuple)) and not v):
+                continue
+            parts.append(f"{f}={_stable_dump(v)}")
+        return f"{type(node).__name__}({', '.join(parts)})"
+    if isinstance(node, (list, tuple)):
+        return "[" + ", ".join(_stable_dump(x) for x in node) + "]"
+    return repr(node)
+
+
 @functools.lru_cache(maxsize=None)
 def _module_behavior_hash(module_name):
     module = sys.modules.get(module_name)
@@ -124,7 +146,7 @@ def _module_behavior_hash(module_name):
     try:
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
-        canonical = ast.dump(_strip_docstrings(tree), include_attributes=False)
+        canonical = _stable_dump(_strip_docstrings(tree))
         return hashlib.sha1(canonical.encode()).hexdigest()[:16]
     except Exception:
         return None

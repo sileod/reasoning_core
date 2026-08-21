@@ -68,9 +68,11 @@ def task_source(name):
 
 @functools.lru_cache(maxsize=None)
 def _source_behavior_hash(path_str):
+    # Canonicalisation is imported, not repeated: a second copy silently drifts from the one that
+    # stamps the rows, and the hash is only meaningful if every producer computes it identically.
+    from reasoning_core.template import _stable_dump
     tree = ast.parse(Path(path_str).read_text(encoding="utf-8"), filename=path_str)
-    canonical = ast.dump(_strip_docstrings(tree), include_attributes=False)
-    return hashlib.sha1(canonical.encode()).hexdigest()[:16]
+    return hashlib.sha1(_stable_dump(_strip_docstrings(tree)).encode()).hexdigest()[:16]
 
 
 def source_behavior_hash(path):
