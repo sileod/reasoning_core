@@ -5,6 +5,7 @@
 - Prefer `Task` only for stable core datasets. Use `DevTask` for deprecated datasets.
 - `generate()` should return a `Problem`, not `None`. Let retries happen inside generation helpers or raise a clear `RuntimeError` after bounded attempts.
 - Keep answers canonical and compact: booleans, numbers, or exact constrained strings. Avoid asking models to copy long bodies unless the task is explicitly about generation.
+- For behavioral changes, bump `task_version`; if absent, start with `task_version = 2`.
 - Do not touch unrelated dirty files. Check `git status --short` first; this repo often has work in progress.
 - `rg` may be unavailable in this environment. Fall back to `find`, `grep`, and `sed`.
 - Task files live in `reasoning_core/tasks/` (not top-level `tasks/`).

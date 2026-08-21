@@ -12,6 +12,40 @@ from ._imperative_mesopy_types import (
 
 
 class _RuntimeMixin:
+    def evaluate(
+        self,
+        sample: MesopySample,
+        args_list: Iterable[tuple[int, ...]],
+        *,
+        fresh: bool = False,
+    ) -> tuple[CallOutcome, ...]:
+        """Evaluate explicit calls, optionally resetting program state per call."""
+        args_list = [tuple(args) for args in args_list]
+        if fresh:
+            try:
+                compiled = compile(sample.code, "<imperative-mesopy>", "exec")
+            except Exception as exc:
+                return tuple(
+                    CallOutcome(args, False, None, type(exc).__name__)
+                    for args in args_list
+                )
+            outcomes = []
+            for args in args_list:
+                namespace = self._namespace()
+                start = time.perf_counter()
+                try:
+                    exec(compiled, namespace, namespace)
+                    value = namespace[sample.entrypoint](*args)
+                    outcomes.append(CallOutcome(
+                        args, True, repr(value), None, time.perf_counter() - start
+                    ))
+                except Exception as exc:
+                    outcomes.append(CallOutcome(
+                        args, False, None, type(exc).__name__, time.perf_counter() - start
+                    ))
+            return tuple(outcomes)
+        return tuple(self._execute_many(sample.code, sample.entrypoint, args_list))
+
     def minimal_pair(self, sample: MesopySample, attempts: int = 24) -> MinimalPair:
         tree = ast.parse(sample.code)
         mutations = self._mutation_sites(tree)

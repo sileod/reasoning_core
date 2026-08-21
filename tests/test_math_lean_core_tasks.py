@@ -2,49 +2,31 @@ from reasoning_core.template import Problem, edict
 from reasoning_core.tasks import math_lean as ml
 
 
-def _fake_compile_instance():
+def _fake_compile_pair():
     return edict(
-        kind="core_prop_chain",
+        kind="proof_attempt:prop",
         header="theorem ex (p q : Prop) (h0 : p → q) : p → q := by\n",
-        candidates=["rfl", "exact h0", "intro hp; exact h0 hp", "simp"],
-        labels=[False, True, True, False],
-        primary="exact h0",
-        elegant="exact h0",
+        positive="intro hp\nexact h0 hp",
+        negative="intro hp\nexact hp",
+        sampled_attempts=2,
         use_mathlib=False,
     )
 
 
-def _fake_nondiscriminative_instance():
-    return edict(
-        kind="poly_eq",
-        header="theorem ex (a : Int) : a + 0 = a := by\n",
-        candidates=["ring", "simp", "rfl"],
-        labels=[True, True, False],
-        primary="ring",
-        elegant="ring",
-        use_mathlib=True,
-    )
-
-
 def test_candidate_compilation_generate_returns_problem(monkeypatch):
-    monkeypatch.setattr(ml, "make_instance", lambda config: _fake_compile_instance())
+    monkeypatch.setattr(ml, "make_compilation_pair", lambda config: _fake_compile_pair())
     task = ml.LeanCandidateCompilation(ml.LeanConfig(use_mathlib=False))
 
     ex = task.generate()
 
     assert isinstance(ex, Problem)
-    assert ex.answer in {"True", "False"}
-    assert len(ex.answer) <= 5
+    assert ex.answer in {"A", "B"}
+    assert len(ex.answer) == 1
+    assert ex.metadata.options["AB".index(ex.answer)] == _fake_compile_pair().positive
 
 
-def test_candidate_compilation_does_not_require_discriminative_selection(monkeypatch):
-    monkeypatch.setattr(ml, "make_instance", lambda config: _fake_nondiscriminative_instance())
-    task = ml.LeanCandidateCompilation(ml.LeanConfig(use_mathlib=True))
-
-    ex = task.generate()
-
-    assert isinstance(ex, Problem)
-    assert ex.metadata.kind == "poly_eq"
+def test_candidate_compilation_version_bumped():
+    assert ml.LeanCandidateCompilation.task_version == 2
 
 
 def test_current_lean_tasks_are_registered_and_removed_tasks_stay_removed():

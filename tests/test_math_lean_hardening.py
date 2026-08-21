@@ -38,16 +38,17 @@ def test_missing_line_multiple_choice_format():
     assert "Answer with the line number." in entry.prompt
 
 
-def test_candidate_compilation_uses_a_checked_proof_corruption_pair():
+def test_candidate_compilation_uses_two_checked_full_attempts():
     task = LeanCandidateCompilation(LeanConfig(use_mathlib=False))
     entry = task.generate_example(max_tokens=0)
-    candidate_code = entry.metadata.theorem.replace(
-        "  ?\n", f"  {entry.metadata.candidate}\n"
-    )
-    paired_code = entry.metadata.theorem.replace(
-        "  ?\n", f"  {entry.metadata.paired_candidate}\n"
-    )
+    results = []
+    for body in entry.metadata.options:
+        code = entry.metadata.theorem.replace(
+            "  ?\n", "".join(f"  {line}\n" for line in body.splitlines())
+        )
+        results.append(get_runner(False).check(code)[0])
 
-    assert get_runner(False).check(candidate_code)[0] == (entry.answer == "True")
-    assert get_runner(False).check(paired_code)[0] == (entry.answer == "False")
-    assert entry.metadata.candidate_similarity >= 0.5
+    assert results.count(True) == 1
+    assert entry.answer == "AB"[results.index(True)]
+    assert all(len(body.splitlines()) >= 2 for body in entry.metadata.options)
+    assert "The answer is A or B." in entry.prompt

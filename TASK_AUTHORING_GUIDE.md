@@ -50,6 +50,7 @@ deduplication, and ranking. Do not repeat correctness checks in task-specific im
 - `_task_behavior_hash` (AST-based module hash; ignores whitespace, comments, and docstrings).
 - `_deduplication_key` (128-bit hash of the canonical prompt/answer pair, with shallow
   payload order normalized; override `deduplication_key()` only for safe semantic invariances).
+For behavioral changes, bump `task_version`; if absent, start with `task_version = 2`.
 
 ## Config and Difficulty Scaling
 Base `Config` protected fields:

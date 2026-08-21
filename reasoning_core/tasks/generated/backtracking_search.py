@@ -124,7 +124,7 @@ def _render_constraint(c):
 
 
 class BacktrackingSearch(Task):
-    summary = "Find the first finite-domain solution under deterministic backtracking with forward checking."
+    summary = "Report Xn from the first finite-domain solution under deterministic backtracking with forward checking."
     config_cls = BacktrackingSearchConfig
 
     def generate_entry(self):
@@ -132,19 +132,28 @@ class BacktrackingSearch(Task):
         kinds = ("neq", "lt", "gt", "sum_ne", "diff_ne")
         for _ in range(cfg.max_attempts):
             constraints = []
-            for _ in range(cfg.n_constraints):
+            for _ in range(20 * cfg.n_constraints):
                 i, j = sorted(random.sample(range(cfg.n_vars), 2))
                 kind = random.choice(kinds)
-                c = random.randint(2, 2 * cfg.domain_size) if kind == "sum_ne" else random.randint(-cfg.domain_size + 1, cfg.domain_size - 1)
+                if kind == "sum_ne":
+                    c = random.randint(2, 2 * cfg.domain_size)
+                elif kind == "diff_ne":
+                    c = random.randint(-cfg.domain_size + 1, cfg.domain_size - 1)
+                else:
+                    c = 0
                 item = (i, j, kind, c)
                 if item not in constraints:
                     constraints.append(item)
+                if len(constraints) == cfg.n_constraints:
+                    break
+            if len(constraints) < cfg.n_constraints:
+                continue
             model, stats = _forward_search(cfg.n_vars, cfg.domain_size, constraints)
             if model is None or stats["backtracks"] < cfg.min_backtracks or stats["prunes"] < 2:
                 continue
             if _count_csp_models(cfg.n_vars, cfg.domain_size, constraints) < 2:
                 continue
-            answer = " ".join(str(model[i]) for i in range(cfg.n_vars))
+            answer = str(model[cfg.n_vars - 1])
             metadata = edict(constraints=constraints, n_vars=cfg.n_vars, domain_size=cfg.domain_size, stats=stats)
             return Entry(metadata=metadata, answer=answer)
         raise RuntimeError("Failed to generate a nontrivial backtracking instance")
@@ -152,12 +161,11 @@ class BacktrackingSearch(Task):
     def render_prompt(self, metadata):
         constraints = "; ".join(_render_constraint(c) for c in metadata.constraints)
         return (
-            f"Variables X1..X{metadata.n_vars} each range over 1..{metadata.domain_size}.\n"
+            f"X1..X{metadata.n_vars} have integer domain 1..{metadata.domain_size}.\n"
             f"Constraints: {constraints}\n"
-            "Search variables in order X1,X2,... and values in increasing order. After each assignment, "
-            "remove from every later domain values that violate a constraint with the new assignment; "
-            "backtrack immediately if a domain becomes empty.\n"
-            "What is the first complete solution found? The answer is the space-separated values of X1..Xn."
+            "Search depth-first: assign X1..Xn in order; try remaining values ascending; "
+            "after setting Xi, delete later-domain values violating a constraint with Xi; backtrack if a domain empties. "
+            "The answer is Xn's value in the first complete solution."
         )
 
     def score_answer(self, answer, entry):

@@ -116,7 +116,7 @@ The answer is a reduced rational number.
 
 ## [lean_missing_line](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_lean.py)
 
-<!-- behavior-hash: 1bed6234031d1594 -->
+<!-- behavior-hash: a2189324940e2d23 -->
 
 Complete a Lean proof with a uniquely valid constrained proof line.
 
@@ -145,26 +145,35 @@ simpa using inf_sup_left s t u
 
 ## [lean_candidate_compilation](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_lean.py)
 
-<!-- behavior-hash: 1bed6234031d1594 -->
+<!-- behavior-hash: a2189324940e2d23 -->
 
-Determine if a candidate proof body successfully closes a theorem in Lean.
+Choose which complete Lean tactic body closes a theorem.
 
 **Prompt:**
 ```
-Does this Lean 4 tactic body close the theorem?
-The answer is True or False.
+Which Lean 4 tactic body closes the theorem? Exactly one does.
+The answer is A or B.
 
 THEOREM:
-theorem ex (a : Int) : 0 ≤ (3 * a : Int) * (3 * a : Int) := by
+theorem ex (a b c d : Nat) (h0 : a ∣ b) (h1 : b ∣ c) (h2 : c ∣ d) (junk0 : b ∣ d) : a ∣ d := by
   ?
 
-CANDIDATE:
-exact mul_self_nonneg (3 * a : Int)
+A:
+have step1 : a ∣ b := h0
+have step2 : a ∣ c := dvd_trans step1 h0
+have step3 : a ∣ d := dvd_trans step2 h2
+exact step3
+
+B:
+have step1 : a ∣ b := h0
+have step2 : a ∣ c := dvd_trans step1 h1
+have step3 : a ∣ d := dvd_trans step2 h2
+exact step3
 ```
 
 **Answer:**
 ```
-True
+B
 ```
 
 ---
@@ -191,36 +200,44 @@ Yes
 
 ## [metamath_entailment](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_metamath.py)
 
-<!-- behavior-hash: 4edd58664bbad533 -->
+<!-- behavior-hash: c23e14bdc3047f72 -->
+
+Choose which structurally matched premise set derives a conjecture.
 
 **Prompt:**
 ```
-Does the conjecture follow using only the listed premises and rules?
+Which premise set makes the conjecture follow using only the listed rules?
+Exactly one of A and B is sufficient.
 Rules instantiate only by renaming variables.
-The answer is True or False.
+The answer is A or B.
 
-Premises:
+Premise Set A:
 1. P1(x, D1)
-2. P1(x, D2)
+2. P1(x, y)
+
+Premise Set B:
+1. P1(x, D1)
+2. P1(y, x)
 
 Allowed Rules:
-r1: P1(x, D2) ==> P1(x, D1)
-r2: P1(x, D1); P1(y, D1) ==> P2(F1(x, F2(y)), F3(x, y))
+r1: P1(z, D1) ==> P1(z, D4)
+r2: P1(y, D5) ==> P3(P2(F1(y), C0), P2(y, D3))
+r3: P1(z, D4); P1(y, z) ==> P1(y, D5)
 
 Conjecture:
-P2(F1(x, F2(y)), F3(x, y))
+P3(P2(F1(y), C0), P2(y, D3))
 ```
 
 **Answer:**
 ```
-False
+B
 ```
 
 ---
 
 ## [metamath_core_select](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/math_metamath.py)
 
-<!-- behavior-hash: 4edd58664bbad533 -->
+<!-- behavior-hash: c23e14bdc3047f72 -->
 
 **Prompt:**
 ```
@@ -1305,7 +1322,7 @@ Iteration 0 contains states satisfying the inner condition. Answer with an integ
 
 ## [code_runnability](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/code_execution.py)
 
-<!-- behavior-hash: bbdf88e81797eb0a -->
+<!-- behavior-hash: 9a2062859a1b2a7b -->
 
 Predict if a given Python code snippet runs successfully or raises an exception.
 
@@ -1313,18 +1330,29 @@ Predict if a given Python code snippet runs successfully or raises an exception.
 ````
 Predict whether this Python call runs successfully or raises an exception.
 ```python
-def f0(c: int) -> list:
-    assert 1 == 1
-    return f1(c, "go")
-def f1(f: int, y: str) -> list:
-    print(f)
-    f = 1 // f
-    return [0, 1, 2]
-def endpoint(x0: int) -> list:
-    return f0(x0)
+def fn4(p5, p6):
+    return p5 * -2
+
+def endpoint(arg1, arg2, arg3):
+    seq7 = [arg1, arg2, arg3, 1, arg2 if arg3 < arg1 else arg1 // arg2, arg2]
+    acc8 = arg1 * 2 // (abs(3 if -3 == arg1 else arg2) + 1)
+    seq7[abs(arg2) % 6] -= 0 // (abs(acc8) + 1)
+    acc8 += len(seq7)
+    ref9 = seq7
+    ref9[2] += -1
+    acc8 += seq7[2]
+    map10 = {0: len(seq7), 1: seq7[abs(arg2) % 6]}
+    acc8 += map10.get(len(seq7), 0)
+    ref9.append(fn4(arg3, acc8))
+    acc8 += len(ref9)
+    i11 = 0
+    while i11 < 2:
+        acc8 += arg2 % (abs(arg2) + 1)
+        i11 += 1
+    return acc8
 
 ```
-Call: `endpoint(-3)`
+Call: `endpoint(-3, -2, 0)`
 The answer is `OK` if it runs successfully; otherwise the exception class name.
 ````
 
@@ -1337,7 +1365,7 @@ OK
 
 ## [code_execution](https://github.com/sileod/reasoning-core/blob/main/reasoning_core/tasks/code_execution.py)
 
-<!-- behavior-hash: bbdf88e81797eb0a -->
+<!-- behavior-hash: 9a2062859a1b2a7b -->
 
 Predict the return value or stdout of executing generated Python code blocks.
 
@@ -1345,23 +1373,31 @@ Predict the return value or stdout of executing generated Python code blocks.
 ````
 Predict the value returned by this Python call.
 ```python
-def f0(z: int, l: str) -> str:
-    z = f"out={z}" + "go"
-    return z
-def f1(o: str) -> str:
-    a = 0
-    return o
-def endpoint(x0: int, x1: str) -> str:
-    return f0(x0, x1)
+def endpoint(arg1, arg2):
+    seq6 = [arg1, arg2 // arg2, arg2, 3 + arg1, arg2, arg1]
+    acc7 = len(seq6) * -3
+    try:
+        acc7 += seq6.index(acc7)
+    except ValueError:
+        acc7 -= len(seq6)
+    ref9 = seq6
+    ref9[0] += -2
+    acc7 += seq6[0]
+    i8 = 0
+    while i8 < 2:
+        acc7 += len(seq6)
+        i8 += 1
+    acc7 += ref9.index(ref9[1])
+    return acc7
 
 ```
-Call: `endpoint(1, 'ba')`
+Call: `endpoint(-4, 2)`
 The answer is the exact Python `repr` of the returned value.
 ````
 
 **Answer:**
 ```
-'out=1go'
+-17
 ```
 
 ---

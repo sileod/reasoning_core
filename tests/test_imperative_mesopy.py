@@ -5,14 +5,34 @@ import time
 import pytest
 
 from reasoning_core.resources.imperative_mesopy import (
+    CallOutcome,
     CONTROLLED_PHENOMENA,
     OBSERVED_ERRORS,
     PHENOMENA,
     ImperativeMesopy,
     MesopyComplexity,
     MesopyConfig,
+    MesopySample,
     structural_fingerprint,
 )
+
+
+def test_public_evaluate_can_reset_state_per_call():
+    sample = MesopySample(
+        "def endpoint(x, seen=[]):\n    seen.append(x)\n    return len(seen)\n",
+        "endpoint",
+        (CallOutcome((1,), True, "1"),),
+        (),
+        {},
+        "manual",
+    )
+    engine = ImperativeMesopy(seed=0)
+
+    shared = engine.evaluate(sample, [(1,), (1,)])
+    fresh = engine.evaluate(sample, [(1,), (1,)], fresh=True)
+
+    assert [x.value for x in shared] == ["1", "2"]
+    assert [x.value for x in fresh] == ["1", "1"]
 
 
 def test_execution_is_runnable_and_measured():

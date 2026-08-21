@@ -745,17 +745,13 @@ def _sample_instance(config):
 
 
 def _critical_premise_foil(inst, config):
-    """Find a necessary leaf and a same-shape variable near miss for it."""
+    """Permute same-typed variables while preserving global token counts."""
     rules = [_database().rules[l] for l in inst.rules]
     cap = int(config.formula_len_cap)
     db = _database()
     full = _closure(inst.premises, rules, cap, check_dv=True)
     if full is None or inst.tree.target not in full:
         return None
-    available = {
-        t for expr in (*inst.premises, inst.tree.target) for t in expr
-        if t in db.var_type
-    }
     order = list(range(len(inst.premises)))
     random.shuffle(order)
     for i in order:
@@ -765,22 +761,54 @@ def _critical_premise_foil(inst, config):
         if relaxed is None or inst.tree.target in relaxed:
             continue
         positions = [j for j, tok in enumerate(premise) if tok in db.var_type]
-        random.shuffle(positions)
-        for j in positions:
-            tok = premise[j]
-            replacements = [
-                v for v in available
-                if db.var_type.get(v) == db.var_type[tok] and v != tok
+        swaps = [
+            (j, k) for j, k in itertools.combinations(positions, 2)
+            if db.var_type[premise[j]] == db.var_type[premise[k]]
+            and premise[j] != premise[k]
+        ]
+        random.shuffle(swaps)
+        candidates = []
+        for j, k in swaps:
+            foil = list(premise)
+            foil[j], foil[k] = foil[k], foil[j]
+            candidates.append((i, tuple(foil), None, None))
+
+        # If one formula has no useful internal permutation, exchange two
+        # same-typed tokens across premises. This changes structure but keeps
+        # the entire prompt's variable multiset exactly fixed.
+        for k, other in enumerate(inst.premises):
+            if k == i:
+                continue
+            cross = [
+                (j, ell) for j in positions
+                for ell, tok in enumerate(other)
+                if tok in db.var_type
+                and db.var_type[premise[j]] == db.var_type[tok]
+                and premise[j] != tok
+                and premise.count(premise[j]) == 1
+                and other.count(tok) == 1
+                and tok not in premise
+                and premise[j] not in other
             ]
-            random.shuffle(replacements)
-            for replacement in replacements:
-                foil = premise[:j] + (replacement,) + premise[j + 1:]
-                if foil in inst.premises or _fmt(foil) is None:
-                    continue
-                negative = inst.premises[:i] + (foil,) + inst.premises[i + 1:]
-                closure = _closure(negative, rules, cap, check_dv=False)
-                if closure is not None and inst.tree.target not in closure:
-                    return i, foil
+            random.shuffle(cross)
+            for j, ell in cross[:8]:
+                left, right = list(premise), list(other)
+                left[j], right[ell] = right[ell], left[j]
+                candidates.append((i, tuple(left), k, tuple(right)))
+
+        random.shuffle(candidates)
+        for first_i, first, second_i, second in candidates:
+            negative = list(inst.premises)
+            negative[first_i] = first
+            if second_i is not None:
+                negative[second_i] = second
+            negative = tuple(negative)
+            if len(set(negative)) != len(negative) or any(_fmt(p) is None for p in negative):
+                continue
+            closure = _closure(negative, rules, cap, check_dv=False)
+            if closure is not None and inst.tree.target not in closure:
+                changed = [first_i] + ([] if second_i is None else [second_i])
+                return negative, tuple(changed)
     return None
 
 
@@ -789,7 +817,9 @@ def _abc(i):
 
 
 class MetamathEntailment(Task):
-    """True/False bounded derivability from displayed set.mm-derived rules."""
+    """Choose which token-balanced premise set entails a conjecture."""
+    summary = "Choose which structurally matched premise set derives a conjecture."
+    task_version = 2
 
     def __init__(self, config=None, **kwargs):
         super().__init__(config=config or MetamathConfig(), timeout=120, **kwargs)
@@ -804,23 +834,25 @@ class MetamathEntailment(Task):
             pair = _critical_premise_foil(inst, self.config)
             if pair is None:
                 continue
-            positive = random.random() < 0.5
-            premise_index, foil = pair
-            premises_raw = inst.premises if positive else (
-                inst.premises[:premise_index] + (foil,) + inst.premises[premise_index + 1:]
-            )
+            negative, changed = pair
+            premise_sets = [inst.premises, negative]
+            random.shuffle(premise_sets)
+            answer = "AB"[premise_sets.index(inst.premises)]
             target = inst.tree.target
-            display_exprs = list(premises_raw) + [target]
+            display_exprs = [p for group in premise_sets for p in group] + [target]
             for label in inst.rules:
                 rule = _database().rules[label]
                 display_exprs.extend(rule.essential)
                 display_exprs.append(rule.conclusion)
             env = _display_env(display_exprs)
             rule_rows = _rule_rows(inst.rules, env)
-            premises = [f"{i + 1}. {_fmt(p, env)}" for i, p in enumerate(premises_raw)]
+            displayed_sets = [
+                [f"{i + 1}. {_fmt(p, env)}" for i, p in enumerate(group)]
+                for group in premise_sets
+            ]
             meta = edict(
-                premises=[_fmt(p, env) for p in premises_raw],
-                raw_premises=[list(p) for p in premises_raw],
+                premise_sets=[[_fmt(p, env) for p in group] for group in premise_sets],
+                raw_premise_sets=[[list(p) for p in group] for group in premise_sets],
                 rules=[r.id for r in rule_rows],
                 raw_rule_labels=inst.rules,
                 rule_map={r.id: r.label for r in rule_rows},
@@ -834,29 +866,33 @@ class MetamathEntailment(Task):
                 dv_relax_stats=dv_relax_stats(),
                 conjecture=_fmt(target, env),
                 raw_conjecture=list(target),
-                positive=positive,
-                corrupted_premise=None if positive else premise_index + 1,
-                proof=list(inst.proof) if positive else [],
+                sufficient_option=answer,
+                changed_premises=[i + 1 for i in changed],
+                token_counts_balanced=(Counter(itertools.chain.from_iterable(premise_sets[0])) ==
+                                       Counter(itertools.chain.from_iterable(premise_sets[1]))),
+                proof=list(inst.proof),
                 source="set.mm",
             )
             meta.payload = {
-                "premises": "\n".join(premises),
+                "premise_set_a": "\n".join(displayed_sets[0]),
+                "premise_set_b": "\n".join(displayed_sets[1]),
                 "allowed_rules": _rule_text(rule_rows),
                 "conjecture": meta.conjecture,
             }
-            return Entry(
-                meta,
-                "True" if positive else "False",
-            )
+            return Entry(meta, answer)
         raise RuntimeError("failed to generate Metamath entailment task")
 
     def render_prompt(self, metadata):
         return (
-            "Does the conjecture follow using only the listed premises and rules?\n"
+            "Which premise set makes the conjecture follow using only the listed rules?\n"
+            "Exactly one of A and B is sufficient.\n"
             "Rules instantiate only by renaming variables.\n"
-            "The answer is True or False.\n\n"
+            "The answer is A or B.\n\n"
             f"{render_payload(metadata.payload)}"
         )
+
+    def score_answer(self, answer, entry):
+        return float(str(answer).strip().strip("`").upper() == entry.answer)
 
 
 class MetamathCoreSelect(Task):

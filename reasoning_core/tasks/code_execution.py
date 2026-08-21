@@ -4,11 +4,15 @@ from difflib import SequenceMatcher
 from itertools import product
 
 from reasoning_core.template import Task, DevTask, Entry, Config, edict, stochastic_rounding as sround
+from reasoning_core.resources.imperative_mesopy import (
+    INT, ImperativeMesopy, MesopyComplexity, MesopyConfig,
+)
 from gramforge import generate
 from gramforge.grammars import mesopy_grammar
 
 @dataclass
 class MesopyCodeCfg(Config):
+    backend: str = "imperative"
     difficulty: float = 0.0
     min_depth: int = 4
     max_depth: int = 15
@@ -44,6 +48,17 @@ class RunReport:
     elapsed: float = 0.0
 
 
+@dataclass
+class GeneratedCase:
+    code: str
+    report: RunReport
+    entrypoint: str = "endpoint"
+    backend: str = "gramforge"
+    features: dict | None = None
+    phenomena: tuple[str, ...] = ()
+    fingerprint: str | None = None
+
+
 class CapIO(io.StringIO):
     def __init__(self, cap=2000):
         super().__init__()
@@ -72,8 +87,8 @@ def endpoint_args(fn, magnitude=3):
     return [fake(p.annotation, magnitude) for p in inspect.signature(fn).parameters.values()]
 
 
-def call_src(args):
-    return f"endpoint({', '.join(map(repr, args))})"
+def call_src(args, entrypoint="endpoint"):
+    return f"{entrypoint}({', '.join(map(repr, args))})"
 
 
 def soft_score(answer, reference):
@@ -83,7 +98,11 @@ def soft_score(answer, reference):
 
 
 def value_kind(x):
-    return "list" if x.startswith("[") else "str" if x.startswith(("'", '"')) else "int"
+    if x.startswith("["):
+        return "list"
+    if x.startswith("("):
+        return "tuple"
+    return "str" if x.startswith(("'", '"')) else "int"
 
 
 def accept_steps(steps, cfg):
@@ -441,17 +460,21 @@ def runnability_pair(cfg):
     raise RuntimeError("Failed to generate a mixed-outcome Mesopy program")
 
 
-def meta(code, r):
-    return edict(
+def meta(code, r, entrypoint="endpoint", backend="gramforge", **extra):
+    out = edict(
         code=code,
         args=r.args,
-        call=call_src(r.args),
+        call=call_src(r.args, entrypoint),
+        entrypoint=entrypoint,
+        backend=backend,
         steps=r.steps,
         elapsed=r.elapsed,
         stdout=r.stdout,
         stderr=r.stderr,
         triviality=getattr(r, "triviality", None),
     )
+    out.update(extra)
+    return out
 
 
 def sample_problem(cfg, want_error, failure_rate, profile="full"):
@@ -482,21 +505,88 @@ def sample_problem(cfg, want_error, failure_rate, profile="full"):
     raise RuntimeError(f"Failed to generate valid task. Config: {cfg}")
 
 
+def _backend(cfg):
+    backend = str(getattr(cfg, "backend", "imperative")).lower()
+    if backend not in {"imperative", "gramforge"}:
+        raise ValueError("Mesopy backend must be 'imperative' or 'gramforge'")
+    return backend
+
+
+def _imperative_generator(cfg, arity=None):
+    level = max(0, int(getattr(cfg, "level", 0)))
+    input_arity = (1, 3) if arity is None else (int(arity), int(arity))
+    config = MesopyConfig(
+        magnitude=max(2, int(cfg.magnitude)),
+        input_arity=input_arity,
+        complexity=MesopyComplexity.level(level),
+        max_attempts=max(8, min(64, int(cfg.max_attempts))),
+        max_profile_steps=max(1_000, int(cfg.max_steps)),
+    )
+    return ImperativeMesopy(config)
+
+
+def _imperative_report(outcome):
+    return RunReport(
+        ok=outcome.ok,
+        value=outcome.value,
+        error=outcome.error,
+        args=list(outcome.args),
+        steps=outcome.steps or 0,
+        elapsed=outcome.elapsed or 0.0,
+    )
+
+
+def execution_case(cfg):
+    if _backend(cfg) == "gramforge":
+        code, report = sample_problem(cfg, want_error=False, failure_rate=0.05)
+        return GeneratedCase(code, report)
+    engine = _imperative_generator(cfg)
+    for _ in range(8):
+        sample = engine.execution(min_param_sensitivity=0.25)
+        if sample.call.value is not None and len(sample.call.value) <= int(cfg.max_answer_len):
+            return GeneratedCase(
+                sample.code, _imperative_report(sample.call), sample.entrypoint, "imperative",
+                sample.features, sample.phenomena, sample.fingerprint,
+            )
+    raise RuntimeError("imperative Mesopy answer exceeded the configured limit")
+
+
+def runnability_cases(cfg):
+    if _backend(cfg) == "gramforge":
+        family, pair = runnability_pair(cfg)
+        return family, tuple(GeneratedCase(code, report) for code, report in pair)
+    sample = _imperative_generator(cfg).runnability_pair()
+    family = next((call.error for call in sample.calls if not call.ok), "observed")
+    return family, tuple(
+        GeneratedCase(
+            sample.code, _imperative_report(call), sample.entrypoint, "imperative",
+            sample.features, sample.phenomena, sample.fingerprint,
+        )
+        for call in sample.calls
+    )
+
+
 class CodeRunnability(Task):
     summary = "Predict if a given Python code snippet runs successfully or raises an exception."
+    task_version = 2
     def __init__(self, config=None):
         super().__init__(config=config or MesopyCodeCfg())
 
     def generate_entry(self, _case=None, _paired_cases=None):
         if _case is None:
-            family, pair = runnability_pair(self.config)
+            family, pair = runnability_cases(self.config)
             pair = list(pair)
             random.shuffle(pair)
             _case = family, pair.pop()
             if _paired_cases is not None:
                 _paired_cases.append((family, pair.pop()))
-        family, (code, r) = _case
-        metadata = meta(code, r)
+        family, case = _case
+        r = case.report
+        metadata = meta(
+            case.code, r, case.entrypoint, case.backend,
+            features=case.features, phenomena=case.phenomena,
+            fingerprint=case.fingerprint,
+        )
         metadata.family = family
         return Entry(metadata=metadata, answer=r.error or "OK")
 
@@ -529,12 +619,20 @@ class CodeRunnability(Task):
 
 class CodeExecution(Task):
     summary = "Predict the return value or stdout of executing generated Python code blocks."
+    task_version = 2
     def __init__(self, config=None):
         super().__init__(config=config or MesopyCodeCfg())
 
     def generate_entry(self):
-        code, r = sample_problem(self.config, want_error=False, failure_rate=0.05)
-        return Entry(metadata=meta(code, r), answer=r.value)
+        case = execution_case(self.config)
+        return Entry(
+            metadata=meta(
+                case.code, case.report, case.entrypoint, case.backend,
+                features=case.features, phenomena=case.phenomena,
+                fingerprint=case.fingerprint,
+            ),
+            answer=case.report.value,
+        )
 
     def render_prompt(self, metadata):
         return (
@@ -579,12 +677,15 @@ def bounded_strings(alphabet, max_len):
 
 class CodeInputDeduction(DevTask):
     summary = "Deduce the Python function input that yields a target output value or condition."
+    task_version = 2
     def __init__(self, config=None):
         super().__init__(config=config or CodeInputDeductionCfg())
         self.balancing_key_ratio = 1 / 3
 
     def generate_entry(self):
         cfg = self.config
+        if _backend(cfg) == "imperative":
+            return self._generate_imperative_entry()
         modes = ["int", "tuple", "str"]
         random.shuffle(modes)
         for mode in modes:
@@ -646,10 +747,93 @@ class CodeInputDeduction(DevTask):
                     else:
                         answer = str(answer)
                     return Entry(
-                        edict(code=code, mode=mode, goal=goal, call_text=call_text, answer_hint=answer_hint, target=target),
+                        edict(
+                            code=code, mode=mode, goal=goal, call_text=call_text,
+                            answer_hint=answer_hint, target=target, backend="gramforge",
+                        ),
                         answer,
                     )
         raise RuntimeError("failed to generate code input deduction task")
+
+    def _generate_imperative_entry(self):
+        cfg = self.config
+        modes = ["int", "tuple", "str"]
+        random.shuffle(modes)
+        for mode in modes:
+            for _ in range(max(1, cfg.max_attempts // len(modes))):
+                if mode == "int":
+                    domain = list(range(cfg.lo, cfg.hi + 1))
+                    arity, encode = 1, lambda x: (x,)
+                    goal = f"smallest integer x in [{cfg.lo}, {cfg.hi}]"
+                    call_text, answer_hint = "endpoint(x)", "Answer with the integer."
+                elif mode == "tuple":
+                    domain = [
+                        (x, y) for x in range(cfg.lo, cfg.hi + 1)
+                        for y in range(cfg.lo, cfg.hi + 1)
+                    ]
+                    arity, encode = 2, tuple
+                    goal = f"lexicographically smallest integer pair (x, y) with each value in [{cfg.lo}, {cfg.hi}]"
+                    call_text, answer_hint = "endpoint(x, y)", "Answer as `x y`."
+                else:
+                    domain = bounded_strings(cfg.alphabet, cfg.max_len)
+                    base = len(cfg.alphabet)
+                    encode_int = lambda s: sum(
+                        (base ** i) * cfg.alphabet.index(ch)
+                        for i, ch in enumerate(reversed(s))
+                    )
+                    arity, encode = 1, lambda s: (encode_int(s),)
+                    goal = f"lexicographically smallest string s over `{cfg.alphabet}` with length 1..{cfg.max_len}"
+                    call_text, answer_hint = "query(s)", "Answer with the string."
+
+                engine = _imperative_generator(cfg, arity)
+                try:
+                    sample = engine.execution(
+                        input_arity=arity,
+                        result_kind=INT,
+                        min_param_sensitivity=1 / arity,
+                    )
+                except RuntimeError:
+                    continue
+                args = [encode(x) for x in domain]
+                outcomes = engine.evaluate(sample, args, fresh=True)
+                buckets = {}
+                for x, outcome in zip(domain, outcomes):
+                    if outcome.ok and outcome.value is not None:
+                        buckets.setdefault(outcome.value, []).append(x)
+                choices = [
+                    (value, min(xs)) for value, xs in buckets.items()
+                    if 1 < len(xs) < len(domain)
+                ]
+                choices = [choice for choice in choices if choice[1] != domain[0]] or choices
+                if not choices:
+                    continue
+                target, answer = random.choice(choices)
+                code = sample.code
+                entrypoint = sample.entrypoint
+                if mode == "str":
+                    code += (
+                        f"\ndef query(s):\n"
+                        f"    z = 0\n"
+                        f"    for ch in s:\n"
+                        f"        z = {base} * z + {cfg.alphabet!r}.index(ch)\n"
+                        f"    return {entrypoint}(z)\n"
+                    )
+                elif entrypoint != "endpoint":
+                    call_text = call_text.replace("endpoint", entrypoint)
+                if isinstance(answer, tuple):
+                    answer = " ".join(map(str, answer))
+                else:
+                    answer = str(answer)
+                return Entry(
+                    edict(
+                        code=code, mode=mode, goal=goal, call_text=call_text,
+                        answer_hint=answer_hint, target=target, backend="imperative",
+                        features=sample.features, phenomena=sample.phenomena,
+                        fingerprint=sample.fingerprint,
+                    ),
+                    answer,
+                )
+        raise RuntimeError("failed to generate imperative code input deduction task")
 
     def render_prompt(self, m):
         return (

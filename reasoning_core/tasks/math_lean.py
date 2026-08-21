@@ -1665,6 +1665,203 @@ def gen_forward_order_graph(config):
 
 
 # ============================================================================
+# Symmetric full-proof attempts for compilation discrimination
+# ============================================================================
+
+def _proof_world(config):
+    """Generate a theorem independently of either candidate proof surface."""
+    n = max(3, min(7, int(getattr(config, "n_hyps", 3)) + 1))
+    use_mathlib = bool(getattr(config, "use_mathlib", True))
+    families = ["prop", "eq", "order", "and", "cases", "rewrite", "exists"]
+    if use_mathlib:
+        families += ["dvd", "subset"]
+    family = random.choice(families)
+    hyps = []
+
+    special = {
+        "and": edict(
+            decl="(p q r : Prop)",
+            hyps=[("hp", "p"), ("hq", "q"), ("hr", "r"), ("junk", "p → q")],
+            goal="(p ∧ q) ∧ r", nodes=["p", "q", "r"],
+        ),
+        "cases": edict(
+            decl="(p q r : Prop)",
+            hyps=[("h", "p ∨ q"), ("hp", "p → r"), ("hq", "q → r"),
+                  ("junkp", "p → q"), ("junkq", "q → p")],
+            goal="r", nodes=["p", "q", "r"],
+        ),
+        "rewrite": edict(
+            decl="(α β : Type) (f : α → β) (a b c : α)",
+            hyps=[("h0", "a = b"), ("h1", "b = c"), ("junk", "c = b")],
+            goal="f a = f c", nodes=["a", "b", "c"],
+        ),
+        "exists": edict(
+            decl="(α : Type) (p : α → Prop) (a b : α)",
+            hyps=[("ha", "p a"), ("hb", "p b")],
+            goal="∃ x, p x", nodes=["a", "b"],
+        ),
+    }
+    if family in special:
+        inst = special[family]
+        return edict(
+            family=family, n=n, nodes=inst.nodes, ops=None, hyps=inst.hyps,
+            useful_hyps=len(inst.hyps), header=_render(inst), use_mathlib=use_mathlib,
+        )
+
+    if family == "prop":
+        nodes = [f"p{i}" for i in range(n + 1)]
+        decl = f"({' '.join(nodes)} : Prop)"
+        relation = lambda i, j: f"{nodes[i]} → {nodes[j]}"
+        goal = relation(0, n)
+    elif family == "eq":
+        nodes = list("abcdefgh")[:n + 1]
+        decl = f"(α : Type) ({' '.join(nodes)} : α)"
+        relation = lambda i, j: f"{nodes[i]} = {nodes[j]}"
+        goal = relation(0, n)
+    elif family == "dvd":
+        nodes = list("abcdefgh")[:n + 1]
+        decl = f"({' '.join(nodes)} : Nat)"
+        relation = lambda i, j: f"{nodes[i]} ∣ {nodes[j]}"
+        goal = relation(0, n)
+    elif family == "subset":
+        nodes = list("stuvwxyz")[:n + 1]
+        decl = f"({' '.join(nodes)} : Set Int)"
+        relation = lambda i, j: f"{nodes[i]} ⊆ {nodes[j]}"
+        goal = relation(0, n)
+    else:
+        nodes = list("abcdefgh")[:n + 1]
+        decl = f"({' '.join(nodes)} : Int)"
+        ops = [random.choice(("≤", "<")) for _ in range(n)]
+        relation = lambda i, j: f"{nodes[i]} {ops[i] if j == i + 1 else '≤'} {nodes[j]}"
+        goal_op = "<" if "<" in ops else "≤"
+        goal = f"{nodes[0]} {goal_op} {nodes[n]}"
+
+    for i in range(n):
+        hyps.append((f"h{i}", relation(i, i + 1)))
+    # Distractors are type-correct and close to useful edges, but never a direct
+    # copy of the conjecture. They make local-name matching insufficient.
+    for j in range(random.randint(1, min(3, n - 1))):
+        a = random.randrange(0, n)
+        b = random.randrange(a + 1, n + 1)
+        if b == a + 1 or (a == 0 and b == n):
+            a, b = min(n - 1, a + 1), n
+        formula = relation(a, b) if family != "order" else f"{nodes[a]} ≤ {nodes[b]}"
+        hyps.append((f"junk{j}", formula))
+    inst = edict(decl=decl, hyps=hyps, goal=goal)
+    return edict(
+        family=family, n=n, nodes=nodes, ops=ops if family == "order" else None,
+        hyps=hyps, useful_hyps=n, header=_render(inst), use_mathlib=use_mathlib,
+    )
+
+
+def _sample_proof_attempt(world):
+    """Sample a plausible complete tactic body without conditioning on success."""
+    n, nodes, family = world.n, world.nodes, world.family
+    all_names = [name for name, _ in world.hyps]
+
+    def choose_hyp(i):
+        return f"h{i}" if random.random() < 0.78 else random.choice(all_names)
+
+    if family == "and":
+        choices = [
+            expected if random.random() < 0.74 else random.choice(all_names)
+            for expected in ("hp", "hq", "hr")
+        ]
+        return "\n".join((
+            "constructor", "· constructor", f"  · exact {choices[0]}",
+            f"  · exact {choices[1]}", f"· exact {choices[2]}",
+        ))
+
+    if family == "cases":
+        left = "hp" if random.random() < 0.74 else random.choice(("hq", "junkp", "junkq"))
+        right = "hq" if random.random() < 0.74 else random.choice(("hp", "junkp", "junkq"))
+        return "\n".join((
+            "cases h with", f"| inl x => exact {left} x", f"| inr x => exact {right} x",
+        ))
+
+    if family == "rewrite":
+        first = "h0" if random.random() < 0.76 else random.choice(all_names)
+        second = "h1" if random.random() < 0.76 else random.choice(all_names)
+        return "\n".join((
+            f"have hab : f a = f b := congrArg f {first}",
+            f"have hbc : f b = f c := congrArg f {second}",
+            "exact Eq.trans hab hbc",
+        ))
+
+    if family == "exists":
+        witness = random.choice(("a", "b"))
+        evidence = random.choice(("ha", "hb"))
+        return f"refine ⟨{witness}, ?_⟩\nexact {evidence}"
+
+    if family == "prop":
+        lines = ["intro hp0"]
+        previous = "hp0"
+        for i in range(n):
+            name = f"hp{i + 1}"
+            lines.append(f"have {name} : {nodes[i + 1]} := {choose_hyp(i)} {previous}")
+            previous = name
+        lines.append(f"exact {previous}")
+        return "\n".join(lines)
+
+    if family == "order":
+        combine = _ORDER_RULES
+        acc_op = world.ops[0]
+    else:
+        theorem = {"eq": "Eq.trans", "dvd": "dvd_trans", "subset": "Set.Subset.trans"}[family]
+
+    # Both valid and invalid attempts use the same have-chain grammar. The
+    # oracle, rather than a generator-side label, decides which bucket it joins.
+    first = choose_hyp(0)
+    if family == "order":
+        acc_type = f"{nodes[0]} {acc_op} {nodes[1]}"
+    else:
+        symbol = {"eq": "=", "dvd": "∣", "subset": "⊆"}[family]
+        acc_type = f"{nodes[0]} {symbol} {nodes[1]}"
+    lines = [f"have step1 : {acc_type} := {first}"]
+    previous = "step1"
+    for i in range(1, n):
+        edge = choose_hyp(i)
+        if family == "order":
+            correct, next_op = combine[(acc_op, world.ops[i])]
+            lemma = correct if random.random() < 0.82 else random.choice([x[0] for x in combine.values()])
+            result_type = f"{nodes[0]} {next_op} {nodes[i + 1]}"
+            acc_op = next_op
+        else:
+            lemma = theorem
+            result_type = f"{nodes[0]} {symbol} {nodes[i + 1]}"
+        name = f"step{i + 1}"
+        lines.append(f"have {name} : {result_type} := {lemma} {previous} {edge}")
+        previous = name
+    lines.append(f"exact {previous}")
+    return "\n".join(lines)
+
+
+def make_compilation_pair(config):
+    """Rejection-sample independent full attempts with opposite Lean outcomes."""
+    runner = get_runner(use_mathlib=getattr(config, "use_mathlib", True))
+    for _ in range(30):
+        world = _proof_world(config)
+        buckets = {True: [], False: []}
+        seen = set()
+        for _ in range(50):
+            candidate = _sample_proof_attempt(world)
+            if candidate in seen or not _safe(candidate):
+                continue
+            seen.add(candidate)
+            ok, diag = runner.check(world.header + "".join(f"  {line}\n" for line in candidate.splitlines()))
+            if not ok and any(x in diag.lower() for x in ("unexpected token", "unknown identifier")):
+                continue
+            buckets[ok].append(candidate)
+            if buckets[True] and buckets[False]:
+                return edict(
+                    kind=f"proof_attempt:{world.family}", header=world.header,
+                    positive=random.choice(buckets[True]), negative=random.choice(buckets[False]),
+                    sampled_attempts=len(seen), use_mathlib=world.use_mathlib,
+                )
+    raise RuntimeError("failed to sample opposite Lean proof outcomes")
+
+
+# ============================================================================
 # Tasks
 # ============================================================================
 
@@ -1776,45 +1973,38 @@ class LeanMissingLine(Task):
 
 
 class LeanCandidateCompilation(Task):
-    """True/False on whether a single candidate proof body closes the theorem."""
-    summary = "Determine if a candidate proof body successfully closes a theorem in Lean."
+    """Choose between independently sampled full proof attempts."""
+    summary = "Choose which complete Lean tactic body closes a theorem."
+    task_version = 2
 
     def __init__(self, config=None, **kwargs):
         super().__init__(config=config or LeanConfig(), timeout=120, **kwargs)
 
     def generate_entry(self):
-        for _ in range(20):
-            inst = make_instance(self.config)
-            pairs = _hard_candidate_pairs(inst)
-            if pairs:
-                break
-        else:
-            positives = [c for c, ok in zip(inst.candidates, inst.labels) if ok]
-            negatives = [c for c, ok in zip(inst.candidates, inst.labels) if not ok]
-            pairs = [(positive, negative) for positive in positives for negative in negatives]
-            if not pairs:
-                raise RuntimeError("failed to generate paired Lean proof candidates")
-        want_positive = random.random() < 0.5
-        positive, negative = random.choice(pairs)
-        candidate = positive if want_positive else negative
+        inst = make_compilation_pair(self.config)
+        options = [inst.positive, inst.negative]
+        random.shuffle(options)
+        answer = "AB"[options.index(inst.positive)]
         return Entry(
-            edict(kind=inst.kind,
-                  theorem=inst.header + "  ?\n",
-                  candidate=candidate,
-                  paired_candidate=negative if want_positive else positive,
-                  candidate_similarity=SequenceMatcher(None, positive, negative).ratio(),
-                  candidate_count=len(pairs),
-                  use_mathlib=inst.use_mathlib),
-            "True" if want_positive else "False",
+            edict(
+                kind=inst.kind, theorem=inst.header + "  ?\n", options=options,
+                compiling_option=answer, sampled_attempts=inst.sampled_attempts,
+                candidate_similarity=SequenceMatcher(None, *options).ratio(),
+                use_mathlib=inst.use_mathlib,
+            ),
+            answer,
         )
 
     def render_prompt(self, metadata):
+        options = _mget(metadata, "options")
         return (
-            "Does this Lean 4 tactic body close the theorem?\n"
-            "The answer is True or False.\n\n"
+            "Which Lean 4 tactic body closes the theorem? Exactly one does.\n"
+            "The answer is A or B.\n\n"
             f"THEOREM:\n{_mget(metadata, 'theorem')}\n"
-            f"CANDIDATE:\n{_mget(metadata, 'candidate')}"
+            f"A:\n{options[0]}\n\n"
+            f"B:\n{options[1]}"
         )
 
     def score_answer(self, answer, entry):
-        return float(str(answer).strip().strip("`").lower() == entry.answer.lower())
+        value = str(answer).strip().strip("`").upper()
+        return float(value == entry.answer)
