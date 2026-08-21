@@ -128,7 +128,6 @@ def main(args):
                     'planning': 4,
                     'logic_nli': 3,
                     'evidence_retrieval': 3,
-                    'table_qa': 4,
                     'table_conversion': 4,
                 }
                 if d_name in custom_max:
