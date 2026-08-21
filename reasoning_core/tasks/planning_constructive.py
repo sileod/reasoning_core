@@ -74,8 +74,8 @@ def _solutions(model, cues, cap=2):
     return visit(frozenset(model.initial_true), 0)
 
 
-def generate(level):
-    horizon = 3 + level
+def generate(level, horizon=None):
+    horizon = 3 + level if horizon is None else horizon
     style = random.choice(("onehot", "gray"))
     n_phase = horizon + 1 if style == "onehot" else math.ceil(math.log2(horizon + 1))
     atoms = random.sample([f"{p}({o})" for p in PREDICATES for o in OBJECTS],
