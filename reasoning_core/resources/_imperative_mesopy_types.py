@@ -49,14 +49,17 @@ class MesopyComplexity:
     @classmethod
     def level(cls, level: int) -> "MesopyComplexity":
         level = max(0, int(level))
+        # Recursive expression/control expansion is multiplicative, so keep its
+        # depth bounded and spend higher levels on semantic interactions instead.
+        structural_tier = min(1, (level + 1) // 3)
         return cls(
-            statements=7 + 3 * level,
-            expr_depth=2 + level // 2,
-            control_depth=1 + level // 2,
-            functions=1 + level // 2,
-            call_depth=1 + level // 2,
+            statements=7 + level // 3,
+            expr_depth=2 + structural_tier,
+            control_depth=1 + structural_tier,
+            functions=1 + level // 3,
+            call_depth=1 + level // 3,
             dataflow_depth=3 + level,
-            loop_bound=3 + level // 2,
+            loop_bound=3 + level,
         )
 
 @dataclass(frozen=True)
@@ -91,6 +94,7 @@ class MesopyConfig:
     max_attempts: int = 28
     profile_accepted: bool = True
     max_profile_steps: int = 100_000
+    max_source_chars: int | None = None
 
 @dataclass(frozen=True)
 class Risk:

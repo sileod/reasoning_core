@@ -172,6 +172,8 @@ class _GenerationMixin:
             return None
 
         code = ast.unparse(module) + "\n"
+        if cfg.max_source_chars is not None and len(code) > cfg.max_source_chars:
+            return None
 
         probes = self._probe_args(arity, cfg.probe_count)
         outcomes = self._execute_many(code, endpoint, probes)
@@ -187,6 +189,8 @@ class _GenerationMixin:
         if anonymize:
             renamed, renamed_entrypoint = _alpha_rename(module, endpoint, self.rng)
             renamed_code = ast.unparse(renamed) + "\n"
+            if cfg.max_source_chars is not None and len(renamed_code) > cfg.max_source_chars:
+                return None
             check = self._execute_many(renamed_code, renamed_entrypoint, [x.args for x in selected])
             if any(
                 (a.ok, a.value, a.error) != (b.ok, b.value, b.error)

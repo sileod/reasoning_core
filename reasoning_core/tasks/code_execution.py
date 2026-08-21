@@ -26,6 +26,7 @@ class MesopyCodeCfg(Config):
     shortcut_prob: float = 0.08
     trivial_accept_prob: float = 0.05
     trivial_probes: int = 3
+    max_code_chars: int = 2100
 
     def apply_difficulty(self, level):
         self.difficulty += level
@@ -514,13 +515,21 @@ def _backend(cfg):
 
 def _imperative_generator(cfg, arity=None):
     level = max(0, int(getattr(cfg, "level", 0)))
-    input_arity = (1, 3) if arity is None else (int(arity), int(arity))
+    input_arity = (
+        (1, min(3, 1 + (level + 1) // 2))
+        if arity is None else (int(arity), int(arity))
+    )
     config = MesopyConfig(
         magnitude=max(2, int(cfg.magnitude)),
         input_arity=input_arity,
         complexity=MesopyComplexity.level(level),
+        risk_rate=min(0.65, 0.25 + 0.06 * level),
+        max_risk_sites=1 + level // 2,
+        phenomenon_rate=min(0.32, 0.12 + 0.035 * level),
+        recursion_rate=min(0.45, 0.12 + 0.055 * level),
         max_attempts=max(8, min(64, int(cfg.max_attempts))),
         max_profile_steps=max(1_000, int(cfg.max_steps)),
+        max_source_chars=max(256, int(cfg.max_code_chars)),
     )
     return ImperativeMesopy(config)
 
@@ -568,7 +577,7 @@ def runnability_cases(cfg):
 
 class CodeRunnability(Task):
     summary = "Predict if a given Python code snippet runs successfully or raises an exception."
-    task_version = 2
+    task_version = 3
     def __init__(self, config=None):
         super().__init__(config=config or MesopyCodeCfg())
 
@@ -619,7 +628,7 @@ class CodeRunnability(Task):
 
 class CodeExecution(Task):
     summary = "Predict the return value or stdout of executing generated Python code blocks."
-    task_version = 2
+    task_version = 3
     def __init__(self, config=None):
         super().__init__(config=config or MesopyCodeCfg())
 
@@ -677,7 +686,7 @@ def bounded_strings(alphabet, max_len):
 
 class CodeInputDeduction(DevTask):
     summary = "Deduce the Python function input that yields a target output value or condition."
-    task_version = 2
+    task_version = 3
     def __init__(self, config=None):
         super().__init__(config=config or CodeInputDeductionCfg())
         self.balancing_key_ratio = 1 / 3
