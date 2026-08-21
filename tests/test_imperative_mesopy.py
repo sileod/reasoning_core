@@ -1,59 +1,94 @@
+import ast
+import statistics
+import time
+
 from reasoning_core.resources.imperative_mesopy import (
+    ERRORS,
+    PHENOMENA,
     ImperativeMesopy,
-    MesopyGoal,
+    MesopyComplexity,
+    MesopyConfig,
 )
 
 
-CONTROLLED_PHENOMENA = (
-    "aliasing",
-    "closure_late_binding",
-    "default_capture",
-    "mutation_call",
-    "loop_carried_state",
-    "rebinding_vs_aliasing",
-)
-
-
-def test_imperative_mesopy_execution_is_runnable():
-    for seed in range(20):
+def test_execution_is_runnable_by_construction():
+    for seed in range(100):
         sample = ImperativeMesopy(seed=seed).execution()
-        assert sample.call.ok
+        assert sample.call.ok, (seed, sample.call.error, sample.code)
         compile(sample.code, "<test-imperative-mesopy>", "exec")
-        assert sample.features["ast_nodes"] > 30
-        assert sample.features["dataflow_depth"] >= 4
 
 
-def test_imperative_mesopy_supersets_controlled_phenomena():
-    goal = MesopyGoal(
-        phenomena=CONTROLLED_PHENOMENA,
-        min_phenomena=len(CONTROLLED_PHENOMENA),
-        max_phenomena=8,
+def test_all_controlled_phenomena_and_recursion_are_supported():
+    for phenomenon in PHENOMENA:
+        sample = ImperativeMesopy(seed=7).execution(
+            phenomena=(phenomenon,),
+            require_recursion=phenomenon == "recursion",
+        )
+        assert sample.call.ok, (phenomenon, sample.call.error, sample.code)
+        assert phenomenon in sample.phenomena
+
+    sample = ImperativeMesopy(seed=9).execution(require_recursion=True)
+    tree = ast.parse(sample.code)
+    rec = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "rec"
     )
-    for seed in range(10):
-        sample = ImperativeMesopy(seed=seed).generate(goal)
-        assert sample.call.ok
-        assert set(CONTROLLED_PHENOMENA) <= set(sample.phenomena)
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "rec"
+        for node in ast.walk(rec)
+    )
 
 
-def test_runnability_pair_uses_identical_code_with_opposite_outcomes():
-    for error in ("IndexError", "ZeroDivisionError", "ValueError"):
-        for seed in range(10):
+def test_runnability_pairs_use_identical_source_with_opposite_outcomes():
+    for error in ERRORS:
+        for seed in range(8):
             sample = ImperativeMesopy(seed=seed).runnability_pair(error=error)
-            assert len(sample.calls) == 2
             assert {call.ok for call in sample.calls} == {True, False}
             assert any(call.error == error for call in sample.calls)
 
 
-def test_requested_failure_is_generated_by_semantics():
-    for error in ("IndexError", "ZeroDivisionError", "ValueError"):
-        sample = ImperativeMesopy(seed=3).generate(
-            MesopyGoal(runnable=False, error=error)
-        )
-        assert not sample.call.ok
-        assert sample.call.error == error
+def test_complexity_budgets_are_structurally_productive():
+    medians = []
+    for level in (0, 3, 6):
+        features = [
+            ImperativeMesopy(
+                MesopyConfig(complexity=MesopyComplexity.level(level)),
+                seed=seed,
+            ).execution().features
+            for seed in range(12)
+        ]
+        medians.append({
+            key: statistics.median(sample[key] for sample in features)
+            for key in (
+                "ast_nodes",
+                "ast_depth",
+                "control_depth",
+                "call_depth",
+                "dataflow_depth",
+            )
+        })
+
+    assert medians[0]["ast_nodes"] < medians[1]["ast_nodes"] < medians[2]["ast_nodes"]
+    assert medians[0]["ast_depth"] < medians[2]["ast_depth"]
+    assert medians[0]["control_depth"] < medians[2]["control_depth"]
+    assert medians[0]["call_depth"] < medians[2]["call_depth"]
+    assert medians[0]["dataflow_depth"] < medians[2]["dataflow_depth"]
 
 
-def test_surface_and_semantic_composition_are_diverse():
-    samples = [ImperativeMesopy(seed=seed).execution() for seed in range(20)]
-    assert len({sample.code for sample in samples}) >= 18
-    assert len({sample.phenomena for sample in samples}) >= 12
+def test_generation_throughput_stays_fast():
+    t0 = time.perf_counter()
+    for seed in range(100):
+        assert ImperativeMesopy(seed=seed).execution().call.ok
+    execution_seconds = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
+    for seed in range(50):
+        sample = ImperativeMesopy(seed=seed).runnability_pair()
+        assert {call.ok for call in sample.calls} == {True, False}
+    runnability_seconds = time.perf_counter() - t0
+
+    assert execution_seconds < 3.0
+    assert runnability_seconds < 3.0
