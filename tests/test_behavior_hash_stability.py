@@ -64,3 +64,14 @@ def test_dump_carries_no_version_specific_field_names():
                                   if hasattr(ast, "TypeVar") else BASE))
     assert "type_params=[]" not in dump
     assert "type_comment=None" not in dump
+
+
+def test_canonicalisation_is_frozen():
+    """A canary digest, so changing `_stable_dump` cannot happen by accident.
+
+    Every recorded behavior_hash -- in cache manifests, in shipped rows, in the drift tooling -- is
+    only comparable to others produced by the SAME canonicalisation. Changing it invalidates all of
+    that evidence and costs a full regeneration, so it has to be a deliberate act with the constant
+    below updated in the same commit, not a silent side effect of an unrelated edit.
+    """
+    assert h(BASE) == "2cbd8a747b60cdf0"
