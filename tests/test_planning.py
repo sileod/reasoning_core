@@ -13,6 +13,46 @@ def test_random_solve_phases_out_by_level_three():
     assert [config.set_level(level).pure_random_proba for level in range(5)] == pytest.approx(
         [0.12, 0.08, 0.04, 0, 0]
     )
+    assert [config.set_level(level).optimal_relabel for level in range(5)] == [True, True, True, False, False]
+
+
+def test_high_level_planning_adds_sparse_plan_cues(monkeypatch):
+    actions = [SimpleNamespace(action=SimpleNamespace(name=f"action_{i}")) for i in range(7)]
+    plan = SimpleNamespace(actions=actions)
+    writer = SimpleNamespace(get_problem=lambda: "problem", get_domain=lambda: "domain")
+    task = planning.Planning(planning.PlanningConfig().set_level(3))
+
+    monkeypatch.setattr(planning, "generate_domain", lambda *args, **kwargs: object())
+    monkeypatch.setattr(planning, "generate_planted_problem", lambda *args, **kwargs: (object(), plan, "medium"))
+    monkeypatch.setattr(planning, "format_plan", lambda _: "plan")
+    monkeypatch.setattr(planning, "translate", lambda _: "problem")
+    monkeypatch.setattr(planning, "PDDLWriter", lambda _: writer)
+    monkeypatch.setattr(planning, "make_cot", lambda *args: "trace")
+    monkeypatch.setattr(task, "score_answer", lambda *args: 1)
+
+    entry = task.generate_entry()
+    assert entry.metadata.plan_cue == {
+        "length": 7,
+        "steps": [{"step": 3, "action": "action_2"}, {"step": 6, "action": "action_5"}],
+    }
+    prompt = task.render_prompt(entry.metadata)
+    assert "Cue: exactly 7 actions; step 3 uses action_2; step 6 uses action_5." in prompt
+    assert "Hint:" not in prompt
+
+
+def test_score_rejects_plan_that_misses_cue(monkeypatch):
+    reader = Mock()
+    reader.parse_problem_string.return_value = SimpleNamespace(kind=object())
+    reader.parse_plan_string.return_value = SimpleNamespace(
+        actions=[SimpleNamespace(action=SimpleNamespace(name="wrong"))]
+    )
+    monkeypatch.setattr(planning, "PDDLReader", lambda: reader)
+    meta = {"domain_pddl": "d", "problem_pddl": "p",
+            "plan_cue": {"length": 1, "steps": [{"step": 1, "action": "right"}]}}
+
+    reward = planning.Planning().score_answer("wrong()", {"metadata": meta})
+    assert reward == 0
+    assert reward.tag == "plan cue mismatch"
 
 
 def test_translate_uses_closed_world_initial_state():

@@ -778,10 +778,13 @@ class PlanningConfig(Config):
         self.max_na += level
         self.arity_weight += level
         self.pure_random_proba *= max(0, 1 - level / 3)
+        if level >= 3:
+            self.optimal_relabel = False
 
 class Planning(Task):
     summary = "Generate action plans to achieve goals in domains like Blocksworld."
     task_name = "planning" 
+    task_version = 1
 
     def __init__(self, config=None):
         super().__init__(config=config or PlanningConfig())
@@ -840,6 +843,13 @@ class Planning(Task):
                 meta.target_na = target_na
                 meta.generator_mode = generator_mode
                 meta.trim_mode = trim_mode
+                if level >= 3:
+                    meta.plan_cue = edict(
+                        length=meta.na,
+                        steps=[{"step": i + 1, "action": a.action.name}
+                               for i, a in enumerate(reference_plan.actions)
+                               if i % 3 == 2 and i < meta.na - 1],
+                    )
 
                 meta.problem_english = translate(problem)
                 writer = PDDLWriter(problem)
@@ -855,8 +865,12 @@ class Planning(Task):
 
 
     def render_prompt(self, meta):
-        txt = meta.problem_english.strip()       
-        if random.random() < self.config.hint_proba:
+        txt = meta.problem_english.strip()
+        cue = meta.get("plan_cue")
+        if cue:
+            steps = "; ".join(f"step {x['step']} uses {x['action']}" for x in cue["steps"])
+            txt += f"\nCue: exactly {cue['length']} actions" + (f"; {steps}." if steps else ".")
+        elif random.random() < self.config.hint_proba:
             if meta.get("generator_mode") == "planted_walk_optimal":
                 txt += f"\nHint: A shortest reference solution has {meta.na} actions."
             else:
@@ -885,6 +899,13 @@ class Planning(Task):
             assert len(plan_str.strip())
         except:
             return Reward(0, 'plan parsing error')
+
+        cue = meta.get("plan_cue")
+        if cue and (
+            len(plan.actions) != cue["length"]
+            or any(plan.actions[x["step"] - 1].action.name != x["action"] for x in cue["steps"])
+        ):
+            return Reward(0, "plan cue mismatch")
 
         with PlanValidator(name="sequential_plan_validator", problem_kind=pddl.kind, plan_kind=pddl.kind) as validator:
             if str(validator.validate(pddl, plan).status)=='ValidationResultStatus.VALID':
