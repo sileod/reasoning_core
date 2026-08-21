@@ -855,7 +855,6 @@ class Planning(Task):
                 writer = PDDLWriter(problem)
                 meta.problem_pddl = writer.get_problem()
                 meta.domain_pddl = writer.get_domain()
-                meta.verif_cot = make_cot(problem, reference_plan) #deprecated cot
                 if self.score_answer(plan, {'metadata': meta})<1:
                     continue
                 return Entry(meta, plan)

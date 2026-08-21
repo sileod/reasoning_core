@@ -27,7 +27,6 @@ def test_high_level_planning_adds_sparse_plan_cues(monkeypatch):
     monkeypatch.setattr(planning, "format_plan", lambda _: "plan")
     monkeypatch.setattr(planning, "translate", lambda _: "problem")
     monkeypatch.setattr(planning, "PDDLWriter", lambda _: writer)
-    monkeypatch.setattr(planning, "make_cot", lambda *args: "trace")
     monkeypatch.setattr(task, "score_answer", lambda *args: 1)
 
     entry = task.generate_entry()
@@ -35,6 +34,7 @@ def test_high_level_planning_adds_sparse_plan_cues(monkeypatch):
         "length": 7,
         "steps": [{"step": 3, "action": "action_2"}, {"step": 6, "action": "action_5"}],
     }
+    assert "verif_cot" not in entry.metadata
     prompt = task.render_prompt(entry.metadata)
     assert "Cue: exactly 7 actions; step 3 uses action_2; step 6 uses action_5." in prompt
     assert "Hint:" not in prompt
@@ -109,10 +109,10 @@ def test_generate_entry_retries_finalization_errors(monkeypatch):
     translate = Mock(side_effect=[Exception("action_1_parameter0_type_0"), "problem"])
     monkeypatch.setattr(planning, "translate", translate)
     monkeypatch.setattr(planning, "PDDLWriter", lambda _: writer)
-    monkeypatch.setattr(planning, "make_cot", lambda *args: "trace")
     monkeypatch.setattr(task, "score_answer", lambda *args: 1)
 
     entry = task.generate_entry()
 
     assert entry.answer == "action_0(object_1)"
+    assert "verif_cot" not in entry.metadata
     assert translate.call_count == 2
