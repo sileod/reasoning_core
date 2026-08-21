@@ -784,7 +784,7 @@ class PlanningConfig(Config):
 class Planning(Task):
     summary = "Generate action plans to achieve goals in domains like Blocksworld."
     task_name = "planning" 
-    task_version = 1
+    task_version = 2
 
     def __init__(self, config=None):
         super().__init__(config=config or PlanningConfig())
@@ -795,6 +795,9 @@ class Planning(Task):
         config = self.config
         config.domain = random.choice(config.domains)
         level = getattr(config, "level", 0)
+        if level >= 3:
+            from reasoning_core.tasks.planning_constructive import generate
+            return generate(level)
         N = random.randint(4, config.N)
         target_na = random.choice(list(range(config.min_na, config.max_na + 1)))
 
@@ -843,14 +846,6 @@ class Planning(Task):
                 meta.target_na = target_na
                 meta.generator_mode = generator_mode
                 meta.trim_mode = trim_mode
-                if level >= 3:
-                    meta.plan_cue = edict(
-                        length=meta.na,
-                        steps=[{"step": i + 1, "action": a.action.name}
-                               for i, a in enumerate(reference_plan.actions)
-                               if i % 3 == 2 and i < meta.na - 1],
-                    )
-
                 meta.problem_english = translate(problem)
                 writer = PDDLWriter(problem)
                 meta.problem_pddl = writer.get_problem()
@@ -864,6 +859,9 @@ class Planning(Task):
 
 
     def render_prompt(self, meta):
+        if meta.get("engine") == "bounded-strips-v1":
+            from reasoning_core.tasks.planning_constructive import render
+            return render(meta)
         txt = meta.problem_english.strip()
         cue = meta.get("plan_cue")
         if cue:
@@ -883,6 +881,9 @@ class Planning(Task):
 
     def score_answer(self, answer, entry):
         meta = entry['metadata']
+        if meta.get("engine") == "bounded-strips-v1":
+            from reasoning_core.tasks.planning_constructive import score
+            return score(answer, entry)
 
         answer = str(answer).strip()
         if meta.get('language')=="tool_calling":

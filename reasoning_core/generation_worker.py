@@ -125,7 +125,6 @@ def main(args):
                     'proof_reconstruction': 2,
                     'bayesian_association': 0,
                     'bayesian_intervention': 0,
-                    'planning': 4,
                     'logic_nli': 3,
                     'evidence_retrieval': 3,
                     'table_conversion': 4,

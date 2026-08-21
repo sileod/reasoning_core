@@ -1,3 +1,5 @@
+import copy
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -16,28 +18,30 @@ def test_random_solve_phases_out_by_level_three():
     assert [config.set_level(level).optimal_relabel for level in range(5)] == [True, True, True, False, False]
 
 
-def test_high_level_planning_adds_sparse_plan_cues(monkeypatch):
-    actions = [SimpleNamespace(action=SimpleNamespace(name=f"action_{i}")) for i in range(7)]
-    plan = SimpleNamespace(actions=actions)
-    writer = SimpleNamespace(get_problem=lambda: "problem", get_domain=lambda: "domain")
-    task = planning.Planning(planning.PlanningConfig().set_level(3))
+def test_high_level_planning_has_one_cue_conditioned_solution():
+    planning.random.seed(3)
+    task = planning.Planning()
+    entry = task.generate_example(level=3, max_tokens=0)
 
-    monkeypatch.setattr(planning, "generate_domain", lambda *args, **kwargs: object())
-    monkeypatch.setattr(planning, "generate_planted_problem", lambda *args, **kwargs: (object(), plan, "medium"))
-    monkeypatch.setattr(planning, "format_plan", lambda _: "plan")
-    monkeypatch.setattr(planning, "translate", lambda _: "problem")
-    monkeypatch.setattr(planning, "PDDLWriter", lambda _: writer)
-    monkeypatch.setattr(task, "score_answer", lambda *args: 1)
-
-    entry = task.generate_entry()
-    assert entry.metadata.plan_cue == {
-        "length": 7,
-        "steps": [{"step": 3, "action": "action_2"}, {"step": 6, "action": "action_5"}],
-    }
+    assert entry.metadata.engine == "bounded-strips-v1"
+    assert entry.metadata.solution_count == 1
+    assert entry.metadata.plan_cue.length == entry.metadata.horizon == 6
+    assert 1 <= len(entry.metadata.plan_cue.steps) <= 2
+    assert entry.metadata._task_version == 2
     assert "verif_cot" not in entry.metadata
-    prompt = task.render_prompt(entry.metadata)
-    assert "Cue: exactly 7 actions; step 3 uses action_2; step 6 uses action_5." in prompt
-    assert "Hint:" not in prompt
+    assert entry.answer not in json.dumps(entry.metadata)
+    assert "Cue: exactly 6 actions" in entry.prompt
+    assert task.score_answer(entry.answer, entry) == 1
+
+    cue = entry.metadata.plan_cue.steps[0]
+    chosen = next(a for a in entry.metadata.actions if a.call == cue.action)
+    alternative = next(a for a in entry.metadata.actions if a.call != chosen.call and
+                       (a.pre_true, a.pre_false, a.add, a.delete) ==
+                       (chosen.pre_true, chosen.pre_false, chosen.add, chosen.delete))
+    answer = entry.answer.splitlines(); answer[cue.step - 1] = alternative.call
+    assert task.score_answer("\n".join(answer), entry) == 0
+    uncued = copy.deepcopy(entry.metadata); uncued.plan_cue.steps = []
+    assert task.score_answer("\n".join(answer), {"metadata": uncued}) == 1
 
 
 def test_score_rejects_plan_that_misses_cue(monkeypatch):
