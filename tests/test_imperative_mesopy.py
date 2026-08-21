@@ -18,6 +18,14 @@ def test_execution_is_runnable_by_construction():
         compile(sample.code, "<test-imperative-mesopy>", "exec")
 
 
+def test_safe_hazards_also_appear_in_successful_programs():
+    samples = [ImperativeMesopy(seed=seed).execution() for seed in range(80)]
+    hazardous = [sample for sample in samples if sample.features["hazard"] is not None]
+    assert len(hazardous) >= 15
+    assert all(sample.call.ok for sample in hazardous)
+    assert len({sample.features["hazard"] for sample in hazardous}) >= 3
+
+
 def test_all_controlled_phenomena_and_recursion_are_supported():
     for phenomenon in PHENOMENA:
         sample = ImperativeMesopy(seed=7).execution(
@@ -76,6 +84,16 @@ def test_complexity_budgets_are_structurally_productive():
     assert medians[0]["control_depth"] < medians[2]["control_depth"]
     assert medians[0]["call_depth"] < medians[2]["call_depth"]
     assert medians[0]["dataflow_depth"] < medians[2]["dataflow_depth"]
+
+
+def test_profiling_is_opt_in_and_preserves_outcome():
+    generator = ImperativeMesopy(seed=13)
+    sample = generator.execution()
+    profiled = generator.profile(sample)
+    assert profiled.ok == sample.call.ok
+    assert profiled.value == sample.call.value
+    assert profiled.steps > 0
+    assert profiled.elapsed >= 0
 
 
 def test_generation_throughput_stays_fast():
