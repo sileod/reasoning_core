@@ -181,10 +181,14 @@ class Planning(Task):
                 f" -> {_literals(a.add, a.delete)}" for a in meta.actions]
         steps = "; ".join(f"step {x.step} uses {x.action}" for x in meta.plan_cue.steps)
         cue = f"Cue: exactly {meta.horizon} actions" + (f"; {steps}." if steps else ".")
+        # Joined outside the f-string: a backslash in an expression part is 3.12-only (PEP 701),
+        # and the generation fleet runs 3.10, where it is a SyntaxError at import.
+        block = "\n".join(rows)
+        facts = ", ".join(meta.initial_true)
         return (
-            f"Initial true facts: {', '.join(meta.initial_true)}. All other facts are false.\n\n"
+            f"Initial true facts: {facts}. All other facts are false.\n\n"
             "Actions (preconditions -> effects; !fact means false):\n"
-            f"{'\n'.join(rows)}\n\nGoal: {_literals(meta.goal_true, meta.goal_false)}.\n{cue}\n"
+            f"{block}\n\nGoal: {_literals(meta.goal_true, meta.goal_false)}.\n{cue}\n"
             "Return one grounded action per line."
         )
 
