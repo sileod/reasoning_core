@@ -1,20 +1,18 @@
-"""Goal-directed imperative Python program synthesis for synthetic reasoning tasks.
+"""Fast goal-directed Python synthesis for code reasoning tasks.
 
-The generator builds runnable programs by construction and exposes the same program
-distribution to execution, runnability, profiling, input-deduction, and related
-tasks.  Runnability pairs use identical source with different calls, avoiding the
-strongest "planted bug" shortcut.
-
-The implementation deliberately keeps the semantic state small enough to reason
-about while composing independently sampled phenomena and surface realizations.
-Execution remains the final oracle, not the search procedure.
+Programs are built recursively from typed AST constructors under explicit structural
+budgets. The same generator supports execution, runnability, profiling, and other
+tasks without giving each task a recognisably different source distribution.
 """
 
 import ast
 import random
+import sys
+import time
 from dataclasses import dataclass, field
 
 
+ERRORS = ("IndexError", "ZeroDivisionError", "ValueError", "KeyError", "RecursionError")
 PHENOMENA = (
     "aliasing",
     "closure_late_binding",
@@ -26,48 +24,75 @@ PHENOMENA = (
     "helper_chain",
     "comprehension",
     "mapping_bridge",
+    "recursion",
 )
 
 
-@dataclass
+@dataclass(frozen=True)
+class MesopyComplexity:
+    statements: int = 10
+    expr_depth: int = 3
+    control_depth: int = 2
+    functions: int = 3
+    call_depth: int = 2
+    dataflow_depth: int = 5
+    loop_bound: int = 4
+
+    @classmethod
+    def level(cls, level):
+        level = max(0, int(level))
+        return cls(
+            statements=8 + 3 * level,
+            expr_depth=2 + level // 2,
+            control_depth=1 + level // 2,
+            functions=1 + level // 2,
+            call_depth=1 + level // 2,
+            dataflow_depth=3 + level,
+            loop_bound=3 + level // 2,
+        )
+
+
+@dataclass(frozen=True)
 class MesopyGoal:
     runnable: bool | None = True
     paired_runnability: bool = False
     error: str | None = None
-    phenomena: tuple[str, ...] = ()
-    min_phenomena: int = 3
-    max_phenomena: int = 6
     result_kind: str | None = None
     input_arity: int | None = None
+    phenomena: tuple[str, ...] = ()
+    complexity: MesopyComplexity | None = None
+    allow_recursion: bool = True
+    require_recursion: bool = False
 
 
 @dataclass
 class MesopyConfig:
-    magnitude: int = 5
-    list_size: int = 4
-    min_segments: int = 3
-    max_segments: int = 7
-    input_arity: tuple[int, int] = (0, 2)
-    safe_hazard_rate: float = 0.35
-    noise_rate: float = 0.35
-    type_hints: bool = False
-    max_attempts: int = 40
+    magnitude: int = 6
+    list_size: tuple[int, int] = (3, 7)
+    input_arity: tuple[int, int] = (1, 3)
+    complexity: MesopyComplexity = field(default_factory=MesopyComplexity)
+    safe_hazard_rate: float = 0.4
+    recursion_rate: float = 0.3
+    phenomena_rate: float = 0.55
+    max_attempts: int = 12
 
 
-@dataclass
+@dataclass(frozen=True)
 class CallOutcome:
     args: tuple
     ok: bool
     value: str | None = None
     error: str | None = None
+    steps: int | None = None
+    elapsed: float | None = None
 
 
 @dataclass
 class MesopySample:
     code: str
-    phenomena: tuple[str, ...]
     calls: tuple[CallOutcome, ...]
-    features: dict = field(default_factory=dict)
+    phenomena: tuple[str, ...]
+    features: dict
 
     @property
     def call(self):
@@ -82,71 +107,47 @@ class MesopySample:
         return self.call.value if self.call.ok else self.call.error
 
 
+@dataclass
+class _Env:
+    ints: list[str] = field(default_factory=list)
+    lists: dict[str, int] = field(default_factory=dict)
+    funcs: list[str] = field(default_factory=list)
+    depth: dict[str, int] = field(default_factory=dict)
+
+    def copy(self):
+        return _Env(self.ints[:], dict(self.lists), self.funcs[:], dict(self.depth))
+
+    def add_int(self, name, depth=1):
+        if name not in self.ints:
+            self.ints.append(name)
+        self.depth[name] = depth
+
+    def add_list(self, name, length, depth=1):
+        self.lists[name] = length
+        self.depth[name] = depth
+
+
 class _Names:
-    def __init__(self, rng):
-        self.rng = rng
-        self.used = set()
-        self.pools = {
-            "state": ["state", "values", "buf", "items", "work", "data"],
-            "acc": ["acc", "total", "score", "carry", "offset"],
-            "tmp": ["tmp", "part", "piece", "delta", "hold", "cache"],
-            "alias": ["alias", "view", "ref", "other", "shared"],
-            "fn": ["f", "step", "adjust", "mix", "apply", "transform"],
-            "loop": ["i", "j", "k", "v", "q"],
-            "map": ["table", "mapping", "slots", "lookup"],
-        }
+    def __init__(self):
+        self.n = 0
 
-    def take(self, kind):
-        pool = [x for x in self.pools[kind] if x not in self.used]
-        base = self.rng.choice(pool or self.pools[kind])
-        name = base
-        suffix = 2
-        while name in self.used:
-            name = f"{base}{suffix}"
-            suffix += 1
-        self.used.add(name)
-        return name
-
-
-def _name(x, ctx=ast.Load()):
-    return ast.Name(id=x, ctx=ctx)
-
-
-def _const(x):
-    return ast.Constant(value=x)
-
-
-def _sub(name, i, ctx=ast.Load()):
-    return ast.Subscript(value=_name(name), slice=_const(i), ctx=ctx)
-
-
-def _assign(target, value):
-    return ast.Assign(targets=[target], value=value)
-
-
-def _aug(target, op, value):
-    return ast.AugAssign(target=target, op=op, value=value)
-
-
-def _call(fn, *args):
-    return ast.Call(func=_name(fn), args=list(args), keywords=[])
-
-
-def _bin(a, op, b):
-    return ast.BinOp(left=a, op=op, right=b)
-
-
-def _compare(a, op, b):
-    return ast.Compare(left=a, ops=[op], comparators=[b])
+    def take(self, prefix="v"):
+        self.n += 1
+        return f"{prefix}{self.n}"
 
 
 class ImperativeMesopy:
     def __init__(self, config=None, seed=None):
         self.config = config or MesopyConfig()
         self.rng = random.Random(seed)
+        self.names = _Names()
 
     def generate(self, goal=None):
         goal = goal or MesopyGoal()
+        if goal.error is not None and goal.error not in ERRORS:
+            raise ValueError(f"supported errors: {', '.join(ERRORS)}")
+        if goal.require_recursion and not goal.allow_recursion:
+            raise ValueError("require_recursion needs allow_recursion=True")
         for _ in range(self.config.max_attempts):
             sample = self._generate_once(goal)
             if self._valid(sample, goal):
@@ -157,148 +158,629 @@ class ImperativeMesopy:
         return self.generate(MesopyGoal(runnable=True, **kwargs))
 
     def runnability_pair(self, **kwargs):
-        return self.generate(MesopyGoal(paired_runnability=True, runnable=None, **kwargs))
+        return self.generate(MesopyGoal(runnable=None, paired_runnability=True, **kwargs))
+
+    def profile(self, sample, call=0, max_steps=100_000):
+        outcome = sample.calls[call]
+        return self._execute(sample.code, outcome.args, profile=True, max_steps=max_steps)
 
     def _generate_once(self, goal):
-        cfg = self.config
-        rng = self.rng
-        names = _Names(rng)
-
-        n = max(3, int(cfg.list_size))
+        self.names = _Names()
+        rng, cfg = self.rng, self.config
+        cx = goal.complexity or cfg.complexity
+        needs_input = goal.paired_runnability or goal.runnable is False or goal.error is not None
         arity = goal.input_arity
         if arity is None:
             lo, hi = cfg.input_arity
-            needs_input = goal.paired_runnability or goal.runnable is False or bool(goal.error)
-            arity = rng.randint(max(1 if needs_input else 0, lo), max(1 if needs_input else 0, hi))
-        if goal.paired_runnability or goal.runnable is False or goal.error:
-            arity = max(1, arity)
+            arity = rng.randint(max(lo, int(needs_input)), max(hi, int(needs_input)))
+        arity = max(1 if needs_input else 0, arity)
         params = [f"x{i}" for i in range(arity)]
-        names.used.update(params)
+        env = _Env()
+        for p in params:
+            env.add_int(p, 0)
 
-        state = names.take("state")
-        acc = names.take("acc")
-        init = []
-        for i in range(n):
-            if params:
-                p = _name(params[i % len(params)])
-                k = rng.randint(-cfg.magnitude, cfg.magnitude)
-                expr = _bin(p, ast.Add(), _const(k))
-            else:
-                expr = _const(rng.randint(-cfg.magnitude, cfg.magnitude))
-            init.append(expr)
+        recursive = goal.allow_recursion and (
+            goal.require_recursion
+            or goal.error == "RecursionError"
+            or "recursion" in goal.phenomena
+            or rng.random() < cfg.recursion_rate
+        )
+        helpers, helper_names = self._gen_helpers(cx, recursive)
+        env.funcs.extend(helper_names)
 
-        body = [
-            _assign(_name(state, ast.Store()), ast.List(elts=init, ctx=ast.Load())),
-            _assign(_name(acc, ast.Store()), _const(rng.randint(-cfg.magnitude, cfg.magnitude))),
+        n = rng.randint(*cfg.list_size)
+        state = self.names.take("xs")
+        init = [
+            self._gen_int_expr(env, cx.expr_depth, helper_names, force_dep=bool(params))
+            for _ in range(n)
         ]
+        body = [ast.Assign([ast.Name(state, ast.Store())], ast.List(init, ast.Load()))]
+        env.add_list(state, n, 1)
 
-        requested = list(goal.phenomena)
-        unknown = set(requested) - set(PHENOMENA)
+        acc = self.names.take("a")
+        body.append(ast.Assign(
+            [ast.Name(acc, ast.Store())],
+            self._gen_int_expr(env, max(1, cx.expr_depth - 1), helper_names),
+        ))
+        env.add_int(acc, 1)
+
+        phenomena = set(goal.phenomena)
+        unknown = phenomena - set(PHENOMENA)
         if unknown:
             raise ValueError(f"unknown phenomena: {sorted(unknown)}")
-        lower = max(cfg.min_segments, goal.min_phenomena, len(requested))
-        upper = max(lower, min(cfg.max_segments, max(goal.max_phenomena, len(requested))))
-        target_n = rng.randint(lower, upper)
-        available = [x for x in PHENOMENA if x not in requested]
-        rng.shuffle(available)
-        phenomena = requested + available[: max(0, target_n - len(requested))]
-        rng.shuffle(phenomena)
+        if recursive:
+            phenomena.add("recursion")
 
-        depth = 1
-        for k, phenomenon in enumerate(phenomena):
-            stmts, delta = getattr(self, f"_p_{phenomenon}")(
-                state, acc, params, n, names, k
+        target_stmts = max(2, cx.statements)
+        for _ in range(target_stmts):
+            stmts, tags = self._gen_stmt(
+                env, cx.control_depth, cx.expr_depth, cx, state, helper_names
             )
             body.extend(stmts)
-            depth += delta
-            if rng.random() < cfg.noise_rate:
-                body.extend(self._noise(state, acc, params, n, names))
+            phenomena.update(tags)
+
+        for phenomenon in [p for p in goal.phenomena if p not in phenomena]:
+            body.extend(self._inject_phenomenon(phenomenon, env, state, helper_names, cx))
+            phenomena.add(phenomenon)
+
+        while max(env.depth.values(), default=0) < cx.dataflow_depth:
+            src = max(env.ints, key=lambda x: env.depth.get(x, 0))
+            name = self.names.take("flow")
+            env.add_int(name, env.depth.get(src, 0) + 1)
+            body.append(ast.Assign(
+                [ast.Name(name, ast.Store())],
+                ast.BinOp(
+                    ast.Name(src, ast.Load()),
+                    rng.choice((ast.Add(), ast.Sub())),
+                    ast.Constant(rng.choice((-2, -1, 1, 2))),
+                ),
+            ))
 
         hazard = None
-        if goal.paired_runnability or goal.runnable is False or goal.error or rng.random() < cfg.safe_hazard_rate:
-            hazard = self._pick_hazard(goal.error)
-            body.extend(self._hazard(hazard, state, acc, params, n, names))
+        if needs_input or rng.random() < cfg.safe_hazard_rate:
+            hazard = self._choose_hazard(goal, recursive)
+            body.extend(self._hazard_nodes(hazard, params, env, state, n, helper_names))
 
-        result_kind = goal.result_kind or rng.choice(("list", "int", "tuple"))
-        body.append(ast.Return(value=self._result_expr(result_kind, state, acc, n)))
-
-        fn = ast.FunctionDef(
-            name="endpoint",
-            args=ast.arguments(
-                posonlyargs=[],
-                args=[
-                    ast.arg(arg=p, annotation=_name("int") if cfg.type_hints else None)
-                    for p in params
-                ],
-                kwonlyargs=[],
-                kw_defaults=[],
-                defaults=[],
-            ),
-            body=body,
-            decorator_list=[],
-            returns=None,
+        result_kind = goal.result_kind or rng.choice(("int", "list", "tuple"))
+        body.append(ast.Return(self._result_expr(result_kind, env, state, helper_names, cx.expr_depth)))
+        endpoint = ast.FunctionDef(
+            "endpoint",
+            ast.arguments([], [ast.arg(p) for p in params], None, [], [], None, []),
+            body,
+            [],
         )
-        module = ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[]))
+        module = ast.fix_missing_locations(ast.Module(helpers + [endpoint], []))
         code = ast.unparse(module) + "\n"
 
         if goal.paired_runnability:
-            calls = self._paired_calls(code, arity, hazard)
+            safe_args = self._safe_args(arity, hazard, n)
+            bad_args = self._bad_args(arity, hazard, n)
+            calls = [self._execute(code, safe_args), self._execute(code, bad_args)]
+            rng.shuffle(calls)
         else:
-            args = self._bad_args(arity, hazard) if (goal.runnable is False or goal.error) else self._safe_args(arity, hazard)
-            calls = (self._execute(code, args),)
+            args = (
+                self._bad_args(arity, hazard, n)
+                if needs_input
+                else self._safe_args(arity, hazard, n)
+            )
+            calls = [self._execute(code, args)]
 
-        counts = self._features(module)
-        counts.update(
-            dataflow_depth=depth,
-            result_kind=result_kind,
+        features = self._features(module)
+        features.update(
+            dataflow_depth=max(env.depth.values(), default=0),
+            requested_statements=target_stmts,
             hazard=hazard,
+            result_kind=result_kind,
+            recursive=recursive,
             input_arity=arity,
         )
-        return MesopySample(code, tuple(phenomena), calls, counts)
+        return MesopySample(code, tuple(calls), tuple(sorted(phenomena)), features)
 
-    def _pick_hazard(self, requested):
-        aliases = {
-            None: None,
-            "IndexError": "index",
-            "ZeroDivisionError": "division",
-            "ValueError": "lookup",
-        }
-        if requested not in aliases:
-            raise ValueError("supported errors: IndexError, ZeroDivisionError, ValueError")
-        return aliases[requested] or self.rng.choice(("index", "division", "lookup"))
+    def _gen_helpers(self, cx, recursive):
+        helpers = []
+        names = []
+        for i in range(max(0, cx.functions)):
+            name = f"f{i}"
+            x = ast.Name("x", ast.Load())
+            env = _Env(["x", "y"], {}, names[:], {"x": 0, "y": 0})
+            expr = self._gen_int_expr(env, cx.expr_depth, names[:], force_dep=True)
+            if i and i < cx.call_depth + 1:
+                prev = ast.Call(ast.Name(names[-1], ast.Load()), [x, ast.Name("y", ast.Load())], [])
+                expr = ast.BinOp(prev, self.rng.choice((ast.Add(), ast.Sub())), expr)
+            helpers.append(ast.FunctionDef(
+                name,
+                ast.arguments([], [ast.arg("x"), ast.arg("y")], None, [], [], None, []),
+                [ast.Return(expr)],
+                [],
+            ))
+            names.append(name)
 
-    def _safe_args(self, arity, hazard):
-        mag = self.config.magnitude
+        if recursive:
+            n = ast.Name("n", ast.Load())
+            z = ast.Name("z", ast.Load())
+            base = ast.If(
+                ast.Compare(n, [ast.Eq()], [ast.Constant(0)]),
+                [ast.Return(z)],
+                [],
+            )
+            step = ast.Call(
+                ast.Name("rec", ast.Load()),
+                [
+                    ast.BinOp(n, ast.Sub(), ast.Constant(1)),
+                    ast.BinOp(z, ast.Add(), n),
+                ],
+                [],
+            )
+            helpers.append(ast.FunctionDef(
+                "rec",
+                ast.arguments([], [ast.arg("n"), ast.arg("z")], None, [], [], None, []),
+                [base, ast.Return(step)],
+                [],
+            ))
+            names.append("rec")
+        return helpers, names
+
+    def _gen_int_expr(self, env, depth, helpers, force_dep=False):
+        rng = self.rng
+        if depth <= 0:
+            if env.ints and (force_dep or rng.random() < 0.72):
+                return ast.Name(rng.choice(env.ints), ast.Load())
+            return ast.Constant(rng.randint(-self.config.magnitude, self.config.magnitude))
+
+        choices = ["leaf", "bin", "ternary"]
+        if env.lists:
+            choices += ["index", "length"]
+        if helpers:
+            choices += ["call"]
+        kind = rng.choice(choices)
+        if kind == "leaf":
+            return self._gen_int_expr(env, 0, helpers, force_dep)
+        if kind == "bin":
+            left = self._gen_int_expr(env, depth - 1, helpers, force_dep)
+            right = self._gen_int_expr(env, depth - 1, helpers)
+            op = rng.choice((ast.Add(), ast.Sub(), ast.Mult(), ast.Mod()))
+            if isinstance(op, ast.Mod):
+                right = ast.BinOp(
+                    ast.Call(ast.Name("abs", ast.Load()), [right], []),
+                    ast.Add(),
+                    ast.Constant(1),
+                )
+            elif isinstance(op, ast.Mult):
+                right = ast.Constant(rng.choice((-3, -2, -1, 1, 2, 3)))
+            return ast.BinOp(left, op, right)
+        if kind == "ternary":
+            left = self._gen_int_expr(env, depth - 1, helpers, force_dep)
+            right = self._gen_int_expr(env, max(0, depth - 2), helpers)
+            return ast.IfExp(
+                ast.Compare(left, [rng.choice((ast.Lt(), ast.GtE(), ast.NotEq()))], [right]),
+                self._gen_int_expr(env, depth - 1, helpers),
+                self._gen_int_expr(env, depth - 1, helpers),
+            )
+        if kind == "index":
+            name, length = rng.choice(list(env.lists.items()))
+            raw = self._gen_int_expr(env, depth - 1, helpers, force_dep)
+            idx = ast.BinOp(
+                ast.Call(ast.Name("abs", ast.Load()), [raw], []),
+                ast.Mod(),
+                ast.Constant(length),
+            )
+            return ast.Subscript(ast.Name(name, ast.Load()), idx, ast.Load())
+        if kind == "length":
+            name = rng.choice(list(env.lists))
+            return ast.Call(ast.Name("len", ast.Load()), [ast.Name(name, ast.Load())], [])
+
+        fn = rng.choice(helpers)
+        if fn == "rec":
+            a = ast.BinOp(
+                ast.Call(
+                    ast.Name("abs", ast.Load()),
+                    [self._gen_int_expr(env, depth - 1, helpers)],
+                    [],
+                ),
+                ast.Mod(),
+                ast.Constant(max(2, self.config.magnitude)),
+            )
+            b = self._gen_int_expr(env, depth - 1, helpers, force_dep)
+            return ast.Call(ast.Name(fn, ast.Load()), [a, b], [])
+        return ast.Call(
+            ast.Name(fn, ast.Load()),
+            [
+                self._gen_int_expr(env, depth - 1, helpers, force_dep),
+                self._gen_int_expr(env, depth - 1, helpers),
+            ],
+            [],
+        )
+
+    def _gen_stmt(self, env, control_depth, expr_depth, cx, state, helpers):
+        rng = self.rng
+        kinds = ["assign", "aug", "mutate", "alias", "helper"]
+        if control_depth > 0:
+            kinds += ["if", "for", "while"]
+        kind = rng.choice(kinds)
+        tags = set()
+
+        if kind == "assign":
+            name = self.names.take("v")
+            expr = self._gen_int_expr(env, expr_depth, helpers, force_dep=True)
+            dep = 1 + max((env.depth.get(v, 0) for v in env.ints), default=0)
+            env.add_int(name, dep)
+            return [ast.Assign([ast.Name(name, ast.Store())], expr)], tags
+
+        if kind == "aug":
+            target = rng.choice(env.ints)
+            expr = self._gen_int_expr(env, max(0, expr_depth - 1), helpers)
+            env.depth[target] = env.depth.get(target, 0) + 1
+            return [
+                ast.AugAssign(
+                    ast.Name(target, ast.Store()),
+                    rng.choice((ast.Add(), ast.Sub())),
+                    expr,
+                )
+            ], tags
+
+        if kind == "mutate":
+            list_name, length = rng.choice(list(env.lists.items()))
+            expr = self._gen_int_expr(env, max(0, expr_depth - 1), helpers)
+            env.depth[list_name] = env.depth.get(list_name, 0) + 1
+            tags.add("mutation_call")
+            if rng.random() < 0.5:
+                node = ast.AugAssign(
+                    ast.Subscript(
+                        ast.Name(list_name, ast.Load()),
+                        ast.Constant(rng.randrange(length)),
+                        ast.Store(),
+                    ),
+                    ast.Add(),
+                    expr,
+                )
+            else:
+                node = ast.Expr(ast.Call(
+                    ast.Attribute(ast.Name(list_name, ast.Load()), "append", ast.Load()),
+                    [expr],
+                    [],
+                ))
+                env.lists[list_name] += 1
+            return [node], tags
+
+        if kind == "alias":
+            src, length = rng.choice(list(env.lists.items()))
+            alias = self.names.take("alias")
+            env.add_list(alias, length, env.depth.get(src, 0))
+            tags.add("aliasing")
+            nodes = [ast.Assign([ast.Name(alias, ast.Store())], ast.Name(src, ast.Load()))]
+            if rng.random() < 0.5:
+                nodes.append(ast.AugAssign(
+                    ast.Subscript(
+                        ast.Name(alias, ast.Load()),
+                        ast.Constant(rng.randrange(length)),
+                        ast.Store(),
+                    ),
+                    ast.Add(),
+                    ast.Constant(rng.choice((-2, -1, 1, 2))),
+                ))
+            else:
+                copy = self.names.take("copy")
+                nodes.append(ast.Assign(
+                    [ast.Name(copy, ast.Store())],
+                    ast.Subscript(
+                        ast.Name(alias, ast.Load()),
+                        ast.Slice(None, None, None),
+                        ast.Load(),
+                    ),
+                ))
+                env.add_list(copy, length, env.depth.get(src, 0) + 1)
+                tags.add("rebinding_vs_aliasing")
+            return nodes, tags
+
+        if kind == "helper":
+            if not helpers:
+                return self._gen_stmt(env, 0, expr_depth, cx, state, helpers)
+            name = self.names.take("h")
+            expr = self._gen_int_expr(env, expr_depth, helpers, force_dep=True)
+            env.add_int(name, max(env.depth.values(), default=0) + 1)
+            tags.add("helper_chain")
+            return [ast.Assign([ast.Name(name, ast.Store())], expr)], tags
+
+        if kind == "if":
+            tags.add("conditional_flow")
+            cond = ast.Compare(
+                self._gen_int_expr(env, max(0, expr_depth - 1), helpers, True),
+                [rng.choice((ast.Lt(), ast.Gt(), ast.NotEq()))],
+                [self._gen_int_expr(env, max(0, expr_depth - 1), helpers)],
+            )
+            then_env, else_env = env.copy(), env.copy()
+            then_nodes, then_tags = self._gen_stmt(
+                then_env, control_depth - 1, expr_depth, cx, state, helpers
+            )
+            else_nodes, else_tags = self._gen_stmt(
+                else_env, control_depth - 1, expr_depth, cx, state, helpers
+            )
+            tags.update(then_tags | else_tags)
+            return [ast.If(cond, then_nodes, else_nodes)], tags
+
+        if kind == "for":
+            tags.add("loop_carried_state")
+            loop = self.names.take("i")
+            loop_env = env.copy()
+            loop_env.add_int(loop, 0)
+            inner, inner_tags = self._gen_stmt(
+                loop_env, control_depth - 1, expr_depth, cx, state, helpers
+            )
+            tags.update(inner_tags)
+            bound = rng.randint(1, max(1, cx.loop_bound))
+            return [ast.For(
+                ast.Name(loop, ast.Store()),
+                ast.Call(ast.Name("range", ast.Load()), [ast.Constant(bound)], []),
+                inner,
+                [],
+            )], tags
+
+        tags.add("loop_carried_state")
+        counter = self.names.take("i")
+        limit = rng.randint(1, max(1, cx.loop_bound))
+        loop_env = env.copy()
+        inner, inner_tags = self._gen_stmt(
+            loop_env, control_depth - 1, expr_depth, cx, state, helpers
+        )
+        env.add_int(counter, 0)
+        tags.update(inner_tags)
+        update = ast.AugAssign(ast.Name(counter, ast.Store()), ast.Add(), ast.Constant(1))
+        return [
+            ast.Assign([ast.Name(counter, ast.Store())], ast.Constant(0)),
+            ast.While(
+                ast.Compare(ast.Name(counter, ast.Load()), [ast.Lt()], [ast.Constant(limit)]),
+                inner + [update],
+                [],
+            ),
+        ], tags
+
+    def _inject_phenomenon(self, phenomenon, env, state, helpers, cx):
+        if phenomenon == "aliasing":
+            alias = self.names.take("alias")
+            env.add_list(alias, env.lists[state], env.depth.get(state, 0))
+            return [
+                ast.Assign([ast.Name(alias, ast.Store())], ast.Name(state, ast.Load())),
+                ast.AugAssign(
+                    ast.Subscript(ast.Name(alias, ast.Load()), ast.Constant(0), ast.Store()),
+                    ast.Add(),
+                    ast.Constant(1),
+                ),
+            ]
+        if phenomenon == "rebinding_vs_aliasing":
+            alias = self.names.take("alias")
+            env.add_list(alias, env.lists[state], env.depth.get(state, 0))
+            return [
+                ast.Assign([ast.Name(alias, ast.Store())], ast.Name(state, ast.Load())),
+                ast.Assign(
+                    [ast.Name(state, ast.Store())],
+                    ast.Subscript(
+                        ast.Name(state, ast.Load()),
+                        ast.Slice(None, None, None),
+                        ast.Load(),
+                    ),
+                ),
+            ]
+        if phenomenon == "closure_late_binding":
+            bias = self.names.take("bias")
+            fn = self.names.take("closure")
+            env.add_int(bias, 1)
+            return [
+                ast.Assign([ast.Name(bias, ast.Store())], ast.Constant(2)),
+                ast.FunctionDef(
+                    fn,
+                    ast.arguments([], [ast.arg("z")], None, [], [], None, []),
+                    [ast.Return(ast.BinOp(
+                        ast.Name("z", ast.Load()), ast.Add(), ast.Name(bias, ast.Load())
+                    ))],
+                    [],
+                ),
+                ast.AugAssign(ast.Name(bias, ast.Store()), ast.Add(), ast.Constant(1)),
+                ast.Assign(
+                    [ast.Name(bias, ast.Store())],
+                    ast.Call(ast.Name(fn, ast.Load()), [ast.Name(bias, ast.Load())], []),
+                ),
+            ]
+        if phenomenon == "default_capture":
+            bias = self.names.take("bias")
+            fn = self.names.take("default")
+            out = self.names.take("v")
+            env.add_int(bias, 1)
+            env.add_int(out, 2)
+            return [
+                ast.Assign([ast.Name(bias, ast.Store())], ast.Constant(2)),
+                ast.FunctionDef(
+                    fn,
+                    ast.arguments(
+                        [], [ast.arg("z"), ast.arg("b")], None, [], [], None,
+                        [ast.Name(bias, ast.Load())],
+                    ),
+                    [ast.Return(ast.BinOp(
+                        ast.Name("z", ast.Load()), ast.Add(), ast.Name("b", ast.Load())
+                    ))],
+                    [],
+                ),
+                ast.AugAssign(ast.Name(bias, ast.Store()), ast.Add(), ast.Constant(1)),
+                ast.Assign(
+                    [ast.Name(out, ast.Store())],
+                    ast.Call(ast.Name(fn, ast.Load()), [ast.Name(bias, ast.Load())], []),
+                ),
+            ]
+        if phenomenon == "mutation_call":
+            fn = self.names.take("mut")
+            return [
+                ast.FunctionDef(
+                    fn,
+                    ast.arguments([], [ast.arg("ys")], None, [], [], None, []),
+                    [
+                        ast.AugAssign(
+                            ast.Subscript(
+                                ast.Name("ys", ast.Load()), ast.Constant(0), ast.Store()
+                            ),
+                            ast.Add(), ast.Constant(1),
+                        ),
+                        ast.Return(ast.Subscript(
+                            ast.Name("ys", ast.Load()), ast.Constant(0), ast.Load()
+                        )),
+                    ],
+                    [],
+                ),
+                ast.Expr(ast.Call(ast.Name(fn, ast.Load()), [ast.Name(state, ast.Load())], [])),
+            ]
+        if phenomenon == "loop_carried_state":
+            v = self.names.take("i")
+            target = env.ints[0]
+            return [ast.For(
+                ast.Name(v, ast.Store()),
+                ast.Call(ast.Name("range", ast.Load()), [ast.Constant(max(2, cx.loop_bound))], []),
+                [ast.AugAssign(
+                    ast.Name(target, ast.Store()), ast.Add(), ast.Name(v, ast.Load())
+                )],
+                [],
+            )]
+        if phenomenon == "conditional_flow":
+            target = env.ints[0]
+            return [ast.If(
+                ast.Compare(ast.Name(target, ast.Load()), [ast.GtE()], [ast.Constant(0)]),
+                [ast.AugAssign(ast.Name(target, ast.Store()), ast.Add(), ast.Constant(1))],
+                [ast.AugAssign(ast.Name(target, ast.Store()), ast.Sub(), ast.Constant(1))],
+            )]
+        if phenomenon == "helper_chain":
+            name = self.names.take("v")
+            env.add_int(name, max(env.depth.values(), default=0) + 1)
+            return [ast.Assign(
+                [ast.Name(name, ast.Store())],
+                self._gen_int_expr(env, cx.expr_depth, helpers, True),
+            )]
+        if phenomenon == "comprehension":
+            name = self.names.take("lc")
+            v = self.names.take("i")
+            length = max(2, cx.loop_bound)
+            env.add_list(name, length, 2)
+            return [ast.Assign(
+                [ast.Name(name, ast.Store())],
+                ast.ListComp(
+                    ast.BinOp(ast.Name(v, ast.Load()), ast.Mult(), ast.Name(v, ast.Load())),
+                    [ast.comprehension(
+                        ast.Name(v, ast.Store()),
+                        ast.Call(ast.Name("range", ast.Load()), [ast.Constant(length)], []),
+                        [], 0,
+                    )],
+                ),
+            )]
+        if phenomenon == "mapping_bridge":
+            name = self.names.take("d")
+            out = self.names.take("v")
+            env.add_int(out, 2)
+            return [
+                ast.Assign(
+                    [ast.Name(name, ast.Store())],
+                    ast.Dict(
+                        [ast.Constant(0), ast.Constant(1)],
+                        [ast.Name(env.ints[0], ast.Load()), ast.Name(env.ints[-1], ast.Load())],
+                    ),
+                ),
+                ast.Assign(
+                    [ast.Name(out, ast.Store())],
+                    ast.Subscript(
+                        ast.Name(name, ast.Load()),
+                        ast.Constant(self.rng.randrange(2)),
+                        ast.Load(),
+                    ),
+                ),
+            ]
+        if phenomenon == "recursion":
+            return []
+        raise ValueError(phenomenon)
+
+    def _choose_hazard(self, goal, recursive):
+        if goal.error:
+            return goal.error
+        choices = list(ERRORS[:-1])
+        if recursive:
+            choices.append("RecursionError")
+        return self.rng.choice(choices)
+
+    def _hazard_nodes(self, hazard, params, env, state, n, helpers):
+        if not params:
+            return []
+        x = ast.Name(params[0], ast.Load())
+        out = self.names.take("haz")
+        if hazard == "IndexError":
+            expr = ast.Subscript(ast.Name(state, ast.Load()), x, ast.Load())
+        elif hazard == "ZeroDivisionError":
+            expr = ast.BinOp(
+                self._gen_int_expr(env, 1, helpers),
+                ast.FloorDiv(),
+                ast.BinOp(x, ast.Sub(), ast.Constant(1)),
+            )
+        elif hazard == "ValueError":
+            expr = ast.Call(
+                ast.Attribute(
+                    ast.List([ast.Constant(i) for i in range(n)], ast.Load()),
+                    "index",
+                    ast.Load(),
+                ),
+                [x],
+                [],
+            )
+        elif hazard == "KeyError":
+            expr = ast.Subscript(
+                ast.Dict(
+                    [ast.Constant(i) for i in range(n)],
+                    [ast.Constant(i * i + 1) for i in range(n)],
+                ),
+                x,
+                ast.Load(),
+            )
+        else:
+            expr = ast.Call(
+                ast.Name("rec", ast.Load()),
+                [x, self._gen_int_expr(env, 1, helpers)],
+                [],
+            )
+        env.add_int(out, max(env.depth.values(), default=0) + 1)
+        return [ast.Assign([ast.Name(out, ast.Store())], expr)]
+
+    def _safe_args(self, arity, hazard, n):
         if arity == 0:
             return ()
+        mag = self.config.magnitude
         xs = [self.rng.randint(-mag, mag) for _ in range(arity)]
-        if hazard == "index":
-            xs[0] = self.rng.randrange(max(3, self.config.list_size))
-        elif hazard == "division":
+        if hazard in ("IndexError", "ValueError", "KeyError"):
+            xs[0] = self.rng.randrange(n)
+        elif hazard == "ZeroDivisionError":
             xs[0] = self.rng.choice([x for x in range(-mag, mag + 1) if x != 1])
-        elif hazard == "lookup":
-            xs[0] = self.rng.choice((-1, 0, 1))
+        elif hazard == "RecursionError":
+            xs[0] = self.rng.randint(0, max(1, mag))
         return tuple(xs)
 
-    def _bad_args(self, arity, hazard):
-        xs = list(self._safe_args(arity, hazard))
-        if hazard == "index":
-            xs[0] = max(3, self.config.list_size) + self.rng.randint(1, 3)
-        elif hazard == "division":
+    def _bad_args(self, arity, hazard, n):
+        xs = list(self._safe_args(arity, hazard, n))
+        if not xs:
+            return ()
+        if hazard in ("IndexError", "ValueError", "KeyError"):
+            xs[0] = n + self.rng.randint(1, 4)
+        elif hazard == "ZeroDivisionError":
             xs[0] = 1
-        elif hazard == "lookup":
-            xs[0] = self.config.magnitude + 17
+        elif hazard == "RecursionError":
+            xs[0] = -1
         return tuple(xs)
 
-    def _paired_calls(self, code, arity, hazard):
-        safe = self._safe_args(arity, hazard)
-        bad = self._bad_args(arity, hazard)
-        outcomes = [self._execute(code, safe), self._execute(code, bad)]
-        self.rng.shuffle(outcomes)
-        return tuple(outcomes)
+    def _result_expr(self, kind, env, state, helpers, depth):
+        if kind == "list":
+            return ast.Name(state, ast.Load())
+        if kind == "tuple":
+            return ast.Tuple(
+                [
+                    self._gen_int_expr(env, min(depth, 2), helpers, True),
+                    ast.Call(ast.Name("len", ast.Load()), [ast.Name(state, ast.Load())], []),
+                ],
+                ast.Load(),
+            )
+        return self._gen_int_expr(env, depth, helpers, True)
 
-    def _execute(self, code, args):
-        allowed = {
+    def _execute(self, code, args, profile=False, max_steps=100_000):
+        builtins = {
             "range": range,
             "len": len,
             "sum": sum,
@@ -306,363 +788,96 @@ class ImperativeMesopy:
             "max": max,
             "abs": abs,
         }
-        ns = {"__builtins__": allowed}
+        ns = {"__builtins__": builtins}
+        steps = 0
+
+        def trace(frame, event, arg):
+            nonlocal steps
+            if event == "line":
+                steps += 1
+                if steps > max_steps:
+                    raise RuntimeError("StepLimit")
+            return trace
+
+        t0 = time.perf_counter()
         try:
             exec(compile(code, "<imperative-mesopy>", "exec"), ns, ns)
+            if profile:
+                sys.settrace(trace)
             value = ns["endpoint"](*args)
-            return CallOutcome(tuple(args), True, repr(value), None)
+            return CallOutcome(
+                tuple(args), True, repr(value), None,
+                steps if profile else None,
+                time.perf_counter() - t0 if profile else None,
+            )
         except Exception as e:
-            return CallOutcome(tuple(args), False, None, type(e).__name__)
+            return CallOutcome(
+                tuple(args), False, None, type(e).__name__,
+                steps if profile else None,
+                time.perf_counter() - t0 if profile else None,
+            )
+        finally:
+            if profile:
+                sys.settrace(None)
 
     def _valid(self, sample, goal):
         if goal.paired_runnability:
-            return (
-                len(sample.calls) == 2
-                and {x.ok for x in sample.calls} == {True, False}
-                and (
-                    goal.error is None
-                    or any(x.error == goal.error for x in sample.calls)
-                )
-            )
+            if len(sample.calls) != 2 or {x.ok for x in sample.calls} != {True, False}:
+                return False
+            return not goal.error or any(x.error == goal.error for x in sample.calls)
         if goal.runnable is True:
             return sample.call.ok
         if goal.runnable is False:
-            return not sample.call.ok
+            return not sample.call.ok and (
+                goal.error is None or sample.call.error == goal.error
+            )
         return True
 
-    def _result_expr(self, kind, state, acc, n):
-        if kind == "list":
-            return _name(state)
-        if kind == "int":
-            return _bin(_call("sum", _name(state)), ast.Add(), _name(acc))
-        i, j = self.rng.sample(range(n), 2)
-        return ast.Tuple(elts=[_name(acc), _sub(state, i), _sub(state, j)], ctx=ast.Load())
+    @staticmethod
+    def _features(tree):
+        nodes = list(ast.walk(tree))
 
-    def _noise(self, state, acc, params, n, names):
-        tmp = names.take("tmp")
-        i = self.rng.randrange(n)
-        if self.rng.random() < 0.5:
-            expr = _bin(_sub(state, i), ast.Add(), _const(self.rng.randint(-3, 3)))
-        else:
-            expr = _call("abs", _bin(_sub(state, i), ast.Sub(), _name(acc)))
-        return [_assign(_name(tmp, ast.Store()), expr)]
+        def depth(node):
+            children = list(ast.iter_child_nodes(node))
+            return 1 + max(map(depth, children), default=0)
 
-    def _p_aliasing(self, state, acc, params, n, names, k):
-        alias = names.take("alias")
-        i, j = self.rng.sample(range(n), 2)
-        d = self._small_nonzero()
-        mutate = self._update(_sub(alias, i, ast.Store()), ast.Add(), _const(d))
-        use = self._update(_name(acc, ast.Store()), ast.Add(), _sub(state, i))
-        if self.rng.random() < 0.5:
-            use = self._update(_sub(state, j, ast.Store()), ast.Add(), _sub(alias, i))
-        return [
-            _assign(_name(alias, ast.Store()), _name(state)),
-            mutate,
-            use,
-        ], 2
+        def control_depth(node, current=0):
+            here = current + int(isinstance(node, (ast.If, ast.For, ast.While, ast.Try)))
+            return max([here] + [control_depth(c, here) for c in ast.iter_child_nodes(node)])
 
-    def _p_rebinding_vs_aliasing(self, state, acc, params, n, names, k):
-        alias = names.take("alias")
-        i, j = self.rng.sample(range(n), 2)
-        d = self._small_nonzero()
-        return [
-            _assign(_name(alias, ast.Store()), _name(state)),
-            _assign(
-                _name(state, ast.Store()),
-                ast.Subscript(
-                    value=_name(state),
-                    slice=ast.Slice(lower=None, upper=None, step=None),
-                    ctx=ast.Load(),
-                ),
-            ),
-            self._update(_sub(state, i, ast.Store()), ast.Add(), _const(d)),
-            self._update(_sub(alias, j, ast.Store()), ast.Add(), _sub(state, i)),
-            self._update(_name(acc, ast.Store()), ast.Add(), _sub(alias, j)),
-        ], 3
+        funcs = [n for n in nodes if isinstance(n, ast.FunctionDef)]
+        names = {f.name for f in funcs}
+        edges = set()
+        n_calls = 0
 
-    def _p_closure_late_binding(self, state, acc, params, n, names, k):
-        bias = names.take("tmp")
-        fn = names.take("fn")
-        i, j = self.rng.sample(range(n), 2)
-        a, b = self._small_nonzero(), self._small_nonzero()
-        arg = ast.arg(arg="v")
-        helper = ast.FunctionDef(
-            name=fn,
-            args=ast.arguments(
-                posonlyargs=[], args=[arg], kwonlyargs=[], kw_defaults=[], defaults=[]
-            ),
-            body=[
-                ast.Return(
-                    value=_bin(
-                        _bin(_name("v"), ast.Add(), _name(bias)),
-                        ast.Add(),
-                        _sub(state, j),
-                    )
-                )
-            ],
-            decorator_list=[],
-        )
-        return [
-            _assign(_name(bias, ast.Store()), _const(a)),
-            helper,
-            self._update(_name(bias, ast.Store()), ast.Add(), _const(b)),
-            _assign(_sub(state, i, ast.Store()), _call(fn, _sub(state, i))),
-        ], 3
+        class Calls(ast.NodeVisitor):
+            current = None
 
-    def _p_default_capture(self, state, acc, params, n, names, k):
-        bias = names.take("tmp")
-        fn = names.take("fn")
-        i, j = self.rng.sample(range(n), 2)
-        a, b = self._small_nonzero(), self._small_nonzero()
-        helper = ast.FunctionDef(
-            name=fn,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=[ast.arg(arg="v"), ast.arg(arg="bias")],
-                kwonlyargs=[],
-                kw_defaults=[],
-                defaults=[_name(bias)],
-            ),
-            body=[
-                ast.Return(
-                    value=_bin(
-                        _bin(_name("v"), ast.Add(), _name("bias")),
-                        ast.Add(),
-                        _sub(state, j),
-                    )
-                )
-            ],
-            decorator_list=[],
-        )
-        return [
-            _assign(_name(bias, ast.Store()), _const(a)),
-            helper,
-            self._update(_name(bias, ast.Store()), ast.Add(), _const(b)),
-            _assign(_sub(state, i, ast.Store()), _call(fn, _sub(state, i))),
-        ], 3
+            def visit_FunctionDef(self, node):
+                prev, self.current = self.current, node.name
+                self.generic_visit(node)
+                self.current = prev
 
-    def _p_mutation_call(self, state, acc, params, n, names, k):
-        fn = names.take("fn")
-        i, j = self.rng.sample(range(n), 2)
-        d = self._small_nonzero()
-        helper = ast.FunctionDef(
-            name=fn,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=[ast.arg(arg="seq"), ast.arg(arg="d")],
-                kwonlyargs=[],
-                kw_defaults=[],
-                defaults=[],
-            ),
-            body=[
-                self._update(_sub("seq", i, ast.Store()), ast.Add(), _name("d")),
-                ast.Return(value=_bin(_sub("seq", i), ast.Sub(), _sub("seq", j))),
-            ],
-            decorator_list=[],
-        )
-        return [
-            helper,
-            self._update(
-                _sub(state, j, ast.Store()),
-                ast.Add(),
-                _call(fn, _name(state), _const(d)),
-            ),
-        ], 3
+            def visit_Call(self, node):
+                nonlocal n_calls
+                n_calls += 1
+                if self.current and isinstance(node.func, ast.Name) and node.func.id in names:
+                    edges.add((self.current, node.func.id))
+                self.generic_visit(node)
 
-    def _p_loop_carried_state(self, state, acc, params, n, names, k):
-        i, j = self.rng.sample(range(n), 2)
-        loop = names.take("loop")
-        vals = [self.rng.randint(-3, 3) for _ in range(self.rng.randint(2, 4))]
-        mul = self.rng.choice((-2, -1, 1, 2))
-        loop_body = [
-            _assign(
-                _sub(state, i, ast.Store()),
-                _bin(
-                    _bin(_const(mul), ast.Mult(), _sub(state, i)),
-                    ast.Add(),
-                    _name(loop),
-                ),
-            ),
-            self._update(_sub(state, j, ast.Store()), ast.Add(), _sub(state, i)),
-        ]
-        if self.rng.random() < 0.55:
-            stmt = ast.For(
-                target=_name(loop, ast.Store()),
-                iter=ast.List(elts=[_const(x) for x in vals], ctx=ast.Load()),
-                body=loop_body,
-                orelse=[],
-            )
-            return [stmt], 3
+        Calls().visit(tree)
 
-        seq = names.take("tmp")
-        idx = names.take("loop")
-        while_stmt = ast.While(
-            test=_compare(_name(idx), ast.Lt(), _call("len", _name(seq))),
-            body=[
-                _assign(_name(loop, ast.Store()), _sub(seq, 0)),
-            ] + loop_body + [
-                self._update(_name(idx, ast.Store()), ast.Add(), _const(1))
-            ],
-            orelse=[],
-        )
-        while_stmt.body[0] = _assign(
-            _name(loop, ast.Store()),
-            ast.Subscript(value=_name(seq), slice=_name(idx), ctx=ast.Load()),
-        )
-        return [
-            _assign(_name(seq, ast.Store()), ast.List(elts=[_const(x) for x in vals], ctx=ast.Load())),
-            _assign(_name(idx, ast.Store()), _const(0)),
-            while_stmt,
-        ], 4
+        def longest(src, seen):
+            nxt = [b for a, b in edges if a == src and b not in seen]
+            return 1 + max((longest(x, seen | {x}) for x in nxt), default=0)
 
-    def _p_conditional_flow(self, state, acc, params, n, names, k):
-        i, j = self.rng.sample(range(n), 2)
-        if params:
-            lhs = _name(self.rng.choice(params))
-        else:
-            lhs = _sub(state, self.rng.randrange(n))
-        rhs = _const(self.rng.randint(-self.config.magnitude, self.config.magnitude))
-        op = self.rng.choice((ast.Lt(), ast.Gt(), ast.Eq(), ast.NotEq()))
-        yes = self._update(_sub(state, i, ast.Store()), ast.Add(), _name(acc))
-        no = self._update(_sub(state, j, ast.Store()), ast.Sub(), _name(acc))
-        if self.rng.random() < 0.5:
-            test = _compare(lhs, op, rhs)
-            body, orelse = [yes], [no]
-        else:
-            test = ast.UnaryOp(op=ast.Not(), operand=_compare(lhs, op, rhs))
-            body, orelse = [no], [yes]
-        return [ast.If(test=test, body=body, orelse=orelse)], 2
-
-    def _p_helper_chain(self, state, acc, params, n, names, k):
-        f = names.take("fn")
-        g = names.take("fn")
-        i = self.rng.randrange(n)
-        a, b = self._small_nonzero(), self._small_nonzero()
-        fdef = self._unary_helper(f, _bin(_name("v"), ast.Add(), _const(a)))
-        gdef = self._unary_helper(
-            g, _bin(_call(f, _name("v")), self.rng.choice((ast.Add(), ast.Sub())), _const(b))
-        )
-        return [
-            fdef,
-            gdef,
-            _assign(_sub(state, i, ast.Store()), _call(g, _sub(state, i))),
-            self._update(_name(acc, ast.Store()), ast.Add(), _sub(state, i)),
-        ], 4
-
-    def _p_comprehension(self, state, acc, params, n, names, k):
-        v = names.take("loop")
-        d = self._small_nonzero()
-        op = self.rng.choice((ast.Add(), ast.Sub()))
-        elt = _bin(_name(v), op, _const(d))
-        comp = ast.ListComp(
-            elt=elt,
-            generators=[
-                ast.comprehension(
-                    target=_name(v, ast.Store()),
-                    iter=_name(state),
-                    ifs=[],
-                    is_async=0,
-                )
-            ],
-        )
-        return [
-            _assign(_name(state, ast.Store()), comp),
-            self._update(_name(acc, ast.Store()), ast.Add(), _sub(state, self.rng.randrange(n))),
-        ], 2
-
-    def _p_mapping_bridge(self, state, acc, params, n, names, k):
-        table = names.take("map")
-        i, j = self.rng.sample(range(n), 2)
-        mapping = ast.Dict(
-            keys=[_const(i), _const(j)],
-            values=[_sub(state, i), _sub(state, j)],
-        )
-        get_i = ast.Subscript(value=_name(table), slice=_const(i), ctx=ast.Load())
-        get_j_store = ast.Subscript(value=_name(table), slice=_const(j), ctx=ast.Store())
-        get_j = ast.Subscript(value=_name(table), slice=_const(j), ctx=ast.Load())
-        return [
-            _assign(_name(table, ast.Store()), mapping),
-            self._update(get_j_store, ast.Add(), _name(acc)),
-            _assign(_sub(state, i, ast.Store()), _bin(get_i, ast.Add(), get_j)),
-        ], 2
-
-    def _hazard(self, kind, state, acc, params, n, names):
-        if not params:
-            return []
-        x = _name(params[0])
-        if kind == "index":
-            tmp = names.take("tmp")
-            return [
-                _assign(_name(tmp, ast.Store()), ast.Subscript(value=_name(state), slice=x, ctx=ast.Load())),
-                self._update(_name(acc, ast.Store()), ast.Add(), _name(tmp)),
-            ]
-        if kind == "division":
-            den = names.take("tmp")
-            return [
-                _assign(_name(den, ast.Store()), _bin(x, ast.Sub(), _const(1))),
-                self._update(
-                    _name(acc, ast.Store()),
-                    ast.Add(),
-                    _bin(_sub(state, 0), ast.FloorDiv(), _name(den)),
-                ),
-            ]
-        lookup = names.take("tmp")
-        return [
-            _assign(
-                _name(lookup, ast.Store()),
-                ast.List(elts=[_const(-1), _const(0), _const(1)], ctx=ast.Load()),
-            ),
-            self._update(
-                _name(acc, ast.Store()),
-                ast.Add(),
-                ast.Call(
-                    func=ast.Attribute(value=_name(lookup), attr="index", ctx=ast.Load()),
-                    args=[x],
-                    keywords=[],
-                ),
-            ),
-        ]
-
-    def _small_nonzero(self):
-        mag = max(1, self.config.magnitude)
-        return self.rng.choice([x for x in range(-mag, mag + 1) if x])
-
-    def _update(self, target, op, value):
-        if self.rng.random() < 0.5:
-            return _aug(target, op, value)
-        if isinstance(target, ast.Name):
-            load = _name(target.id)
-        elif isinstance(target, ast.Subscript):
-            load = ast.Subscript(value=target.value, slice=target.slice, ctx=ast.Load())
-        else:
-            raise TypeError(f"unsupported update target: {type(target).__name__}")
-        return _assign(target, _bin(load, op, value))
-
-    def _unary_helper(self, name, expr):
-        return ast.FunctionDef(
-            name=name,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=[ast.arg(arg="v")],
-                kwonlyargs=[],
-                kw_defaults=[],
-                defaults=[],
-            ),
-            body=[ast.Return(value=expr)],
-            decorator_list=[],
-        )
-
-    def _features(self, module):
-        nodes = list(ast.walk(module))
         return {
             "ast_nodes": len(nodes),
-            "functions": sum(isinstance(x, ast.FunctionDef) for x in nodes),
-            "calls": sum(isinstance(x, ast.Call) for x in nodes),
-            "branches": sum(isinstance(x, ast.If) for x in nodes),
-            "loops": sum(isinstance(x, (ast.For, ast.While, ast.comprehension)) for x in nodes),
-            "mutations": sum(isinstance(x, (ast.AugAssign, ast.Subscript)) for x in nodes),
+            "ast_depth": depth(tree),
+            "control_depth": control_depth(tree),
+            "functions": len(funcs),
+            "call_depth": max((longest(f.name, {f.name}) for f in funcs), default=0),
+            "loops": sum(isinstance(n, (ast.For, ast.While)) for n in nodes),
+            "branches": sum(isinstance(n, ast.If) for n in nodes),
+            "calls": n_calls,
         }
-
-
-def generate_imperative_mesopy(goal=None, config=None, seed=None):
-    return ImperativeMesopy(config=config, seed=seed).generate(goal)
