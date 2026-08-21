@@ -66,6 +66,32 @@ def test_dump_carries_no_version_specific_field_names():
     assert "type_comment=None" not in dump
 
 
+@pytest.mark.parametrize("a,b", [
+    ("x = 'a'\n", 'x = "a"\n'),                                   # quote style
+    ("f(a)\n", "f(a,)\n"),                                        # trailing comma
+    ("x = a + b\n", "x = (a + b)\n"),                             # redundant parens
+    ("x = a + b\n", "x = (a +\n     b)\n"),                       # line wrapping
+    ("x = a + b\n", "x = a + \\\n    b\n"),                       # backslash continuation
+    ("def f():\n    return 1\n", "def f():\n  return 1\n"),       # indent width
+    ("def f():\n    return 1\n", "def f():\n\treturn 1\n"),       # tabs vs spaces
+    ("x = 1000\n", "x = 1_000\n"),                                # numeric separator
+    ("x = 16\n", "x = 0x10\n"),                                   # literal base
+    ('x = "ab"\n', 'x = "a" "b"\n'),                              # implicit concatenation
+    ('x = "A"\n', 'x = "\\x41"\n'),                                # escape form
+    ("x = 1\n", "x = 1  # why\n"),                                # inline comment
+    ("x = 1\ny = 2\n", "x = 1\n\n\n\ny = 2\n"),                    # blank lines
+    ("import os\n", "import os  # noqa: F401\n"),                 # linter pragma
+    ('def f():\n    """A."""\n    return 1\n',
+     'def f():\n    """Totally different text."""\n    return 1\n'),  # docstring wording
+    ("class C:\n    x = 1\n", 'class C:\n    """Doc."""\n    x = 1\n'),
+    ("x = 1\n", '"""Module doc."""\nx = 1\n'),
+])
+def test_semantically_empty_formatting_is_ignored(a, b):
+    """Reformatting a task must not read as a rework: the hash gates re-measurement, and a build
+    costs a day of fleet time. Anything a formatter or a linter pragma can change is invisible."""
+    assert h(a) == h(b)
+
+
 def test_canonicalisation_is_frozen():
     """A canary digest, so changing `_stable_dump` cannot happen by accident.
 
