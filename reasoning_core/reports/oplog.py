@@ -106,6 +106,19 @@ def _cluster(r):
     return re.sub(r"-?\d+$", "", h) or "(unscheduled)"
 
 
+def _exit_ok(raw):
+    """True when OAR's exit_code field means success. Accepts "0", "0 (0,0,0)" and an empty field
+    (jobs that ended before OAR recorded a code)."""
+    text = str(raw or "").strip()
+    if not text:
+        return True
+    head = text.split()[0]
+    try:
+        return int(head) == 0
+    except ValueError:
+        return False
+
+
 def _fmt(sec):
     if sec is None:
         return "-"
@@ -123,7 +136,9 @@ def stats():
           f"{'med wait':>10}{'med run':>9}")
     for k, rs in sorted(by.items(), key=lambda x: -len(x[1])):
         started = [r for r in rs if r.get("started")]
-        okd = [r for r in rs if r.get("state") == "Terminated" and str(r.get("exit")) in ("0", "")]
+        # OAR journals exit_code as "0 (0,0,0)", not "0" -- an equality test against "0" scores every
+        # successful job as a failure and prints a uniform 0% ok rate. Parse the leading integer.
+        okd = [r for r in rs if r.get("state") == "Terminated" and _exit_ok(r.get("exit"))]
         w = [r["wait_s"] for r in started if r.get("wait_s") is not None]
         d = [r["run_s"] for r in rs if r.get("run_s") is not None]
         print(f"{k[0]:10}{k[1]:14}{k[2]:11}{len(rs):>3}{len(started)/len(rs):>8.0%}"
