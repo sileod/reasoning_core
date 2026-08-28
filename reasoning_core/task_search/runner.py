@@ -234,8 +234,9 @@ def _seed_phrase(task_meta):
 
 
 def _sample_command_for(owned_path, trial_id):
+    # PYTHONPATH=. so running the script by path still imports the worktree.
     return (
-        "PYTHONDONTWRITEBYTECODE=1 python "
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python "
         f"{owned_path}/generate_samples_{trial_id}.py"
     )
 
