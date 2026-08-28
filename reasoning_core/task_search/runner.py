@@ -194,7 +194,8 @@ def generation_metadata(model, harness_version, agent, variant=None,
                         temperature=None, top_p=None, sandbox_name="bubblewrap",
                         sandbox_version=None, max_steps=56,
                         timeout_seconds=1800, provider_name=None,
-                        adapter_name="direct", adapter_version=None):
+                        adapter_name="direct", adapter_version=None,
+                        harness_name="opencode"):
     settings = {
         "variant": variant,
         "requested_seed": requested_seed,
@@ -214,7 +215,7 @@ def generation_metadata(model, harness_version, agent, variant=None,
         "model_name": model,
         "adapter_name": adapter_name,
         "adapter_version": adapter_version,
-        "harness_name": "opencode",
+        "harness_name": harness_name,
         "harness_version": harness_version,
         "agent_name": agent,
         "settings": settings,
@@ -299,9 +300,47 @@ def _opencode_command(opencode_bin, *, model, agent, worktree, prompt,
     return command
 
 
+def _mini_command(mini_bin, *, prompt, config_path, trajectory_path):
+    return [
+        mini_bin,
+        "-c", "mini.yaml",
+        "-c", str(config_path),
+        "-t", prompt,
+        "-y",
+        "--exit-immediately",
+        "-o", str(trajectory_path),
+    ]
+
+
+def _mini_config(worktree, *, max_steps, timeout_seconds, requested_seed=None,
+                 forward_seed=False, temperature=None, top_p=None):
+    model_kwargs = {"drop_params": True}
+    if forward_seed:
+        model_kwargs["seed"] = requested_seed
+    if temperature is not None:
+        model_kwargs["temperature"] = temperature
+    if top_p is not None:
+        model_kwargs["top_p"] = top_p
+    return {
+        "agent": {
+            "step_limit": max_steps,
+            "wall_time_limit_seconds": timeout_seconds,
+            "cost_limit": 0,
+        },
+        "environment": {
+            "cwd": str(worktree),
+            "timeout": min(300, timeout_seconds),
+        },
+        "model": {
+            "cost_tracking": "ignore_errors",
+            "model_kwargs": model_kwargs,
+        },
+    }
+
+
 def _adapter_command(command, *, adapter, provider=None, adapter_bin=None,
-                     model=None):
-    """Wrap an OpenCode command with a provider adapter when requested."""
+                     model=None, harness="opencode"):
+    """Wrap a harness command with a provider adapter when requested."""
     if adapter == "direct":
         return command
     if adapter != "harness-link":
@@ -312,18 +351,39 @@ def _adapter_command(command, *, adapter, provider=None, adapter_bin=None,
     if executable is None:
         raise RuntimeError(
             f"Harness Link provider command not found: {adapter_bin or provider!r}")
-    return [executable, "opencode", "--model", model, "--", *command[1:]]
+    return [executable, harness, "--model", model, "--", *command[1:]]
 
 
-def _resolve_opencode_executable(adapter, opencode_bin):
-    # Harness Link resolves its own `opencode` from PATH and discards the
+def _resolve_harness_executable(harness, adapter, harness_bin):
+    # Harness Link resolves its own harness from PATH and discards the
     # executable in the wrapped command. Probe exactly the binary it will use.
-    requested = "opencode" if adapter == "harness-link" else opencode_bin
+    if harness == "mini" and adapter == "direct":
+        raise ValueError("the mini harness currently requires --adapter harness-link")
+    requested = harness if adapter == "harness-link" else harness_bin
     executable = shutil.which(requested)
     if executable is None:
         context = " on Harness Link PATH" if adapter == "harness-link" else ""
-        raise RuntimeError(f"OpenCode executable not found{context}: {requested!r}")
+        raise RuntimeError(
+            f"{harness} executable not found{context}: {requested!r}")
     return executable
+
+
+def _resolve_opencode_executable(adapter, opencode_bin):
+    """Compatibility wrapper for callers that only select OpenCode."""
+    return _resolve_harness_executable("opencode", adapter, opencode_bin)
+
+
+def _harness_version(harness, executable):
+    if harness == "opencode":
+        return subprocess.check_output(
+            [executable, "--version"], text=True).strip()
+    if harness == "mini":
+        python = Path(executable).resolve().parent / "python"
+        return subprocess.check_output([
+            str(python), "-c",
+            "import importlib.metadata as m; print(m.version('mini-swe-agent'))",
+        ], text=True).strip()
+    raise ValueError(f"unsupported harness: {harness}")
 
 
 def _changed_paths(worktree):
@@ -421,9 +481,12 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
         elif part.get("tool") == "read":
             last_read = index
     result["read_after_last_edit"] = last_read > last_write
+    # Event parsing is deliberately observational. The durable files and the
+    # coordinator's independent deterministic replay are the cross-harness
+    # correctness boundary.
     result["ok"] = (
-        result["generator_exists"] and result["exists"] and result["size_bytes"] > 0
-        and result["required_sections"] and result["read_after_last_edit"]
+        result["generator_exists"] and result["exists"]
+        and result["size_bytes"] > 0 and result["required_sections"]
     )
     return result
 
@@ -699,7 +762,7 @@ def _run_contract_audit(worktree, owned_path, seed, log_path, *, runtime_root,
 
 
 def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
-               model, agent, variant, opencode_bin, harness_version,
+               model, harness, agent, variant, harness_bin, harness_version,
                base_seed, forward_seed, temperature, top_p, bwrap_bin,
                sandbox_version, max_steps, timeout_seconds, adapter, provider,
                adapter_bin, adapter_version, resource_limits,
@@ -715,8 +778,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     )
     (worktree / trial.owned_path).mkdir(parents=True, exist_ok=True)
     requested_seed = int(_sha256(f"{base_seed}:{trial.trial_id}")[:8], 16)
+    generation_agent = agent if harness == "opencode" else "mini-default"
     generation = generation_metadata(
-        model, harness_version, agent, variant,
+        model, harness_version, generation_agent, variant,
         requested_seed=requested_seed,
         seed_forwarded=forward_seed,
         temperature=temperature,
@@ -727,6 +791,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         provider_name=provider,
         adapter_name=adapter,
         adapter_version=adapter_version,
+        harness_name=harness,
     )
     parent_source_id = None
     if trial.parent:
@@ -746,47 +811,79 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     prompt = render_prompt(plan, trial, repo_root, task_meta)
     prompt_path = trial_root / "prompt.md"
     prompt_path.write_text(prompt)
-    config_path = trial_root / "opencode.json"
-    _write_json(config_path, opencode_config(
-        trial,
-        agent,
-        requested_seed=requested_seed,
-        forward_seed=forward_seed,
-        temperature=temperature,
-        top_p=top_p,
-        max_steps=max_steps,
-    ))
+    runtime_root = trial_root / "runtime"
+    runtime_root.mkdir()
     started = datetime.now(timezone.utc).isoformat()
-    opencode_model = model if adapter == "direct" else f"{provider}/{model}"
-    command = _opencode_command(
-        opencode_bin,
-        model=opencode_model,
-        agent=agent,
-        worktree=worktree,
-        prompt=prompt,
-        variant=variant,
-    )
+    if harness == "opencode":
+        config_path = trial_root / "opencode.json"
+        _write_json(config_path, opencode_config(
+            trial,
+            agent,
+            requested_seed=requested_seed,
+            forward_seed=forward_seed,
+            temperature=temperature,
+            top_p=top_p,
+            max_steps=max_steps,
+        ))
+        harness_model = model if adapter == "direct" else f"{provider}/{model}"
+        command = _opencode_command(
+            harness_bin,
+            model=harness_model,
+            agent=agent,
+            worktree=worktree,
+            prompt=prompt,
+            variant=variant,
+        )
+        events_path = trial_root / "events.jsonl"
+        trajectory_path = None
+    elif harness == "mini":
+        config_path = trial_root / "mini.yaml"
+        config_path.write_text(yaml.safe_dump(
+            _mini_config(
+                worktree, max_steps=max_steps,
+                timeout_seconds=timeout_seconds,
+                requested_seed=requested_seed,
+                forward_seed=forward_seed,
+                temperature=temperature,
+                top_p=top_p,
+            ),
+            sort_keys=False,
+        ))
+        trajectory_path = runtime_root / "trajectory.json"
+        command = _mini_command(
+            harness_bin,
+            prompt=prompt,
+            config_path=config_path,
+            trajectory_path=trajectory_path,
+        )
+        events_path = trial_root / "harness.log"
+    else:
+        raise ValueError(f"unsupported harness: {harness}")
     command = _adapter_command(
         command,
         adapter=adapter,
         provider=provider,
         adapter_bin=adapter_bin,
         model=model,
+        harness=harness,
     )
     command = _sandbox_command(
         command,
         worktree=worktree,
         owned_path=trial.owned_path,
-        runtime_root=trial_root / "runtime",
+        runtime_root=runtime_root,
         bwrap_bin=bwrap_bin,
     )
     command = _resource_command(command, resource_limits)
     environment = dict(os.environ)
-    environment["OPENCODE_CONFIG_CONTENT"] = config_path.read_text()
-    environment["OPENCODE_DISABLE_EXTERNAL_SKILLS"] = "true"
-    environment["OPENCODE_DISABLE_CLAUDE_CODE_SKILLS"] = "true"
+    if harness == "opencode":
+        environment["OPENCODE_CONFIG_CONTENT"] = config_path.read_text()
+        environment["OPENCODE_DISABLE_EXTERNAL_SKILLS"] = "true"
+        environment["OPENCODE_DISABLE_CLAUDE_CODE_SKILLS"] = "true"
+    else:
+        environment["MSWEA_CONFIGURED"] = "true"
     timed_out = False
-    with (trial_root / "events.jsonl").open("w") as stdout, (trial_root / "stderr.log").open("w") as stderr:
+    with events_path.open("w") as stdout, (trial_root / "stderr.log").open("w") as stderr:
         try:
             completed = subprocess.run(
                 command,
@@ -804,7 +901,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     discovered_meta = _task_metadata(worktree, trial.owned_path) if not initial_outside else []
     metadata_ok = len(discovered_meta) == 1 and discovered_meta[0][1] == task_meta
     sample_review = _sample_review(
-        worktree, trial.owned_path, trial.trial_id, trial_root / "events.jsonl")
+        worktree, trial.owned_path, trial.trial_id, events_path)
     gates_open = not initial_outside and metadata_ok and harness_exit_code == 0
     validation_runtime = trial_root / "validation_runtime"
     contract_audit = ({"classes": [], "exit_code": None} if not gates_open else
@@ -883,6 +980,8 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "started_at": started,
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "harness_exit_code": harness_exit_code,
+        "harness_log": str(events_path),
+        "trajectory": str(trajectory_path) if trajectory_path else None,
         "timed_out": timed_out,
         "sandbox": {"name": "bubblewrap", "version": sandbox_version},
         "resource_limits": _public_resource_limits(resource_limits),
@@ -920,7 +1019,8 @@ def _select_trials(plan, trial_ids=(), queue_names=()):
 
 def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worker",
              variant=None, seed=0, forward_seed=True, temperature=None, top_p=None,
-             opencode_bin="opencode", bwrap_bin="bwrap", runs_root=None,
+             harness="opencode", opencode_bin="opencode", mini_bin="mini",
+             bwrap_bin="bwrap", runs_root=None,
              repo_root=None, max_steps=56, timeout_seconds=1800,
              queue_names=(), adapter="direct", provider=None, adapter_bin=None,
              resource_limit_mode="auto", systemd_run_bin="systemd-run",
@@ -934,6 +1034,8 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         ["git", "rev-parse", plan.base_ref], cwd=repo_root, text=True).strip()
     if adapter == "harness-link" and not provider:
         raise ValueError("--provider is required with --adapter harness-link")
+    if harness not in {"opencode", "mini"}:
+        raise ValueError(f"unsupported harness: {harness}")
     if adapter == "harness-link":
         resolved_adapter = shutil.which(adapter_bin or provider)
         if resolved_adapter is None:
@@ -945,9 +1047,10 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         adapter_version = None
     else:
         raise ValueError(f"unsupported adapter: {adapter}")
-    harness_executable = _resolve_opencode_executable(adapter, opencode_bin)
-    harness_version = subprocess.check_output(
-        [harness_executable, "--version"], text=True).strip()
+    requested_harness_bin = opencode_bin if harness == "opencode" else mini_bin
+    harness_executable = _resolve_harness_executable(
+        harness, adapter, requested_harness_bin)
+    harness_version = _harness_version(harness, harness_executable)
     bwrap_path = shutil.which(bwrap_bin)
     if bwrap_path is None:
         raise RuntimeError(
@@ -974,6 +1077,7 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             "queues": list(queue_names),
             "base_commit": base_commit,
             "model": model,
+            "harness": {"name": harness, "version": harness_version},
             "provider": provider or model.split("/", 1)[0],
             "adapter": {"name": adapter, "version": adapter_version},
             "seed": seed,
@@ -992,7 +1096,7 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         futures = {
             pool.submit(
                 _run_trial, plan, trial, repo_root, invocation, base_commit,
-                model, agent, variant, harness_executable, harness_version,
+                model, harness, agent, variant, harness_executable, harness_version,
                 seed, forward_seed, temperature, top_p, bwrap_path,
                 sandbox_version, max_steps, timeout_seconds,
                 adapter, provider, adapter_bin, adapter_version, resource_limits,
@@ -1026,9 +1130,10 @@ def _parser():
     render = subparsers.add_parser("render", help="render one worker prompt")
     render.add_argument("plan")
     render.add_argument("trial_id")
-    run = subparsers.add_parser("run", help="launch folder-scoped OpenCode workers")
+    run = subparsers.add_parser("run", help="launch folder-scoped coding workers")
     run.add_argument("plan")
     run.add_argument("--model", required=True)
+    run.add_argument("--harness", choices=("opencode", "mini"), default="opencode")
     run.add_argument(
         "--adapter", choices=("direct", "harness-link"), default="direct")
     run.add_argument("--provider", help="provider command, e.g. albert or nim")
@@ -1055,6 +1160,7 @@ def _parser():
     run.add_argument("--timeout-seconds", type=int, default=1800)
     run.add_argument("--validation-timeout-seconds", type=int, default=300)
     run.add_argument("--opencode-bin", default="opencode")
+    run.add_argument("--mini-bin", default="mini")
     run.add_argument("--bwrap-bin", default="bwrap")
     run.add_argument(
         "--resource-limits", choices=("auto", "required", "none"),
@@ -1098,7 +1204,9 @@ def main(argv=None):
             top_p=args.top_p,
             max_steps=args.max_steps,
             timeout_seconds=args.timeout_seconds,
+            harness=args.harness,
             opencode_bin=args.opencode_bin,
+            mini_bin=args.mini_bin,
             bwrap_bin=args.bwrap_bin,
             runs_root=args.runs_root,
             adapter=args.adapter,

@@ -6,9 +6,13 @@ import pytest
 
 from reasoning_core.task_search.runner import (
     _adapter_command,
+    _harness_version,
+    _mini_command,
+    _mini_config,
     _outside_owned,
     _opencode_command,
     _resource_command,
+    _resolve_harness_executable,
     _resolve_opencode_executable,
     _run_validation,
     _sandbox_command,
@@ -120,6 +124,17 @@ def test_generation_metadata_records_requested_but_unforwarded_seed():
     assert metadata["settings"]["seed_forwarded"] is False
 
 
+def test_generation_metadata_records_selected_harness():
+    metadata = generation_metadata(
+        "deepseek-v4-flash", "1.15.0", "mini-default",
+        provider_name="albert", adapter_name="harness-link",
+        harness_name="mini",
+    )
+
+    assert metadata["harness_name"] == "mini"
+    assert metadata["provider_name"] == "albert"
+
+
 def test_opencode_profile_forwards_seed_when_requested():
     trial = load_plan(PLAN).trials[0]
     config = opencode_config(
@@ -162,6 +177,63 @@ def test_harness_link_wraps_opencode_without_replacing_its_arguments(monkeypatch
         "/usr/local/bin/albert", "opencode", "--model",
         "deepseek-v4-flash", "--", "run", "--pure", "prompt",
     ]
+
+
+def test_harness_link_wraps_mini_without_replacing_its_arguments(monkeypatch):
+    monkeypatch.setattr("shutil.which", lambda value: "/usr/local/bin/albert")
+    direct = ["mini", "-c", "mini.yaml", "-t", "prompt"]
+
+    command = _adapter_command(
+        direct,
+        adapter="harness-link",
+        provider="albert",
+        model="deepseek-v4-flash",
+        harness="mini",
+    )
+
+    assert command == [
+        "/usr/local/bin/albert", "mini", "--model",
+        "deepseek-v4-flash", "--", "-c", "mini.yaml", "-t", "prompt",
+    ]
+
+
+def test_mini_command_and_config_are_bounded(tmp_path):
+    command = _mini_command(
+        "mini", prompt="assignment", config_path=tmp_path / "mini.yaml",
+        trajectory_path=tmp_path / "runtime" / "trajectory.json")
+    config = _mini_config(
+        tmp_path / "worktree", max_steps=17, timeout_seconds=91,
+        requested_seed=123, forward_seed=True, temperature=0.2)
+
+    assert command[:3] == ["mini", "-c", "mini.yaml"]
+    assert command[-2:] == ["-o", str(tmp_path / "runtime" / "trajectory.json")]
+    assert config["agent"]["step_limit"] == 17
+    assert config["agent"]["wall_time_limit_seconds"] == 91
+    assert config["environment"]["cwd"] == str(tmp_path / "worktree")
+    assert config["model"]["model_kwargs"]["seed"] == 123
+    assert config["model"]["model_kwargs"]["temperature"] == 0.2
+    assert config["model"]["cost_tracking"] == "ignore_errors"
+
+
+def test_direct_mini_is_rejected_until_provider_config_is_supported():
+    with pytest.raises(ValueError, match="requires --adapter harness-link"):
+        _resolve_harness_executable("mini", "direct", "mini")
+
+
+def test_mini_version_comes_from_its_own_environment(tmp_path, monkeypatch):
+    executable = tmp_path / "bin" / "mini"
+    executable.parent.mkdir()
+    executable.touch()
+    observed = {}
+
+    def check_output(command, text):
+        observed["command"] = command
+        return "1.15.0\n"
+
+    monkeypatch.setattr("subprocess.check_output", check_output)
+
+    assert _harness_version("mini", str(executable)) == "1.15.0"
+    assert observed["command"][0] == str(executable.parent / "python")
 
 
 def test_harness_link_probes_the_opencode_it_resolves_from_path(monkeypatch):
@@ -207,7 +279,7 @@ def test_queue_and_explicit_trials_are_combined_in_plan_order():
     assert [trial.trial_id for trial in selected] == ["N2", "N4", "M1"]
 
 
-def test_sample_review_requires_sections_and_read_after_write(tmp_path):
+def test_sample_review_hard_gate_uses_durable_artifacts(tmp_path):
     owned = "reasoning_core/tasks/generated/wave/example"
     root = tmp_path / owned
     root.mkdir(parents=True)
@@ -278,7 +350,7 @@ def test_sample_command_exit_is_observed_but_not_a_hard_gate(tmp_path):
     assert review["ok"] is True
 
 
-def test_sample_review_requires_read_after_last_generator_run(tmp_path):
+def test_sample_event_order_is_observational_not_a_hard_gate(tmp_path):
     owned = "reasoning_core/tasks/generated/wave/example"
     root = tmp_path / owned
     root.mkdir(parents=True)
@@ -308,7 +380,7 @@ def test_sample_review_requires_read_after_last_generator_run(tmp_path):
 
     assert review["command_succeeded"] is True
     assert review["read_after_last_edit"] is False
-    assert review["ok"] is False
+    assert review["ok"] is True
 
 
 def test_independent_validation_times_out(tmp_path):

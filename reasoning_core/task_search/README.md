@@ -1,9 +1,9 @@
 # Task Search
 
 `reasoning_core.task_search` distributes a versioned search plan to independent
-OpenCode workers. It is intentionally provider-neutral: OpenCode resolves model
-references and credentials from user-local configuration, while this repository
-records only non-secret generation metadata.
+coding-harness workers. It is provider- and harness-neutral: the selected
+harness resolves model access from user-local configuration or Harness Link,
+while this repository records only non-secret generation metadata.
 
 Each trial receives:
 
@@ -76,6 +76,23 @@ model, OpenCode version, and Bubblewrap version. Task-search supplies its
 OpenCode settings through `OPENCODE_CONFIG_CONTENT`; Harness Link deep-merges
 the provider configuration into them. Plans remain provider-independent.
 
+OpenCode and mini-SWE-agent can run behind the same plan, prompt, detached
+worktree, mount sandbox, resource limits, metadata, and independent validator.
+Mini currently uses Harness Link so provider setup stays out of this repository:
+
+```bash
+uv tool install mini-swe-agent
+python -m reasoning_core.task_search run reasoning_core/task_search/wave0.yaml \
+  --harness mini --adapter harness-link --provider albert \
+  --model deepseek-v4-flash --credential-env ALBERT_API_KEY \
+  --jobs 1 --seed 20260828 --trial N1
+```
+
+For a matched comparison, run the same trial twice with the same base commit,
+model, seed, step limit, and timeout, changing only `--harness`. Each invocation
+gets a separate timestamped directory. OpenCode writes JSON events; Mini writes
+`harness.log` plus `runtime/trajectory.json`.
+
 For a conservative unattended sequential run, first complete the `pilot`
 queue, then launch the weekend queue with one worker:
 
@@ -83,6 +100,8 @@ queue, then launch the weekend queue with one worker:
 TASK_SEARCH_MODEL=albert/deepseek-v4-flash \
   scripts/run_task_search_weekend.sh
 ```
+
+Set `TASK_SEARCH_HARNESS=mini` to use Mini for the same queue.
 
 For Harness Link, use an unqualified provider model and select its adapter. A
 credential file is optional launcher plumbing and is never copied into the plan
@@ -126,14 +145,13 @@ failures or blank/whitespace/gibberish answers that incorrectly score as fully
 correct. This contract audit and the trial-authored pytest suite both run inside
 the same write sandbox as the worker.
 
-Each worker must create `generate_samples_<trial-id>.py`, run its explicitly
-permitted command, and then read the resulting `samples_<trial-id>.md`. The file
+Each worker must create `generate_samples_<trial-id>.py`, run it, and then read
+the resulting `samples_<trial-id>.md`. The file
 contains at least two actual prompt/answer pairs at levels 0, 2, and 5. The
-coordinator records whether it recognizes a successful sample command in
-OpenCode's event stream, but does not make that version-sensitive observation a
-hard gate. It requires the generator and sections to exist and OpenCode to have
-read the sample artifact after its final observed edit. It then runs
-the generator again during independent validation and requires byte-identical
+coordinator may record whether it recognizes the sample command and subsequent
+read in a harness event stream, but neither version-sensitive observation is a
+hard gate. It requires the generator and sections to exist, then runs the
+generator during independent validation and requires byte-identical
 output from the recorded trial seed. This makes qualitative inspection part of
 generation instead of a later human-only check.
 
@@ -167,7 +185,7 @@ trial has `run.json`, read these fields first:
 - `status`: only `success` passed all automated gates;
 - `outside_owned_path`: any entry is a hard scope rejection;
 - `task_metadata_matches` and `parent_source_id`: provenance checks;
-- `sample_review`: generated samples exist and were read after their last edit;
+- `sample_review`: durable sample artifacts and optional harness observations;
 - `contract_audit` and `validation`: independent exit codes;
 - `resource_limits`: the limits actually applied, rather than merely requested.
 
@@ -180,11 +198,12 @@ the coordinator or operator so attempts remain explicit and reproducible.
 
 For live progress, count JSON event types and tool calls rather than printing
 whole events: prompts and tool outputs can be very large. Poll every 30–60
-seconds at most. The OpenCode process writes `events.jsonl`; a zero-length file
-during startup is normal. Avoid recursive searches through the worktree and
-runtime cache while the worker is active.
+seconds at most. OpenCode writes `events.jsonl`; Mini writes `harness.log` and a
+trajectory under its runtime directory. A zero-length log during startup is
+normal. Avoid recursive searches through the worktree and runtime cache while
+the worker is active.
 
-Each trial directory holds `prompt.md`, `opencode.json`, `events.jsonl`,
+Each trial directory holds `prompt.md`, a harness config and log,
 `validation.log`, `contract_audit.log`, `run.json`, and `worktree/`. Statuses are
 assigned by first failing gate, in this order: `timed_out`, `harness_failed`,
 `scope_violation`, `metadata_mismatch`, `sample_review_failed`,
