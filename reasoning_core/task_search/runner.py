@@ -172,6 +172,14 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         f"3. Read `samples_{trial.trial_id}.md`: it needs two complete prompt/answer examples",
         "   at each of levels 0, 2 and 5. Fix the task and regenerate if they read badly.",
         "4. Add the full tests, inside the owned path.",
+        "",
+        "Failure modes measured on one-shot attempts at this prompt, all caught by the",
+        "step-1 smoke test:",
+        "- `Task` has no `self.rng`; seed the `random` module instead.",
+        "- metadata must be JSON-serializable: cast numpy scalars with `int`/`float`.",
+        "- import only the standard library and dependencies the repo already uses.",
+        "- `validate()` re-scores the gold answer, so `score_answer` must return 1.0",
+        "  on it and must match the answer format your prompt asks for.",
     ))
     if task_meta is not None:
         sections.extend((
