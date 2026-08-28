@@ -185,6 +185,8 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "  seed inside the task -- only the sample script seeds.",
         "- `validate()` re-scores the gold answer, so `score_answer` must return 1.0",
         "  on it and must match the answer format your prompt asks for.",
+        "- generation must survive every level: enforce construction invariants by",
+        "  resampling in a loop, never with an `assert` that only holds at level 0.",
     ))
     if task_meta is not None:
         sections.extend((
