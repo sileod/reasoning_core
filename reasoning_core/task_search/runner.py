@@ -156,11 +156,11 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "Explore with the read, glob and grep tools. bash is restricted to python, git",
         "status/diff, ls, pwd, cd, mkdir and the validation commands below, and a denied",
         "call still costs a step.",
-        "Your step budget is finite and most trials run out before finishing. The",
-        "assignment and the guides above are enough to write this task correctly, so",
-        "write the complete module in your FIRST tool call, before reading anything",
-        "from the repository. Then work in this order, exploring only with the steps",
-        "left over:",
+        f"You have {_budget_phrase(task_meta)}: one tool call is one step and a denied",
+        "call still counts. That is enough only if you do not explore -- the assignment",
+        "and the guides above already contain everything you need, and a working task",
+        "has been written from this prompt alone with no repository reads at all.",
+        "Hurry, and work in this order:",
         "1. Write the whole module under the owned path in one write: a `Config`",
         "   subclass, a `Task` subclass whose name does not contain `Task`, and the",
         "   exact TASK_META. Then smoke-test it (substitute your names) with",
@@ -238,6 +238,12 @@ def generation_metadata(model, harness_version, agent, variant=None,
 
 def _module_prefix(trial):
     return trial.owned_path.replace("/", ".")
+
+
+def _budget_phrase(task_meta):
+    steps = ((task_meta or {}).get("generation", {})
+             .get("settings", {}).get("max_steps"))
+    return f"exactly {steps} steps" if steps else "a very small step budget"
 
 
 def _seed_phrase(task_meta):
