@@ -180,7 +180,11 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         f"   `PYTHONDONTWRITEBYTECODE=1 python -c \"from {_module_prefix(trial)}"
         ".<your_module> import <YourClass> as T; [(t:=T(), t.config.set_level(L),"
         " t.validate()) for L in (0,2,5)]\"`.",
-        f"2. As soon as that smoke test passes, write `generate_samples_{trial.trial_id}.py`,",
+        f"2. As soon as that smoke test passes, write in one call both a",
+        "   `test_<your_module>.py` next to the module -- pytest collects only files named",
+        "   `test_*.py` containing `test_*` functions, and collects nothing at all if you",
+        "   leave it for later, which is the single most common way trials are losing",
+        f"   right now -- and `generate_samples_{trial.trial_id}.py`,",
         f"   seeded with{_seed_phrase(task_meta)} so it is byte-reproducible, and run",
         f"   `{_sample_command(trial)}`. Most failures so far are trials that polished the",
         "   task until the budget ran out and never reached this step; a trial with no",
@@ -190,7 +194,8 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "   needs two complete prompt/answer examples at each of levels 0, 2 and 5, and",
         "   those `Level 0` / `Level 2` / `Level 5` / `Answer` headings are checked",
         "   literally. Regenerate and re-read it after any later edit to the task.",
-        "4. Spend whatever steps remain on the full tests, inside the owned path.",
+        "4. Spend whatever steps remain widening the tests you already have, inside the",
+        "   owned path.",
         f"5. Finish by running `{_sample_command(trial)}` one last time. The harness",
         "   re-runs it and compares the file byte for byte, so a samples file written",
         "   before your last edit fails the trial even when the task itself is perfect.",
