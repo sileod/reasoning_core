@@ -236,7 +236,7 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "",
         "That last one is the gameability gate: it generates 30 examples at levels 0,",
         "3 and 6, scores the single most frequent answer against all of them, and fails",
-        "the trial if that constant guess wins more than half. A task whose answer is",
+        "the trial if that constant guess wins more than 0.4. A task whose answer is",
         "almost always the same label, or is a direct function of one number in the",
         "prompt, loses this even when every test passes -- so vary the answer",
         "distribution in the generator rather than weakening the check.",
@@ -322,7 +322,7 @@ def _prior_audit_command(trial):
     # it validates; measured on the first six wave0 tasks, two of them lost.
     return (
         "PYTHONDONTWRITEBYTECODE=1 python -m reasoning_core.task_search.prior_audit"
-        f" --path {trial.owned_path} --n 30 --max-const 0.5 --budget-seconds 45"
+        f" --path {trial.owned_path} --n 30 --max-const 0.4 --budget-seconds 45"
     )
 
 
