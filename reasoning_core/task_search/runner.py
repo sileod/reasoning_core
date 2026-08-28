@@ -185,6 +185,15 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "   those `Level 0` / `Level 2` / `Level 5` / `Answer` headings are checked",
         "   literally. Regenerate and re-read it after any later edit to the task.",
         "4. Spend whatever steps remain on the full tests, inside the owned path.",
+        f"5. Finish by running `{_sample_command(trial)}` one last time. The harness",
+        "   re-runs it and compares the file byte for byte, so a samples file written",
+        "   before your last edit fails the trial even when the task itself is perfect.",
+        "   This one call checks both staleness and hidden randomness at once:",
+        f"   `python -c \"import hashlib,runpy,pathlib;"
+        f" p=pathlib.Path('{trial.owned_path}/samples_{trial.trial_id}.md');"
+        f" h=[(runpy.run_path('{trial.owned_path}/generate_samples_{trial.trial_id}.py',"
+        " run_name='__main__'), hashlib.sha256(p.read_bytes()).hexdigest())[1]"
+        " for _ in range(2)]; print('REPRODUCIBLE' if h[0]==h[1] else 'DIFFERS', h)\"`.",
         "",
         "Failure modes measured on one-shot attempts at this prompt, all caught by the",
         "step-1 smoke test:",
@@ -195,7 +204,9 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "  a list or a symbolic answer; write the comparison your answer format needs.",
         "- `random.Random()` with no argument draws from the OS and makes the samples",
         "  irreproducible; call the module-level `random` functions instead, and do not",
-        "  seed inside the task -- only the sample script seeds.",
+        "  seed inside the task -- only the sample script seeds. A helper you call from",
+        "  the parent module may carry its own generator that `random.seed` never",
+        "  reaches, which is why step 5 checks the bytes rather than the source.",
         "- `validate()` re-scores the gold answer, so `score_answer` must return 1.0",
         "  on it and must match the answer format your prompt asks for.",
         "- generation must survive every level: enforce construction invariants by",
