@@ -12,6 +12,7 @@ class ArmPlan:
     spec: ArmSpec
     dataset: Callable[[], object]
     evaluate_endpoint: Callable[[object], dict] | None = None
+    callbacks: tuple[object, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -33,8 +34,14 @@ class InfluenceResult:
 
 
 def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metric_names,
-                  evaluate=None, evaluate_endpoints=None, evaluate_initial=None):
-    """Run one baseline and any number of treatments from identical weights."""
+                  evaluate=None, evaluate_endpoints=None, evaluate_initial=None,
+                  optimizer_state=None):
+    """Run one baseline and any number of treatments from identical weights.
+
+    ``optimizer_state`` seeds every arm's optimizer with moments carried from an
+    earlier phase. It belongs to the shared initialization, so it is applied to
+    baseline and treatments alike and cannot favour one arm over another.
+    """
 
     plans = (baseline, *treatments)
     arm_ids = [plan.spec.arm_id for plan in plans]
@@ -67,9 +74,10 @@ def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metr
 
         arm_evaluate = evaluate_final if evaluate is not None or endpoint is not None else None
         model.load_state_dict(initial_state)
+        kwargs = {"callbacks": plan.callbacks} if plan.callbacks else {}
         _, metrics = run_arm(
             model, tokenizer, plan.dataset(), plan.spec,
-            evaluate=arm_evaluate,
+            evaluate=arm_evaluate, optimizer_state=optimizer_state, **kwargs,
         )
         if metrics is None:
             raise RuntimeError(f"Arm {plan.spec.arm_id!r} was interrupted")

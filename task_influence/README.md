@@ -6,8 +6,8 @@ task improves held-out transfer against a shared baseline.
 ## Before running
 
 1. Validate the task's generation and native scorer.
-2. Materialize task rows once. Use the same rows for auxiliary training and
-   begin/end reward.
+2. Materialize task rows once. Use the same rows for auxiliary training,
+   begin/end reward, and saturation curves.
 3. Pin remote models and datasets to exact 40-character revisions. Identify local
    inputs with `content_id()`.
 4. Clone the model's initial `state_dict` once. `run_influence()` restores it before
@@ -24,6 +24,10 @@ Set `shuffle_buffer=0` when comparing with the historical results. A positive va
 is a deliberate protocol change. Put the battery and reward identifiers in
 `ArmSpec.eval_ids`; changed scientific inputs then receive a new `spec_id`
 automatically.
+
+Put the versioned saturation identifier in `ArmSpec.callback_ids`. The canonical
+callback records step zero and fixed training intervals, and resumes from its
+arm-local curve sidecar after preemption.
 
 ## Run
 

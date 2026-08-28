@@ -70,6 +70,12 @@ environment variables. Pass a small reward evaluator as `evaluate_endpoints` to
 `run_influence()` to record the shared initial reward and each arm's final reward,
 or attach it to one treatment with `ArmPlan.evaluate_endpoint`.
 
+`SaturationCurveSpec` in `saturation.py` configures periodic teacher-forced
+answer-token accuracy. Attach a `SaturationCurveCallback` to a treatment plan and
+record its `saturation_id` in `ArmSpec.callback_ids`. Curves are batched, written
+atomically under the arm directory, recovered after checkpoint resume, and included
+in the completed arm metrics.
+
 `StreamSpec` reads local JSON/JSONL/Parquet (including Parquet directories) or a
 streaming Hub dataset. Remote models and datasets require exact commit revisions;
 local inputs are identified by their content hashes.

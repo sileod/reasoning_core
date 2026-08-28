@@ -1,5 +1,6 @@
 """One resumable, content-addressed training arm."""
 
+import copy
 import hashlib
 import json
 import os
@@ -9,6 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from types import SimpleNamespace
 
+from transformers import TrainerCallback
 from trl import SFTConfig, SFTTrainer
 
 from reasoning_core import __version__
@@ -44,6 +46,8 @@ class ArmSpec:
     learning_rate: float = 1.0
     weight_decay: float = 0.01
     lr_scheduler_type: str = "constant"
+    warmup_steps: int = 0
+    carry_optimizer_state: bool = False
     max_steps: int = 10
     batch_size: int = 1
     gradient_accumulation_steps: int = 1
@@ -97,7 +101,7 @@ class ArmSpec:
             "engine_version": ENGINE_VERSION,
             "package_version": __version__,
             "dependencies": _dependency_versions(),
-            "spec": asdict(self),
+            "spec": _stable_spec(self),
         }
         return hashlib.sha256(_canonical_json(payload).encode()).hexdigest()[:16]
 
@@ -107,7 +111,8 @@ class ArmSpec:
         return home_path(RUNS_HOME / "arms" / safe_name(self.experiment_id) / name)
 
 
-def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), evaluate=None):
+def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), evaluate=None,
+            optimizer_state=None):
     """Train or resume one arm and return ``(trainer, metrics)``.
 
     A completed arm returns ``(None, metrics)``. The content-addressed directory
@@ -119,20 +124,23 @@ def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), ev
         raise ValueError("Every external callback requires a matching ArmSpec.callback_ids entry")
     if evaluate is not None and not spec.eval_ids:
         raise ValueError("External evaluation requires a versioned ArmSpec.eval_ids entry")
+    if (optimizer_state is not None) != spec.carry_optimizer_state:
+        raise ValueError("Carried optimizer state requires ArmSpec.carry_optimizer_state")
 
     run_dir = spec.run_dir
     prepare_checkpoint_dir(run_dir)
     status_path = run_dir / "status.json"
     status = _read_json(status_path)
     serialized_spec = json.loads(_canonical_json(asdict(spec)))
-    if status and status.get("spec") != serialized_spec:
+    stable_spec = json.loads(_canonical_json(_stable_spec(spec)))
+    if status and status.get("spec") != stable_spec:
         raise RuntimeError(f"Arm state has a different spec in {status_path}")
     if status and status.get("state") == "complete":
         return None, status["metrics"]
 
     provenance = _provenance(spec)
     _write_json(status_path, {
-        "state": "running", "spec": serialized_spec, "provenance": provenance,
+        "state": "running", "spec": stable_spec, "provenance": provenance,
     })
     sink = LocalMetricsSink(
         run_dir / "metrics.jsonl",
@@ -153,12 +161,13 @@ def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), ev
     checkpoint = ResumableCheckpointCallback(
         spec.checkpoint_every_minutes, save_final=spec.save_final,
     )
+    carried = [_CarriedOptimizerState(optimizer_state)] if optimizer_state is not None else []
     trainer = trainer_cls(
         model=model,
         processing_class=tokenizer,
         train_dataset=dataset,
         eval_dataset=eval_dataset,
-        callbacks=[LocalMetricsCallback(sink), checkpoint, *callbacks],
+        callbacks=[LocalMetricsCallback(sink), checkpoint, *carried, *callbacks],
         args=SFTConfig(
             output_dir=str(run_dir),
             max_steps=spec.max_steps,
@@ -167,6 +176,7 @@ def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), ev
             learning_rate=spec.learning_rate,
             weight_decay=spec.weight_decay,
             lr_scheduler_type=spec.lr_scheduler_type,
+            warmup_steps=spec.warmup_steps,
             optim=spec.optimizer if not schedule_free else "adamw_torch",
             max_grad_norm=0.0 if schedule_free else 1.0,
             max_length=spec.max_length,
@@ -189,7 +199,7 @@ def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), ev
     result = trainer.train(resume_from_checkpoint=latest_complete_checkpoint(run_dir))
     if checkpoint.interrupted:
         _write_json(status_path, {
-            "state": "interrupted", "spec": serialized_spec, "provenance": provenance,
+            "state": "interrupted", "spec": stable_spec, "provenance": provenance,
         })
         return trainer, None
     metrics = {"train_loss": result.training_loss, "global_step": trainer.state.global_step}
@@ -197,8 +207,13 @@ def run_arm(model, tokenizer, dataset, spec, eval_dataset=None, callbacks=(), ev
         metrics.update(trainer.evaluate())
     if evaluate is not None:
         metrics.update(_evaluate_model(model, evaluate, trainer.optimizer, schedule_free))
+    callback_metrics = _callback_metrics(callbacks)
+    overlap = metrics.keys() & callback_metrics.keys()
+    if overlap:
+        raise ValueError(f"Duplicate callback metrics: {', '.join(sorted(overlap))}")
+    metrics.update(callback_metrics)
     _write_json(status_path, {
-        "state": "complete", "spec": serialized_spec,
+        "state": "complete", "spec": stable_spec,
         "provenance": provenance, "metrics": metrics,
     })
     return trainer, metrics
@@ -258,6 +273,47 @@ def _evaluate_model(model, evaluate, optimizer, schedule_free):
     context = optimizer_eval_mode(optimizer) if schedule_free else nullcontext()
     with context:
         return evaluate(model)
+
+
+def _callback_metrics(callbacks):
+    metrics = {}
+    for callback in callbacks:
+        result = getattr(callback, "result_metrics", lambda: {})()
+        overlap = metrics.keys() & result.keys()
+        if overlap:
+            raise ValueError(f"Duplicate callback metrics: {', '.join(sorted(overlap))}")
+        metrics.update(result)
+    return metrics
+
+
+# Fields added after arms exist are spelled as ABSENT at their default value, so every id and
+# status.json written before they existed stays byte-identical and in-flight runs stay resumable.
+_ADDED_FIELDS = {"warmup_steps": 0, "carry_optimizer_state": False}
+
+
+def _stable_spec(spec):
+    payload = asdict(spec)
+    for name, default in _ADDED_FIELDS.items():
+        if payload.get(name) == default:
+            payload.pop(name, None)
+    return payload
+
+
+class _CarriedOptimizerState(TrainerCallback):
+    """Seed a fresh run's optimizer with moments carried from an earlier phase.
+
+    Deep-copied per arm: ``load_state_dict`` reuses tensors that already match the
+    parameter device and dtype, so a shared template would otherwise be trained in
+    place by the first arm and hand arm two a different starting point.
+    """
+
+    def __init__(self, state):
+        self.state = state
+
+    def on_train_begin(self, args, state, control, optimizer=None, **kwargs):
+        if optimizer is None or state.global_step:
+            return
+        optimizer.load_state_dict(copy.deepcopy(self.state))
 
 
 def safe_name(value):

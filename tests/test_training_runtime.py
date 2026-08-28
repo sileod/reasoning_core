@@ -2,6 +2,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+import torch
 
 from reasoning_core.training.battery import (
     EvalBattery, EvalLeg, evaluate_battery, load_battery_manifest, paper_battery,
@@ -26,6 +27,10 @@ from reasoning_core.training.evals import (
 from reasoning_core.training.influence import ArmPlan, run_influence
 from reasoning_core.training.intrinsic_rewards import (
     FreeGenRewardSpec, free_gen_reward, reward_id,
+)
+from reasoning_core.training.saturation import (
+    SaturationCurveCallback, SaturationCurveSpec, answer_token_accuracy,
+    derive_saturation, saturation_id,
 )
 
 
@@ -670,6 +675,76 @@ def test_free_gen_reward_is_configured_and_content_addressed(monkeypatch):
     assert reward_id(rows, spec, 20) != reward_id(rows[:-1], spec, 20)
     row_object = SimpleNamespace(to_dict=lambda: rows[0])
     assert reward_id([row_object], spec, 20) == reward_id([rows[0]], spec, 20)
+
+
+def test_answer_token_saturation_is_batched_versioned_and_resumable(tmp_path):
+    class Tokenizer:
+        eos_token = "<eos>"
+        eos_token_id = pad_token_id = 0
+
+        def __call__(self, text, add_special_tokens=False):
+            return SimpleNamespace(input_ids=[int(word) for word in text.replace("<eos>", " 0").split()])
+
+    class Model:
+        training = True
+
+        def parameters(self):
+            yield torch.zeros(1)
+
+        def eval(self):
+            self.training = False
+
+        def train(self, mode=True):
+            self.training = mode
+
+        def __call__(self, input_ids, attention_mask):
+            logits = torch.zeros((*input_ids.shape, 10))
+            logits[:, :-1].scatter_(2, input_ids[:, 1:, None], 1)
+            return SimpleNamespace(logits=logits)
+
+    rows = ({"prompt": "1", "answer": "2 3"}, {"prompt": "4", "answer": "5"})
+    spec = SaturationCurveSpec(every_steps=2, n_eval=2, batch_size=2)
+    model, tokenizer = Model(), Tokenizer()
+    assert answer_token_accuracy(model, tokenizer, rows, 10, batch_size=2) == 1.0
+    assert model.training
+    assert saturation_id(rows, spec, 10) != saturation_id(rows[:1], spec, 10)
+
+    path = tmp_path / "saturation.json"
+    callback = SaturationCurveCallback(tokenizer, rows, spec, 10, path)
+    state = SimpleNamespace(global_step=0)
+    callback.on_train_begin(None, state, None, model=model)
+    state.global_step = 2
+    callback.on_step_end(None, state, None, model=model)
+    assert callback.result_metrics()["saturation"]["curve"] == [[0, 1.0], [2, 1.0]]
+    resumed = SaturationCurveCallback(tokenizer, rows, spec, 10, path)
+    resumed.on_step_end(None, state, None, model=model)
+    assert resumed.result_metrics()["saturation"]["n_points"] == 2
+    assert derive_saturation([[0, 0.5], [2, 1.0]])["sat_step"] == 2
+
+
+def test_influence_passes_versioned_callbacks_to_treatment(monkeypatch):
+    seen = []
+
+    class Model:
+        def load_state_dict(self, state):
+            pass
+
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None, callbacks=()):
+        seen.append((spec.arm_id, callbacks))
+        return None, {"nll": 1.0}
+
+    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    base = ArmSpec("exp", "base", initialization_id="init", main_data_id="main")
+    treatment = ArmSpec(
+        "exp", "task", initialization_id="init", main_data_id="main",
+        callback_ids=("saturation/v1",),
+    )
+    callback = object()
+    run_influence(
+        Model(), None, {}, ArmPlan(base, lambda: None),
+        (ArmPlan(treatment, lambda: None, callbacks=(callback,)),), metric_names=("nll",),
+    )
+    assert seen == [("base", ()), ("task", (callback,))]
 
 
 def test_paired_influence_rejects_duplicate_arm_ids():

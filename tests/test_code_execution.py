@@ -87,6 +87,23 @@ def test_imperative_is_the_default_with_gramforge_opt_in():
         code_tasks.execution_case(MesopyCodeCfg(backend="unknown"))
 
 
+def test_imperative_difficulty_trades_source_scale_for_semantic_complexity():
+    low = code_tasks._imperative_generator(MesopyCodeCfg())
+    high_cfg = MesopyCodeCfg()
+    high_cfg.set_level(6)
+    high = code_tasks._imperative_generator(high_cfg)
+
+    assert high.config.complexity.statements <= 2 * low.config.complexity.statements
+    assert high.config.complexity.expr_depth == low.config.complexity.expr_depth + 1
+    assert high.config.complexity.control_depth == low.config.complexity.control_depth + 1
+    assert high.config.complexity.dataflow_depth > low.config.complexity.dataflow_depth
+    assert high.config.complexity.loop_bound > low.config.complexity.loop_bound
+    assert high.config.input_arity[1] > low.config.input_arity[1]
+    assert high.config.risk_rate > low.config.risk_rate
+    assert high.config.phenomenon_rate > low.config.phenomenon_rate
+    assert high.config.max_source_chars == high_cfg.max_code_chars
+
+
 def test_default_code_tasks_use_imperative_backend():
     execution = code_tasks.CodeExecution().generate_entry()
     runnable, failing = CodeRunnability().generate_examples(max_tokens=0)

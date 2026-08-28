@@ -105,6 +105,17 @@ def test_complexity_is_recursively_productive_and_measured():
     assert medians[0]["dynamic_steps"] < medians[1]["dynamic_steps"] < medians[2]["dynamic_steps"]
 
 
+def test_source_budget_is_enforced_during_generation():
+    cfg = MesopyConfig(
+        complexity=MesopyComplexity.level(6),
+        max_source_chars=2100,
+        max_attempts=64,
+    )
+    for seed in range(12):
+        sample = ImperativeMesopy(cfg, seed=seed).execution()
+        assert len(sample.code) <= cfg.max_source_chars
+
+
 def test_controlled_phenomena_are_a_subset_not_the_program_skeleton():
     assert set(CONTROLLED_PHENOMENA) < set(PHENOMENA)
     for phenomenon in PHENOMENA:
