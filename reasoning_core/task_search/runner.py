@@ -158,9 +158,12 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "call still costs a step.",
         "Your step budget is finite and most trials run out before finishing, so work in",
         "this order and explore only with the steps left over:",
-        "1. Implement the task with the exact TASK_META; pass a small validate smoke test.",
-        f"2. Write `generate_samples_{trial.trial_id}.py`, seeded with the recorded",
-        f"   requested_seed so it is byte-reproducible, and run `{_sample_command(trial)}`.",
+        "1. Implement the task with the exact TASK_META, then smoke-test it with",
+        f"   `PYTHONDONTWRITEBYTECODE=1 python -c \"from {_module_prefix(trial)}"
+        ".<your_module> import Task; Task().validate()\"`.",
+        f"2. Write `generate_samples_{trial.trial_id}.py`, seeded with"
+        f"{_seed_phrase(task_meta)} so it is byte-reproducible, and run",
+        f"   `{_sample_command(trial)}`.",
         f"3. Read `samples_{trial.trial_id}.md`: it needs two complete prompt/answer examples",
         "   at each of levels 0, 2 and 5. Fix the task and regenerate if they read badly.",
         "4. Add the full tests, inside the owned path.",
@@ -218,6 +221,16 @@ def generation_metadata(model, harness_version, agent, variant=None,
         "agent_name": agent,
         "settings": settings,
     }
+
+
+def _module_prefix(trial):
+    return trial.owned_path.replace("/", ".")
+
+
+def _seed_phrase(task_meta):
+    seed = ((task_meta or {}).get("generation", {})
+            .get("settings", {}).get("requested_seed"))
+    return f" seed {seed}" if seed is not None else " the recorded requested_seed"
 
 
 def _sample_command_for(owned_path, trial_id):
