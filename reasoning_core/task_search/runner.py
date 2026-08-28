@@ -959,6 +959,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         status = "harness_failed"
     elif outside:
         status = "scope_violation"
+    elif not changed_paths:
+        # Nothing outside owned + nothing at all == the trial wrote no files.
+        status = "no_implementation"
     elif not metadata_ok:
         status = "metadata_mismatch"
     elif not sample_review["ok"]:

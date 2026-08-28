@@ -206,7 +206,7 @@ the worker is active.
 Each trial directory holds `prompt.md`, a harness config and log,
 `validation.log`, `contract_audit.log`, `run.json`, and `worktree/`. Statuses are
 assigned by first failing gate, in this order: `timed_out`, `harness_failed`,
-`scope_violation`, `metadata_mismatch`, `sample_review_failed`,
+`scope_violation`, `no_implementation`, `metadata_mismatch`, `sample_review_failed`,
 `contract_failed`, `sample_not_reproducible`, `validation_failed`, `success`.
 A later status therefore implies every earlier gate passed. A trial that raised
 inside the coordinator itself is recorded as `orchestration_error` in
