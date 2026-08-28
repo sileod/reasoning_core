@@ -240,10 +240,17 @@ def opencode_permissions(trial):
         "git diff*": "allow",
         "python -c *": "allow",
         "PYTHONDONTWRITEBYTECODE=1 python -c *": "allow",
+        # Navigation only; none of these can read file contents, so the
+        # *.env read deny still holds. Denying them wasted ~30% of turns.
+        "ls*": "allow",
+        "pwd*": "allow",
+        "cd *": "allow",
+        "mkdir *": "allow",
     }
-    for command in trial.validation:
+    # Trailing "*" so added flags and pipes still match the allowed command.
+    for command in list(trial.validation) + [_sample_command(trial)]:
         bash[command] = "allow"
-    bash[_sample_command(trial)] = "allow"
+        bash[command + "*"] = "allow"
     permissions = {
         "read": {"*": "allow", "*.env": "deny", "*.env.*": "deny"},
         "glob": "allow",
@@ -466,9 +473,9 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
             continue
         file_path = str(state.get("input", {}).get("filePath", ""))
         bash_command = state.get("input", {}).get("command", "")
-        command_matches = (
-            bash_command == expected_command
-            or bash_command.endswith("&& " + expected_command)
+        command_matches = any(
+            segment.strip().startswith(expected_command)
+            for segment in bash_command.split("&&")
         )
         if (part.get("tool") == "bash" and command_matches
                 and state.get("metadata", {}).get("exit") == 0):
