@@ -161,7 +161,7 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "and the guides above already contain everything you need, and a working task",
         "has been written from this prompt alone with no repository reads at all.",
         "Hurry, and work in this order:",
-        "1. Write the whole module under the owned path in one write: a `Config`",
+        "1. Your FIRST tool call writes the whole module under the owned path: a `Config`",
         "   subclass, a `Task` subclass whose name does not contain `Task`, and the",
         "   exact TASK_META. Then smoke-test it (substitute your names) with",
         f"   `PYTHONDONTWRITEBYTECODE=1 python -c \"from {_module_prefix(trial)}"
