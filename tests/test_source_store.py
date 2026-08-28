@@ -1,0 +1,52 @@
+from concurrent.futures import ThreadPoolExecutor
+
+from reasoning_core.source_store import SourceStore, snapshot_parent
+
+
+def test_same_source_has_same_id_and_round_trips_exactly(tmp_path):
+    store = SourceStore(tmp_path / ".evolution" / "objects")
+    source = "# coding: utf-8\nvalue = 'é'\n\n"
+
+    first = store.put(source)
+    second = store.put(source)
+
+    assert first == second
+    assert store.get(first) == source
+    assert (store.objects_dir / first[:2] / f"{first}.py").is_file()
+
+
+def test_parent_snapshot_survives_changes_and_rename(tmp_path):
+    store = SourceStore(tmp_path / ".evolution" / "objects")
+    parent = tmp_path / "parent.py"
+    original = "class Parent:\n    pass\n"
+    parent.write_text(original)
+
+    parent_source, metadata = snapshot_parent(
+        parent,
+        idea="try a variant",
+        hypothesis="the variant improves hard examples",
+        changes="change generation",
+        store=store,
+    )
+    parent.write_text("class Changed:\n    pass\n")
+    parent.rename(tmp_path / "renamed.py")
+
+    assert parent_source == original
+    assert store.get(metadata["parent_source_id"]) == original
+    assert metadata == {
+        "parent_source_id": store.put(original),
+        "idea": "try a variant",
+        "hypothesis": "the variant improves hard examples",
+        "changes": "change generation",
+    }
+
+
+def test_concurrent_identical_put_is_atomic(tmp_path):
+    store = SourceStore(tmp_path / ".evolution" / "objects")
+    source = "x = 1\n" * 10_000
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        source_ids = list(pool.map(store.put, [source] * 32))
+
+    assert len(set(source_ids)) == 1
+    assert store.get(source_ids[0]) == source

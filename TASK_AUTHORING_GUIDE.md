@@ -169,8 +169,10 @@ generates within the per-task ceiling and its reference answer scores `1`.
 
 
 ## Registration and Discovery
-- Any `Task` subclass in `reasoning_core/tasks/*.py` is auto-discovered by AST and lazy-loaded through `reasoning_core.__init__.py`.
+- Any `Task` subclass under `reasoning_core/tasks/` is auto-discovered by AST and lazy-loaded through `reasoning_core.__init__.py`.
 - `task_name` defaults to snake_case class name.
+- Keep stable hand-authored tasks at the top level. Promoted machine-generated tasks remain in `tasks/generated/`; they are not moved into the top-level folder.
+- See `TASK_MUTATION_GUIDE.md` for experimental descendants, provenance, and promotion.
 
 ## Gallery
 - If requested, refresh examples with `python scripts/build_gallery.py`.

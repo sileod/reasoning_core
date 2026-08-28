@@ -12,6 +12,7 @@ import json
 from tqdm.auto import tqdm
 from pathlib import Path
 from .template import _REGISTRY, edict, prepr_task_name
+from .source_store import SourceStore
 from . import tasks
 from .zero_shot_eval import evaluate_model
 
@@ -94,6 +95,10 @@ def _lazy_loader(task_name, module_name, class_name=None):
     return _REGISTRY[task_name]
 
 _task_to_module_map, _dev_task_to_module_map = _discover_tasks()
+_mutated_task_names = {
+    task_name for task_name, (module_name, _) in _task_to_module_map.items()
+    if module_name.split(".", 1)[0] == "mutated"
+}
 
 DATASETS = {
     task_name: _PrettyLazy(task_name, module_name)
@@ -145,8 +150,11 @@ DEPRECATED = ['symbolic_arithmetics', 'graph_node_centrality']
 # count_elements absorbed into set_expression's multiset Count(x, S) mode (toyish standalone; zero-shot 1.0)
 ignored = DEPRECATED + ['reasonining_gym', 'count_elements']
 
-def list_tasks():
-    return [k for k in DATASETS.keys() if k not in ignored]
+def list_tasks(include_mutated=False):
+    return [
+        k for k in DATASETS.keys()
+        if k not in ignored and (include_mutated or k not in _mutated_task_names)
+    ]
 
 
 def get_score_answer_fn(task_name, *args, **kwargs):
@@ -187,4 +195,4 @@ def register_to_reasoning_gym():
             reasoning_gym.register_dataset(task_name, task.__class__, task.config.__class__)
 
 
-__all__ = ["DATASETS", "get_score_answer_fn", "register_to_reasoning_gym"]
+__all__ = ["DATASETS", "SourceStore", "get_score_answer_fn", "register_to_reasoning_gym"]

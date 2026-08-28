@@ -57,6 +57,7 @@ Browse all [65 task examples](GALLERY.md).
 
 A task authoring guide describes the interface and guidelines.  
 [TASK_AUTHORING_GUIDE](https://github.com/sileod/reasoning-core/blob/main/TASK_AUTHORING_GUIDE.md)
+[TASK_MUTATION_GUIDE](TASK_MUTATION_GUIDE.md)
 [TRAINING_AND_INFLUENCE](reasoning_core/training/README.md)
 [TASK_INFLUENCE](task_influence/README.md)
 

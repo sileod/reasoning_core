@@ -96,6 +96,7 @@ include = [
     "/LICENSE",
     "/README.md",
     "/TASK_AUTHORING_GUIDE.md",
+    "/TASK_MUTATION_GUIDE.md",
     "/pyproject.toml",
     "/reasoning_core",
     "/task_influence",
