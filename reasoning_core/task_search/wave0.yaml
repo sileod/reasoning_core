@@ -60,6 +60,37 @@ queues:
     - M10
     - M13
 
+  retry_a:
+    - N1
+    - N2
+    - N3
+    - N4
+    - N5
+    - N6
+    - N7
+    - N8
+    - N9
+    - N10
+    - N11
+    - N12
+    - M1
+    - M2
+    - M3
+    - M4
+    - M5
+    - M7
+    - M8
+    - M9
+    - M10
+    - M11
+    - M12
+    - M13
+    - M14
+    - M17
+    - M18
+    - M19
+    - M20
+
 defaults:
   base_ref: cc1e4a4
 
