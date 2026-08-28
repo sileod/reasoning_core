@@ -231,7 +231,15 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "",
         "```text",
         *trial.validation,
+        _prior_audit_command(trial),
         "```",
+        "",
+        "That last one is the gameability gate: it generates 30 examples at levels 0,",
+        "3 and 6, scores the single most frequent answer against all of them, and fails",
+        "the trial if that constant guess wins more than half. A task whose answer is",
+        "almost always the same label, or is a direct function of one number in the",
+        "prompt, loses this even when every test passes -- so vary the answer",
+        "distribution in the generator rather than weakening the check.",
         "",
         "Finish with a concise summary of changes and validation results.",
         "",
@@ -309,6 +317,15 @@ def _sample_command(trial):
     return _sample_command_for(trial.owned_path, trial.trial_id)
 
 
+def _prior_audit_command(trial):
+    # A task a single fixed answer wins is not measuring reasoning, however well
+    # it validates; measured on the first six wave0 tasks, two of them lost.
+    return (
+        "PYTHONDONTWRITEBYTECODE=1 python -m reasoning_core.task_search.prior_audit"
+        f" --path {trial.owned_path} --n 30 --max-const 0.5 --budget-seconds 45"
+    )
+
+
 def opencode_permissions(trial):
     bash = {
         "*": "deny",
@@ -324,7 +341,8 @@ def opencode_permissions(trial):
         "mkdir *": "allow",
     }
     # Trailing "*" so added flags and pipes still match the allowed command.
-    for command in list(trial.validation) + [_sample_command(trial)]:
+    for command in (list(trial.validation) + [_sample_command(trial),
+                                              _prior_audit_command(trial)]):
         bash[command] = "allow"
         bash[command + "*"] = "allow"
     permissions = {
@@ -1002,7 +1020,8 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         hashlib.sha256(sample_path.read_bytes()).hexdigest()
         if sample_path.is_file() else None
     )
-    validation_commands = (_sample_command(trial), *trial.validation)
+    validation_commands = (_sample_command(trial), *trial.validation,
+                           _prior_audit_command(trial))
     validation = [] if not gates_open else _run_validation(
         worktree, validation_commands, trial_root / "validation.log",
         owned_path=trial.owned_path,
