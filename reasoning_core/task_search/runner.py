@@ -803,7 +803,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     worktree = trial_root / "worktree"
     trial_root.mkdir(parents=True)
     subprocess.run(
-        ["git", "worktree", "add", "--detach", str(worktree), base_commit],
+        ["git", "worktree", "add", "-q", "--detach", str(worktree), base_commit],
         cwd=repo_root,
         check=True,
         stdout=subprocess.DEVNULL,
