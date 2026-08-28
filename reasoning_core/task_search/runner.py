@@ -163,9 +163,11 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "Hurry, and work in this order:",
         "1. Your FIRST tool call writes the whole module under the owned path: a `Config`",
         "   subclass, a `Task` subclass whose name does not contain `Task`, and the",
-        "   exact TASK_META. Then smoke-test it (substitute your names) with",
+        "   exact TASK_META. Then smoke-test every level the samples need, in one step",
+        "   (substitute your names):",
         f"   `PYTHONDONTWRITEBYTECODE=1 python -c \"from {_module_prefix(trial)}"
-        ".<your_module> import <YourClass>; <YourClass>().validate()\"`.",
+        ".<your_module> import <YourClass> as T; [(t:=T(), t.config.set_level(L),"
+        " t.validate()) for L in (0,2,5)]\"`.",
         f"2. Write `generate_samples_{trial.trial_id}.py`, seeded with"
         f"{_seed_phrase(task_meta)} so it is byte-reproducible, and run",
         f"   `{_sample_command(trial)}`.",
