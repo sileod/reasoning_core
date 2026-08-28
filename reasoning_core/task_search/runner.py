@@ -180,6 +180,9 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "- `Task` has no `self.rng`; seed the `random` module instead.",
         "- metadata must be JSON-serializable: cast numpy scalars with `int`/`float`.",
         "- import only the standard library and dependencies the repo already uses.",
+        "- `random.Random()` with no argument draws from the OS and makes the samples",
+        "  irreproducible; call the module-level `random` functions instead, and do not",
+        "  seed inside the task -- only the sample script seeds.",
         "- `validate()` re-scores the gold answer, so `score_answer` must return 1.0",
         "  on it and must match the answer format your prompt asks for.",
     ))
