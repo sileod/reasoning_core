@@ -89,7 +89,7 @@ queues:
     - M20
 
 defaults:
-  base_ref: f4a58332140df20fb8fce3105f72f13cd040225e
+  base_ref: 274d119ce59d3f73ca80c0e224d11335d809f6e8
 
 context_files:
   - AGENTS.md
