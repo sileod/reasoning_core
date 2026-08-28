@@ -9,10 +9,12 @@ from reasoning_core.task_search.runner import (
     _outside_owned,
     _opencode_command,
     _resource_command,
+    _resolve_opencode_executable,
     _run_validation,
     _sandbox_command,
     _sample_review,
     _sample_command,
+    _sanitized_environment,
     _select_trials,
     _task_classes,
     generation_metadata,
@@ -162,6 +164,19 @@ def test_harness_link_wraps_opencode_without_replacing_its_arguments(monkeypatch
     ]
 
 
+def test_harness_link_probes_the_opencode_it_resolves_from_path(monkeypatch):
+    resolved = {
+        "opencode": "/actual/path/opencode",
+        "/unused/custom-opencode": "/unused/custom-opencode",
+    }
+    monkeypatch.setattr("shutil.which", resolved.get)
+
+    executable = _resolve_opencode_executable(
+        "harness-link", "/unused/custom-opencode")
+
+    assert executable == "/actual/path/opencode"
+
+
 def test_systemd_resource_wrapper_records_hard_limits():
     command = _resource_command(["bwrap", "true"], {
         "enabled": True,
@@ -231,7 +246,7 @@ def test_sample_review_requires_sections_and_read_after_write(tmp_path):
     assert review["ok"] is True
 
 
-def test_sample_review_uses_shell_exit_code_not_tool_completion(tmp_path):
+def test_sample_command_exit_is_observed_but_not_a_hard_gate(tmp_path):
     owned = "reasoning_core/tasks/generated/wave/example"
     root = tmp_path / owned
     root.mkdir(parents=True)
@@ -260,7 +275,7 @@ def test_sample_review_uses_shell_exit_code_not_tool_completion(tmp_path):
     review = _sample_review(tmp_path, owned, "N1", events)
 
     assert review["command_succeeded"] is False
-    assert review["ok"] is False
+    assert review["ok"] is True
 
 
 def test_sample_review_requires_read_after_last_generator_run(tmp_path):
@@ -318,6 +333,37 @@ def test_independent_validation_times_out(tmp_path):
         "exit_code": 124,
         "timed_out": True,
     }]
+
+
+def test_validation_environment_removes_named_credentials(monkeypatch):
+    monkeypatch.setenv("ALBERT_API_KEY", "secret")
+    monkeypatch.setenv("KEEP_ME", "visible")
+
+    environment = _sanitized_environment(("ALBERT_API_KEY",))
+
+    assert "ALBERT_API_KEY" not in environment
+    assert environment["KEEP_ME"] == "visible"
+
+
+def test_sandboxed_validation_does_not_receive_named_credential(monkeypatch):
+    monkeypatch.setenv("ALBERT_API_KEY", "secret")
+    with tempfile.TemporaryDirectory(prefix=".task-search-test-", dir=ROOT) as root:
+        root = Path(root)
+        worktree = root / "worktree"
+        (worktree / "owned").mkdir(parents=True)
+        results = _run_validation(
+            worktree,
+            ('test -z "${ALBERT_API_KEY+x}"',),
+            root / "validation.log",
+            owned_path="owned",
+            runtime_root=root / "runtime",
+            bwrap_bin="bwrap",
+            resource_limits={"enabled": False},
+            timeout_seconds=5,
+            credential_env_names=("ALBERT_API_KEY",),
+        )
+
+    assert results[0]["exit_code"] == 0
 
 
 def test_sample_generator_command_is_allowed():

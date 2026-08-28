@@ -67,6 +67,7 @@ curl -fsSL https://raw.githubusercontent.com/sileod/harness-link/main/install.sh
 export ALBERT_API_KEY=...
 python -m reasoning_core.task_search run reasoning_core/task_search/wave0.yaml \
   --adapter harness-link --provider albert --model deepseek-v4-flash \
+  --credential-env ALBERT_API_KEY \
   --jobs 1 --seed 20260828 --trial M1
 ```
 
@@ -128,8 +129,10 @@ the same write sandbox as the worker.
 Each worker must create `generate_samples_<trial-id>.py`, run its explicitly
 permitted command, and then read the resulting `samples_<trial-id>.md`. The file
 contains at least two actual prompt/answer pairs at levels 0, 2, and 5. The
-coordinator checks that the sample command succeeded, the generator and sections
-exist, and OpenCode read the sample artifact after its final edit. It then runs
+coordinator records whether it recognizes a successful sample command in
+OpenCode's event stream, but does not make that version-sensitive observation a
+hard gate. It requires the generator and sections to exist and OpenCode to have
+read the sample artifact after its final observed edit. It then runs
 the generator again during independent validation and requires byte-identical
 output from the recorded trial seed. This makes qualitative inspection part of
 generation instead of a later human-only check.
@@ -185,9 +188,10 @@ Each trial directory holds `prompt.md`, `opencode.json`, `events.jsonl`,
 `validation.log`, `contract_audit.log`, `run.json`, and `worktree/`. Statuses are
 assigned by first failing gate, in this order: `timed_out`, `harness_failed`,
 `scope_violation`, `metadata_mismatch`, `sample_review_failed`,
-`contract_failed`, `validation_failed`, `success`. A later status therefore
-implies every earlier gate passed. A trial that raised inside the coordinator
-itself is recorded as `orchestration_error` in `summary.json` only, with
+`contract_failed`, `sample_not_reproducible`, `validation_failed`, `success`.
+A later status therefore implies every earlier gate passed. A trial that raised
+inside the coordinator itself is recorded as `orchestration_error` in
+`summary.json` only, with
 `error_type` and `error` and no `run.json` and no worktree path; that is a bug
 report about the runner, not about the candidate task.
 
@@ -197,7 +201,7 @@ a separate five-minute wall-clock limit, configurable with
 queue continues. The enclosing systemd scope and Bubblewrap's parent-death
 handling apply to these commands too.
 
-`validation_failed` also covers a non-reproducible sample artifact: the
+`sample_not_reproducible` identifies a non-reproducible sample artifact: the
 coordinator hashes `samples_<ID>.md`, re-runs the generator, and requires the
 same bytes back. A generator seeded from the clock, or otherwise unseeded, fails
 this gate with every validation command still exiting 0, so read
@@ -225,6 +229,23 @@ and 400% CPU. The weekend launcher uses `--resource-limits required` and fails
 before launching if those controls are unavailable. Limits and whether they were
 applied are recorded; use `--resource-limits none` only for an explicitly
 unbounded run.
+
+The fail-closed weekend launcher requires a working user systemd manager. Check
+it before leaving a run unattended:
+
+```bash
+systemd-run --user --scope --quiet --collect true
+```
+
+If the user manager does not survive logout, enable lingering where permitted
+(`loginctl enable-linger "$USER"`) or launch from a persistent login/session.
+The runner aborts before creating a trial when the required scope is unavailable.
+
+The worker harness necessarily receives its provider credential. Coordinator-run
+sample generation, contract audits, and tests remove every variable named with
+`--credential-env`; the weekend launcher forwards `TASK_SEARCH_KEY_ENV`
+automatically. This reduces credential exposure in model-authored validation
+code, but does not turn the worker itself into a confidentiality sandbox.
 
 Harness Link Spawn is not currently a task-search sandbox backend: its local
 sandbox mounts the whole workspace read-write. It becomes a suitable stronger

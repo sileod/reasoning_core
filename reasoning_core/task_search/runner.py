@@ -221,11 +221,15 @@ def generation_metadata(model, harness_version, agent, variant=None,
     }
 
 
-def _sample_command(trial):
+def _sample_command_for(owned_path, trial_id):
     return (
         "PYTHONDONTWRITEBYTECODE=1 python "
-        f"{trial.owned_path}/generate_samples_{trial.trial_id}.py"
+        f"{owned_path}/generate_samples_{trial_id}.py"
     )
+
+
+def _sample_command(trial):
+    return _sample_command_for(trial.owned_path, trial.trial_id)
 
 
 def opencode_permissions(trial):
@@ -311,6 +315,17 @@ def _adapter_command(command, *, adapter, provider=None, adapter_bin=None,
     return [executable, "opencode", "--model", model, "--", *command[1:]]
 
 
+def _resolve_opencode_executable(adapter, opencode_bin):
+    # Harness Link resolves its own `opencode` from PATH and discards the
+    # executable in the wrapped command. Probe exactly the binary it will use.
+    requested = "opencode" if adapter == "harness-link" else opencode_bin
+    executable = shutil.which(requested)
+    if executable is None:
+        context = " on Harness Link PATH" if adapter == "harness-link" else ""
+        raise RuntimeError(f"OpenCode executable not found{context}: {requested!r}")
+    return executable
+
+
 def _changed_paths(worktree):
     raw = subprocess.check_output(
         ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
@@ -371,10 +386,7 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
             marker in content for marker in ("level 0", "level 2", "level 5", "answer")
         )
     target = "/" + result["path"]
-    expected_command = (
-        "PYTHONDONTWRITEBYTECODE=1 python "
-        f"{owned_path}/generate_samples_{trial_id}.py"
-    )
+    expected_command = _sample_command_for(owned_path, trial_id)
     last_write = -1
     last_read = -1
     try:
@@ -412,7 +424,6 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
     result["ok"] = (
         result["generator_exists"] and result["exists"] and result["size_bytes"] > 0
         and result["required_sections"] and result["read_after_last_edit"]
-        and result["command_succeeded"]
     )
     return result
 
@@ -467,15 +478,16 @@ def _resolve_resource_limits(mode, *, systemd_run_bin="systemd-run",
     if mode == "none":
         return {"enabled": False, "mode": mode}
     executable = shutil.which(systemd_run_bin)
+    true_executable = shutil.which("true")
     error = None
-    if executable:
+    if executable and true_executable:
         probe = subprocess.run(
             [
                 executable, "--user", "--scope", "--quiet", "--collect",
                 "-p", f"MemoryMax={memory_max}",
                 "-p", f"TasksMax={tasks_max}",
                 "-p", f"CPUQuota={cpu_quota}",
-                "--", "/usr/bin/true",
+                "--", true_executable,
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
@@ -495,18 +507,31 @@ def _resolve_resource_limits(mode, *, systemd_run_bin="systemd-run",
                 "cpu_quota": cpu_quota,
             }
         error = probe.stderr.strip() or f"exit code {probe.returncode}"
-    else:
+    elif not executable:
         error = f"command not found: {systemd_run_bin}"
+    else:
+        error = "command not found: true"
     if mode == "required":
         raise RuntimeError(f"resource limits unavailable: {error}")
     return {"enabled": False, "mode": mode, "reason": error}
 
 
 def _public_resource_limits(resource_limits):
+    fields = {
+        "enabled", "mode", "name", "version", "memory_max", "tasks_max",
+        "cpu_quota",
+    }
     return {
         key: value for key, value in resource_limits.items()
-        if key != "executable"
+        if key in fields
     }
+
+
+def _sanitized_environment(credential_env_names=()):
+    environment = dict(os.environ)
+    for name in credential_env_names:
+        environment.pop(name, None)
+    return environment
 
 
 def _sandbox_command(command, *, worktree, owned_path, runtime_root,
@@ -569,8 +594,11 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
 
 
 def _run_validation(worktree, commands, log_path, *, owned_path, runtime_root,
-                    bwrap_bin, resource_limits, timeout_seconds):
+                    bwrap_bin, resource_limits, timeout_seconds,
+                    credential_env_names=()):
     results = []
+    environment = _sanitized_environment(credential_env_names)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     with log_path.open("w") as log:
         for command in commands:
             log.write(f"$ {command}\n")
@@ -587,6 +615,7 @@ def _run_validation(worktree, commands, log_path, *, owned_path, runtime_root,
                 completed = subprocess.run(
                     sandboxed,
                     cwd=worktree,
+                    env=environment,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     timeout=timeout_seconds,
@@ -635,11 +664,12 @@ print(f"CONTRACT_AUDIT_OK {len(classes)} task class(es)")
 
 
 def _run_contract_audit(worktree, owned_path, seed, log_path, *, runtime_root,
-                        bwrap_bin, resource_limits, timeout_seconds):
+                        bwrap_bin, resource_limits, timeout_seconds,
+                        credential_env_names=()):
     classes = _task_classes(worktree, owned_path)
     if not classes:
         return {"classes": [], "exit_code": 2}
-    environment = dict(os.environ)
+    environment = _sanitized_environment(credential_env_names)
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
     command = _sandbox_command(
         [sys.executable, "-c", _CONTRACT_AUDIT, json.dumps(classes), str(seed)],
@@ -673,7 +703,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
                base_seed, forward_seed, temperature, top_p, bwrap_bin,
                sandbox_version, max_steps, timeout_seconds, adapter, provider,
                adapter_bin, adapter_version, resource_limits,
-               validation_timeout_seconds):
+               validation_timeout_seconds, credential_env_names):
     trial_root = invocation_root / trial.trial_id
     worktree = trial_root / "worktree"
     trial_root.mkdir(parents=True)
@@ -784,7 +814,8 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
                           runtime_root=validation_runtime,
                           bwrap_bin=bwrap_bin,
                           resource_limits=resource_limits,
-                          timeout_seconds=validation_timeout_seconds))
+                          timeout_seconds=validation_timeout_seconds,
+                          credential_env_names=credential_env_names))
     contract_ok = contract_audit["exit_code"] == 0
     sample_path = worktree / trial.owned_path / f"samples_{trial.trial_id}.md"
     sample_sha256_before = (
@@ -798,7 +829,8 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         runtime_root=validation_runtime,
         bwrap_bin=bwrap_bin,
         resource_limits=resource_limits,
-        timeout_seconds=validation_timeout_seconds)
+        timeout_seconds=validation_timeout_seconds,
+        credential_env_names=credential_env_names)
     sample_sha256_after = (
         hashlib.sha256(sample_path.read_bytes()).hexdigest()
         if sample_path.is_file() else None
@@ -810,6 +842,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
             sample_sha256_before is not None
             and sample_sha256_before == sample_sha256_after
         ),
+        "checked": bool(validation) and validation[0]["exit_code"] == 0,
     }
     validation_ok = (
         bool(validation)
@@ -830,6 +863,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         status = "sample_review_failed"
     elif not contract_ok:
         status = "contract_failed"
+    elif (sample_validation["checked"]
+          and not sample_validation["reproducible"]):
+        status = "sample_not_reproducible"
     elif not validation_ok:
         status = "validation_failed"
     else:
@@ -850,6 +886,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "timed_out": timed_out,
         "sandbox": {"name": "bubblewrap", "version": sandbox_version},
         "resource_limits": _public_resource_limits(resource_limits),
+        "scrubbed_credential_env_names": sorted(credential_env_names),
         "changed_paths": changed_paths,
         "outside_owned_path": outside,
         "task_metadata": discovered_meta,
@@ -888,14 +925,13 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
              queue_names=(), adapter="direct", provider=None, adapter_bin=None,
              resource_limit_mode="auto", systemd_run_bin="systemd-run",
              memory_max="8G", tasks_max=512, cpu_quota="400%",
-             validation_timeout_seconds=300):
+             validation_timeout_seconds=300, credential_env_names=()):
     """Run selected trials concurrently in isolated Git worktrees."""
     plan = load_plan(plan_path)
     repo_root = Path(repo_root).resolve() if repo_root else _repo_root(plan.path.parent)
     selected = _select_trials(plan, trial_ids, queue_names)
     base_commit = subprocess.check_output(
         ["git", "rev-parse", plan.base_ref], cwd=repo_root, text=True).strip()
-    harness_version = subprocess.check_output([opencode_bin, "--version"], text=True).strip()
     if adapter == "harness-link" and not provider:
         raise ValueError("--provider is required with --adapter harness-link")
     if adapter == "harness-link":
@@ -909,6 +945,9 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         adapter_version = None
     else:
         raise ValueError(f"unsupported adapter: {adapter}")
+    harness_executable = _resolve_opencode_executable(adapter, opencode_bin)
+    harness_version = subprocess.check_output(
+        [harness_executable, "--version"], text=True).strip()
     bwrap_path = shutil.which(bwrap_bin)
     if bwrap_path is None:
         raise RuntimeError(
@@ -944,6 +983,7 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             "validation_timeout_seconds": validation_timeout_seconds,
             "sandbox": {"name": "bubblewrap", "version": sandbox_version},
             "resource_limits": _public_resource_limits(resource_limits),
+            "scrubbed_credential_env_names": sorted(credential_env_names),
             "results": sorted(results, key=lambda item: item["trial_id"]),
         })
 
@@ -952,11 +992,11 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         futures = {
             pool.submit(
                 _run_trial, plan, trial, repo_root, invocation, base_commit,
-                model, agent, variant, opencode_bin, harness_version,
+                model, agent, variant, harness_executable, harness_version,
                 seed, forward_seed, temperature, top_p, bwrap_path,
                 sandbox_version, max_steps, timeout_seconds,
                 adapter, provider, adapter_bin, adapter_version, resource_limits,
-                validation_timeout_seconds,
+                validation_timeout_seconds, tuple(credential_env_names),
             ): trial.trial_id
             for trial in selected
         }
@@ -993,6 +1033,10 @@ def _parser():
         "--adapter", choices=("direct", "harness-link"), default="direct")
     run.add_argument("--provider", help="provider command, e.g. albert or nim")
     run.add_argument("--adapter-bin", help="explicit Harness Link provider executable")
+    run.add_argument(
+        "--credential-env", action="append", default=[],
+        help="environment variable to remove from candidate validation processes",
+    )
     run.add_argument("--jobs", type=int, default=1)
     run.add_argument("--trial", action="append", default=[])
     run.add_argument("--queue", action="append", default=[])
@@ -1066,6 +1110,7 @@ def main(argv=None):
             tasks_max=args.tasks_max,
             cpu_quota=args.cpu_quota,
             validation_timeout_seconds=args.validation_timeout_seconds,
+            credential_env_names=args.credential_env,
         )
         for result in results:
             print(f"{result['trial_id']}\t{result['status']}\t"

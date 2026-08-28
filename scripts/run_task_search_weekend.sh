@@ -21,6 +21,9 @@ if [[ $task_search_adapter == harness-link ]]; then
   : "${TASK_SEARCH_PROVIDER:?Set TASK_SEARCH_PROVIDER for Harness Link}"
   adapter_args+=(--provider "$TASK_SEARCH_PROVIDER")
 fi
+if [[ -n ${TASK_SEARCH_KEY_ENV:-} ]]; then
+  adapter_args+=(--credential-env "$TASK_SEARCH_KEY_ENV")
+fi
 
 exec python -m reasoning_core.task_search run \
   reasoning_core/task_search/wave0.yaml \
