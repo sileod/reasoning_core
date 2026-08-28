@@ -80,7 +80,7 @@ trials:
       Answers must be short Booleans or exact consistency labels.
     owned_path: reasoning_core/tasks/generated/wave0/n01_congruence_closure
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n01_congruence_closure
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n01_congruence_closure
 
   - id: N2
     hypothesis: N2
@@ -92,7 +92,7 @@ trials:
       answer and scale structural constraint depth.
     owned_path: reasoning_core/tasks/generated/wave0/n02_modular_congruence_system
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n02_modular_congruence_system
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n02_modular_congruence_system
 
   - id: N3
     hypothesis: N3
@@ -104,7 +104,7 @@ trials:
       Include independently checked positive and ill-typed cases if useful.
     owned_path: reasoning_core/tasks/generated/wave0/n03_lambda_type_inference
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n03_lambda_type_inference
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n03_lambda_type_inference
 
   - id: N4
     hypothesis: N4
@@ -116,7 +116,7 @@ trials:
       formats canonical and compact.
     owned_path: reasoning_core/tasks/generated/wave0/n04_finite_automaton_execution
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n04_finite_automaton_execution
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n04_finite_automaton_execution
 
   - id: N5
     hypothesis: N5
@@ -128,7 +128,7 @@ trials:
       and correction independently.
     owned_path: reasoning_core/tasks/generated/wave0/n05_hamming_decode
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n05_hamming_decode
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n05_hamming_decode
 
   - id: N6
     hypothesis: N6
@@ -140,7 +140,7 @@ trials:
       conventions; state the convention concisely in each prompt.
     owned_path: reasoning_core/tasks/generated/wave0/n06_permutation_algebra
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n06_permutation_algebra
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n06_permutation_algebra
 
   - id: N7
     hypothesis: N7
@@ -151,7 +151,7 @@ trials:
       clear and canonicalize tied cuts lexicographically or generate unique cuts.
     owned_path: reasoning_core/tasks/generated/wave0/n07_max_flow_min_cut
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n07_max_flow_min_cut
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n07_max_flow_min_cut
 
   - id: N8
     hypothesis: N8
@@ -162,7 +162,7 @@ trials:
       depth. Answers must be canonical under ties.
     owned_path: reasoning_core/tasks/generated/wave0/n08_bipartite_matching
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n08_bipartite_matching
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n08_bipartite_matching
 
   - id: N9
     hypothesis: N9
@@ -173,7 +173,7 @@ trials:
       reachable CFG-like graphs and make source and answer conventions explicit.
     owned_path: reasoning_core/tasks/generated/wave0/n09_graph_dominators
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n09_graph_dominators
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n09_graph_dominators
 
   - id: N10
     hypothesis: N10
@@ -185,7 +185,7 @@ trials:
       scoring compact relationship queries.
     owned_path: reasoning_core/tasks/generated/wave0/n10_tree_reconstruction
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n10_tree_reconstruction
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n10_tree_reconstruction
 
   - id: N11
     hypothesis: N11
@@ -197,7 +197,7 @@ trials:
       distinguish sound over-approximation from exact concrete ranges.
     owned_path: reasoning_core/tasks/generated/wave0/n11_interval_abstract_interpretation
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n11_interval_abstract_interpretation
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n11_interval_abstract_interpretation
 
   - id: N12
     hypothesis: N12
@@ -208,7 +208,7 @@ trials:
       undirected graphs and reject ambiguity or canonicalize tied optima.
     owned_path: reasoning_core/tasks/generated/wave0/n12_minimum_spanning_tree
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n12_minimum_spanning_tree
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave0/n12_minimum_spanning_tree
 
   - id: M1
     parent: reasoning_core/tasks/regex.py
@@ -221,7 +221,7 @@ trials:
       common witness for nonempty intersections and None for disjoint languages.
     owned_path: reasoning_core/tasks/mutated/wave0/m01_regex_intersection
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m01_regex_intersection
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m01_regex_intersection
 
   - id: M2
     parent: reasoning_core/tasks/regex.py
@@ -234,7 +234,7 @@ trials:
       emptiness. Reuse exact automata operations and keep answers short.
     owned_path: reasoning_core/tasks/mutated/wave0/m02_regex_boolean_languages
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m02_regex_boolean_languages
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m02_regex_boolean_languages
 
   - id: M3
     parent: reasoning_core/tasks/arithmetics.py
@@ -247,7 +247,7 @@ trials:
       dependency depth.
     owned_path: reasoning_core/tasks/mutated/wave0/m03_arithmetic_dags
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m03_arithmetic_dags
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m03_arithmetic_dags
 
   - id: M4
     parent: reasoning_core/tasks/arithmetics.py
@@ -260,7 +260,7 @@ trials:
       usually changes the answer.
     owned_path: reasoning_core/tasks/mutated/wave0/m04_arithmetic_counterfactual
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m04_arithmetic_counterfactual
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m04_arithmetic_counterfactual
 
   - id: M5
     parent: reasoning_core/tasks/arithmetics.py
@@ -273,7 +273,7 @@ trials:
       to identify the internal state.
     owned_path: reasoning_core/tasks/mutated/wave0/m05_internal_process_inversion
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m05_internal_process_inversion
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m05_internal_process_inversion
 
   - id: M6
     parent: reasoning_core/tasks/arithmetics.py
@@ -286,7 +286,7 @@ trials:
       and hold minimal proof depth fixed.
     owned_path: reasoning_core/tasks/mutated/wave0/m06_word_problem_distractors
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m06_word_problem_distractors
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m06_word_problem_distractors
 
   - id: M7
     parent: reasoning_core/tasks/equation_system.py
@@ -299,7 +299,7 @@ trials:
       and keep the functional answer canonical.
     owned_path: reasoning_core/tasks/mutated/wave0/m07_identifiable_projection
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m07_identifiable_projection
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m07_identifiable_projection
 
   - id: M8
     parent: reasoning_core/tasks/equation_system.py
@@ -312,7 +312,7 @@ trials:
       Record a solver-derived depth diagnostic in metadata.
     owned_path: reasoning_core/tasks/mutated/wave0/m08_elimination_depth
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m08_elimination_depth
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m08_elimination_depth
 
   - id: M9
     parent: reasoning_core/tasks/constraint_satisfaction.py
@@ -324,7 +324,7 @@ trials:
       core/essentiality machinery. Make the clue answer unique and compact.
     owned_path: reasoning_core/tasks/mutated/wave0/m09_clue_essentiality
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m09_clue_essentiality
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m09_clue_essentiality
 
   - id: M10
     parent: reasoning_core/tasks/constraint_satisfaction.py
@@ -337,7 +337,7 @@ trials:
       canonical paired answer.
     owned_path: reasoning_core/tasks/mutated/wave0/m10_csp_counterfactual
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m10_csp_counterfactual
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m10_csp_counterfactual
 
   - id: M11
     parent: reasoning_core/tasks/math_geometry.py
@@ -350,7 +350,7 @@ trials:
       relation and verify it independently after transformation.
     owned_path: reasoning_core/tasks/mutated/wave0/m11_geometry_invariance
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m11_geometry_invariance
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m11_geometry_invariance
 
   - id: M12
     parent: reasoning_core/tasks/math_geometry.py
@@ -363,7 +363,7 @@ trials:
       distractor counts across depths.
     owned_path: reasoning_core/tasks/mutated/wave0/m12_geometry_construction_depth
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m12_geometry_construction_depth
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m12_geometry_construction_depth
 
   - id: M13
     parent: reasoning_core/tasks/qualitative_causal_reasoning.py
@@ -376,7 +376,7 @@ trials:
       pair and verify both components with the existing kernels.
     owned_path: reasoning_core/tasks/mutated/wave0/m13_observe_do_pair
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m13_observe_do_pair
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m13_observe_do_pair
 
   - id: M14
     parent: reasoning_core/tasks/qualitative_causal_reasoning.py
@@ -389,7 +389,7 @@ trials:
       answers and exact graph semantics.
     owned_path: reasoning_core/tasks/mutated/wave0/m14_composed_causal_queries
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m14_composed_causal_queries
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m14_composed_causal_queries
 
   - id: M15
     parent: reasoning_core/tasks/logic_depth.py
@@ -402,7 +402,7 @@ trials:
       the other branch accidentally.
     owned_path: reasoning_core/tasks/mutated/wave0/m15_conjunctive_logic
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m15_conjunctive_logic
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m15_conjunctive_logic
 
   - id: M16
     parent: reasoning_core/tasks/logic_depth.py
@@ -414,7 +414,7 @@ trials:
       matched vocabulary. Make conflict depth the main difficulty variable.
     owned_path: reasoning_core/tasks/mutated/wave0/m16_defeasible_conflict_depth
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m16_defeasible_conflict_depth
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m16_defeasible_conflict_depth
 
   - id: M17
     parent: reasoning_core/tasks/probabilistic_reasoning.py
@@ -427,7 +427,7 @@ trials:
       answer with the winning option only.
     owned_path: reasoning_core/tasks/mutated/wave0/m17_near_tie_map
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m17_near_tie_map
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m17_near_tie_map
 
   - id: M18
     parent: reasoning_core/tasks/belief_tracking.py
@@ -439,7 +439,7 @@ trials:
       edit. Hold all other surface content fixed and verify both belief states.
     owned_path: reasoning_core/tasks/mutated/wave0/m18_belief_counterfactual
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m18_belief_counterfactual
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m18_belief_counterfactual
 
   - id: M19
     parent: reasoning_core/tasks/table_qa.py
@@ -452,7 +452,7 @@ trials:
       table-generation targets.
     owned_path: reasoning_core/tasks/mutated/wave0/m19_scalar_sql
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m19_scalar_sql
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m19_scalar_sql
 
   - id: M20
     parent: reasoning_core/tasks/planning.py
@@ -465,4 +465,4 @@ trials:
       transition model.
     owned_path: reasoning_core/tasks/mutated/wave0/m20_plan_repair
     validation:
-      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m20_plan_repair
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/mutated/wave0/m20_plan_repair
