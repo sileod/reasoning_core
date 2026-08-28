@@ -182,7 +182,7 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "step-1 smoke test:",
         "- `Task` has no `self.rng`; seed the `random` module instead.",
         "- metadata must be JSON-serializable: cast numpy scalars with `int`/`float`.",
-        "- import only the standard library and dependencies the repo already uses.",
+        f"- third-party imports must already be installed; {_available_libs()} are.",
         "- `score_scalar` parses its argument as a float, so it cannot score a yes/no,",
         "  a list or a symbolic answer; write the comparison your answer format needs.",
         "- `random.Random()` with no argument draws from the OS and makes the samples",
@@ -250,6 +250,15 @@ def generation_metadata(model, harness_version, agent, variant=None,
 
 def _module_prefix(trial):
     return trial.owned_path.replace("/", ".")
+
+
+_CANDIDATE_LIBS = ("z3", "sympy", "networkx", "numpy", "scipy", "nltk", "lark",
+                   "pyparsing", "regex", "automata", "pandas")
+
+
+def _available_libs():
+    import importlib.util
+    return ", ".join(m for m in _CANDIDATE_LIBS if importlib.util.find_spec(m))
 
 
 def _budget_phrase(task_meta):
