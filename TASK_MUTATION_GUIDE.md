@@ -39,6 +39,8 @@ TASK_META = {
     "generation": {
         "provider_name": "<provider-id>",
         "model_name": "<exact-provider/model-id>",
+        "adapter_name": "<direct-or-adapter-name>",
+        "adapter_version": "<exact-version-or-none>",
         "harness_name": "opencode",
         "harness_version": "<exact-version>",
         "agent_name": "<agent-profile>",
@@ -52,8 +54,9 @@ TASK_META = {
 - `hypothesis` is a stable hypothesis ID defined by the task-search wave.
 - `changes` describes the concrete implementation or distribution change.
 - `generation` records the resolved, non-secret generation setup. The provider
-  label, exact model ID, harness name/version, agent profile, and non-default
-  settings belong here; endpoints, API keys, and credential-file paths do not.
+  label, exact model ID, provider-adapter name/version, harness name/version,
+  agent profile, and non-default settings belong here; endpoints, API keys, and
+  credential-file paths do not.
 
 Keep these values short. Store run IDs, measurements, and reports in experiment
 outputs, keyed by task source IDs, rather than embedding results in task files.
@@ -73,6 +76,8 @@ parent_source, task_meta = snapshot_parent(
     generation={
         "provider_name": "openrouter",
         "model_name": "<exact-provider/model-id>",
+        "adapter_name": "direct",
+        "adapter_version": None,
         "harness_name": "opencode",
         "harness_version": "<exact-version>",
         "agent_name": "build",

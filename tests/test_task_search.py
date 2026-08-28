@@ -1,11 +1,15 @@
 import json
 from pathlib import Path
+import tempfile
 
 import pytest
 
 from reasoning_core.task_search.runner import (
+    _adapter_command,
     _outside_owned,
     _opencode_command,
+    _resource_command,
+    _run_validation,
     _sandbox_command,
     _sample_review,
     _sample_command,
@@ -70,27 +74,35 @@ def test_opencode_profile_leaves_write_scope_to_mount_sandbox():
 
 
 def test_bubblewrap_makes_only_owned_path_and_runtime_writable(tmp_path):
-    worktree = tmp_path / "worktree"
-    owned = worktree / "owned"
-    runtime = tmp_path / "runtime"
-    owned.mkdir(parents=True)
-    (worktree / "sibling.txt").write_text("original\n")
-    command = _sandbox_command(
-        [
-            "/bin/bash", "-c",
-            "printf allowed > owned/result.txt; "
-            "if printf forbidden > sibling.txt 2>/dev/null; then exit 9; fi",
-        ],
-        worktree=worktree,
-        owned_path="owned",
-        runtime_root=runtime,
-    )
+    # Strict sandboxes intentionally hide host /tmp, so place this integration
+    # fixture on the same non-/tmp filesystem used by real task-search runs.
+    with tempfile.TemporaryDirectory(prefix=".task-search-test-", dir=ROOT) as root:
+        root = Path(root)
+        worktree = root / "worktree"
+        owned = worktree / "owned"
+        runtime = root / "runtime"
+        owned.mkdir(parents=True)
+        (worktree / "sibling.txt").write_text("original\n")
+        host_pid = __import__("os").getpid()
+        with tempfile.NamedTemporaryFile(prefix="task-search-", dir="/tmp") as sentinel:
+            command = _sandbox_command(
+                [
+                    "/bin/bash", "-c",
+                    "printf allowed > owned/result.txt; "
+                    "if printf forbidden > sibling.txt 2>/dev/null; then exit 9; fi; "
+                    f"test ! -e /proc/{host_pid}; "
+                    f"test ! -e {sentinel.name}",
+                ],
+                worktree=worktree,
+                owned_path="owned",
+                runtime_root=runtime,
+            )
 
-    import subprocess
-    subprocess.run(command, check=True)
+            import subprocess
+            subprocess.run(command, check=True)
 
-    assert (owned / "result.txt").read_text() == "allowed"
-    assert (worktree / "sibling.txt").read_text() == "original\n"
+        assert (owned / "result.txt").read_text() == "allowed"
+        assert (worktree / "sibling.txt").read_text() == "original\n"
 
 
 def test_generation_metadata_records_requested_but_unforwarded_seed():
@@ -133,6 +145,38 @@ def test_prompt_is_a_positional_message_not_a_greedy_file_argument(tmp_path):
     assert command[-1] == "complete prompt"
 
 
+def test_harness_link_wraps_opencode_without_replacing_its_arguments(monkeypatch):
+    monkeypatch.setattr("shutil.which", lambda value: "/usr/local/bin/albert")
+    direct = ["opencode", "run", "--pure", "prompt"]
+
+    command = _adapter_command(
+        direct,
+        adapter="harness-link",
+        provider="albert",
+        model="deepseek-v4-flash",
+    )
+
+    assert command == [
+        "/usr/local/bin/albert", "opencode", "--model",
+        "deepseek-v4-flash", "--", "run", "--pure", "prompt",
+    ]
+
+
+def test_systemd_resource_wrapper_records_hard_limits():
+    command = _resource_command(["bwrap", "true"], {
+        "enabled": True,
+        "executable": "/usr/bin/systemd-run",
+        "memory_max": "8G",
+        "tasks_max": 512,
+        "cpu_quota": "400%",
+    })
+
+    assert "MemoryMax=8G" in command
+    assert "TasksMax=512" in command
+    assert "CPUQuota=400%" in command
+    assert command[-2:] == ["bwrap", "true"]
+
+
 def test_scope_check_rejects_sibling_paths():
     owned = "reasoning_core/tasks/mutated/wave0/n01"
     paths = [f"{owned}/task.py", "reasoning_core/tasks/regex.py"]
@@ -164,6 +208,14 @@ def test_sample_review_requires_sections_and_read_after_write(tmp_path):
     events.write_text("\n".join([
         json.dumps({
             "type": "tool_use",
+            "part": {"tool": "bash", "state": {
+                "status": "completed", "input": {
+                    "command": "cd /repo && PYTHONDONTWRITEBYTECODE=1 python "
+                    f"{owned}/generate_samples_N1.py"},
+                "metadata": {"exit": 0}}},
+        }),
+        json.dumps({
+            "type": "tool_use",
             "part": {"tool": "write", "state": {
                 "status": "completed", "input": {"filePath": target}}},
         }),
@@ -177,6 +229,95 @@ def test_sample_review_requires_sections_and_read_after_write(tmp_path):
     review = _sample_review(tmp_path, owned, "N1", events)
 
     assert review["ok"] is True
+
+
+def test_sample_review_uses_shell_exit_code_not_tool_completion(tmp_path):
+    owned = "reasoning_core/tasks/generated/wave/example"
+    root = tmp_path / owned
+    root.mkdir(parents=True)
+    (root / "generate_samples_N1.py").write_text("# generator\n")
+    sample = root / "samples_N1.md"
+    sample.write_text("# Level 0\nAnswer\n# Level 2\nAnswer\n# Level 5\nAnswer\n")
+    command = (
+        "PYTHONDONTWRITEBYTECODE=1 python "
+        f"{owned}/generate_samples_N1.py"
+    )
+    events = tmp_path / "events.jsonl"
+    events.write_text("\n".join([
+        json.dumps({
+            "type": "tool_use",
+            "part": {"tool": "bash", "state": {
+                "status": "completed", "input": {"command": command},
+                "metadata": {"exit": 1}}},
+        }),
+        json.dumps({
+            "type": "tool_use",
+            "part": {"tool": "read", "state": {
+                "status": "completed", "input": {"filePath": str(sample)}}},
+        }),
+    ]))
+
+    review = _sample_review(tmp_path, owned, "N1", events)
+
+    assert review["command_succeeded"] is False
+    assert review["ok"] is False
+
+
+def test_sample_review_requires_read_after_last_generator_run(tmp_path):
+    owned = "reasoning_core/tasks/generated/wave/example"
+    root = tmp_path / owned
+    root.mkdir(parents=True)
+    (root / "generate_samples_N1.py").write_text("# generator\n")
+    sample = root / "samples_N1.md"
+    sample.write_text("# Level 0\nAnswer\n# Level 2\nAnswer\n# Level 5\nAnswer\n")
+    command = (
+        "PYTHONDONTWRITEBYTECODE=1 python "
+        f"{owned}/generate_samples_N1.py"
+    )
+    events = tmp_path / "events.jsonl"
+    events.write_text("\n".join([
+        json.dumps({
+            "type": "tool_use",
+            "part": {"tool": "read", "state": {
+                "status": "completed", "input": {"filePath": str(sample)}}},
+        }),
+        json.dumps({
+            "type": "tool_use",
+            "part": {"tool": "bash", "state": {
+                "status": "completed", "input": {"command": command},
+                "metadata": {"exit": 0}}},
+        }),
+    ]))
+
+    review = _sample_review(tmp_path, owned, "N1", events)
+
+    assert review["command_succeeded"] is True
+    assert review["read_after_last_edit"] is False
+    assert review["ok"] is False
+
+
+def test_independent_validation_times_out(tmp_path):
+    with tempfile.TemporaryDirectory(prefix=".task-search-test-", dir=ROOT) as root:
+        root = Path(root)
+        worktree = root / "worktree"
+        owned = worktree / "owned"
+        owned.mkdir(parents=True)
+        results = _run_validation(
+            worktree,
+            ("/bin/sleep 2",),
+            root / "validation.log",
+            owned_path="owned",
+            runtime_root=root / "runtime",
+            bwrap_bin="bwrap",
+            resource_limits={"enabled": False},
+            timeout_seconds=0.05,
+        )
+
+    assert results == [{
+        "command": "/bin/sleep 2",
+        "exit_code": 124,
+        "timed_out": True,
+    }]
 
 
 def test_sample_generator_command_is_allowed():

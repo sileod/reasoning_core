@@ -8,11 +8,26 @@ cd "$repo_root"
 
 task_search_seed=${TASK_SEARCH_SEED:-20260828}
 task_search_queue=${TASK_SEARCH_QUEUE:-weekend_p0}
+task_search_adapter=${TASK_SEARCH_ADAPTER:-direct}
+
+if [[ -n ${TASK_SEARCH_KEY_FILE:-} ]]; then
+  : "${TASK_SEARCH_KEY_ENV:?Set TASK_SEARCH_KEY_ENV with TASK_SEARCH_KEY_FILE}"
+  printf -v "$TASK_SEARCH_KEY_ENV" '%s' "$(< "$TASK_SEARCH_KEY_FILE")"
+  export "$TASK_SEARCH_KEY_ENV"
+fi
+
+adapter_args=(--adapter "$task_search_adapter")
+if [[ $task_search_adapter == harness-link ]]; then
+  : "${TASK_SEARCH_PROVIDER:?Set TASK_SEARCH_PROVIDER for Harness Link}"
+  adapter_args+=(--provider "$TASK_SEARCH_PROVIDER")
+fi
 
 exec python -m reasoning_core.task_search run \
   reasoning_core/task_search/wave0.yaml \
   --model "$TASK_SEARCH_MODEL" \
+  "${adapter_args[@]}" \
   --queue "$task_search_queue" \
   --jobs 1 \
   --seed "$task_search_seed" \
+  --resource-limits required \
   "$@"

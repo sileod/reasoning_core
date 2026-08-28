@@ -161,6 +161,11 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         f"Run `{_sample_command(trial)}` and then read `samples_{trial.trial_id}.md`;",
         "review wording, answers, trivial cases, and",
         "difficulty progression, then revise the task and regenerate the file if needed.",
+        "Completion order is mandatory: implement the task and exact TASK_META, run a small",
+        "validate smoke test, create/run/read the sample artifact, then add the full tests.",
+        "Once the smoke test passes, do not defer samples for optional exploration or polish.",
+        "Seed the sample generator with the recorded requested_seed so rerunning its exact",
+        "command produces byte-identical samples.",
     ))
     if task_meta is not None:
         sections.extend((
@@ -187,8 +192,9 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
 def generation_metadata(model, harness_version, agent, variant=None,
                         requested_seed=None, seed_forwarded=False,
                         temperature=None, top_p=None, sandbox_name="bubblewrap",
-                        sandbox_version=None, max_steps=48,
-                        timeout_seconds=1800):
+                        sandbox_version=None, max_steps=56,
+                        timeout_seconds=1800, provider_name=None,
+                        adapter_name="direct", adapter_version=None):
     settings = {
         "variant": variant,
         "requested_seed": requested_seed,
@@ -204,8 +210,10 @@ def generation_metadata(model, harness_version, agent, variant=None,
         },
     }
     return {
-        "provider_name": model.split("/", 1)[0],
+        "provider_name": provider_name or model.split("/", 1)[0],
         "model_name": model,
+        "adapter_name": adapter_name,
+        "adapter_version": adapter_version,
         "harness_name": "opencode",
         "harness_version": harness_version,
         "agent_name": agent,
@@ -251,7 +259,7 @@ def opencode_permissions(trial):
 
 
 def opencode_config(trial, agent, *, requested_seed=None, forward_seed=False,
-                    temperature=None, top_p=None, max_steps=48):
+                    temperature=None, top_p=None, max_steps=56):
     permissions = opencode_permissions(trial)
     agent_config = {
         "description": "Folder-scoped task-search worker",
@@ -285,6 +293,22 @@ def _opencode_command(opencode_bin, *, model, agent, worktree, prompt,
         command.extend(("--variant", variant))
     command.append(prompt)
     return command
+
+
+def _adapter_command(command, *, adapter, provider=None, adapter_bin=None,
+                     model=None):
+    """Wrap an OpenCode command with a provider adapter when requested."""
+    if adapter == "direct":
+        return command
+    if adapter != "harness-link":
+        raise ValueError(f"unsupported adapter: {adapter}")
+    if not provider:
+        raise ValueError("--provider is required with --adapter harness-link")
+    executable = shutil.which(adapter_bin or provider)
+    if executable is None:
+        raise RuntimeError(
+            f"Harness Link provider command not found: {adapter_bin or provider!r}")
+    return [executable, "opencode", "--model", model, "--", *command[1:]]
 
 
 def _changed_paths(worktree):
@@ -339,6 +363,7 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
         "size_bytes": sample_path.stat().st_size if sample_path.is_file() else 0,
         "required_sections": False,
         "read_after_last_edit": False,
+        "command_succeeded": False,
     }
     if sample_path.is_file():
         content = sample_path.read_text().lower()
@@ -346,6 +371,10 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
             marker in content for marker in ("level 0", "level 2", "level 5", "answer")
         )
     target = "/" + result["path"]
+    expected_command = (
+        "PYTHONDONTWRITEBYTECODE=1 python "
+        f"{owned_path}/generate_samples_{trial_id}.py"
+    )
     last_write = -1
     last_read = -1
     try:
@@ -364,6 +393,15 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
         if state.get("status") != "completed":
             continue
         file_path = str(state.get("input", {}).get("filePath", ""))
+        bash_command = state.get("input", {}).get("command", "")
+        command_matches = (
+            bash_command == expected_command
+            or bash_command.endswith("&& " + expected_command)
+        )
+        if (part.get("tool") == "bash" and command_matches
+                and state.get("metadata", {}).get("exit") == 0):
+            result["command_succeeded"] = True
+            last_write = index
         if not file_path.endswith(target):
             continue
         if part.get("tool") in {"write", "edit", "apply_patch"}:
@@ -374,6 +412,7 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
     result["ok"] = (
         result["generator_exists"] and result["exists"] and result["size_bytes"] > 0
         and result["required_sections"] and result["read_after_last_edit"]
+        and result["command_succeeded"]
     )
     return result
 
@@ -403,7 +442,71 @@ def _task_classes(worktree, owned_path):
 
 
 def _write_json(path, value):
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+    os.replace(temporary, path)
+
+
+def _resource_command(command, resource_limits):
+    if not resource_limits.get("enabled"):
+        return command
+    return [
+        resource_limits["executable"],
+        "--user", "--scope", "--quiet", "--collect",
+        "-p", f"MemoryMax={resource_limits['memory_max']}",
+        "-p", f"TasksMax={resource_limits['tasks_max']}",
+        "-p", f"CPUQuota={resource_limits['cpu_quota']}",
+        "--",
+        *command,
+    ]
+
+
+def _resolve_resource_limits(mode, *, systemd_run_bin="systemd-run",
+                             memory_max="8G", tasks_max=512,
+                             cpu_quota="400%"):
+    if mode == "none":
+        return {"enabled": False, "mode": mode}
+    executable = shutil.which(systemd_run_bin)
+    error = None
+    if executable:
+        probe = subprocess.run(
+            [
+                executable, "--user", "--scope", "--quiet", "--collect",
+                "-p", f"MemoryMax={memory_max}",
+                "-p", f"TasksMax={tasks_max}",
+                "-p", f"CPUQuota={cpu_quota}",
+                "--", "/usr/bin/true",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if probe.returncode == 0:
+            version = subprocess.check_output(
+                [executable, "--version"], text=True).splitlines()[0]
+            return {
+                "enabled": True,
+                "mode": mode,
+                "name": "systemd-run user scope",
+                "version": version,
+                "executable": executable,
+                "memory_max": memory_max,
+                "tasks_max": tasks_max,
+                "cpu_quota": cpu_quota,
+            }
+        error = probe.stderr.strip() or f"exit code {probe.returncode}"
+    else:
+        error = f"command not found: {systemd_run_bin}"
+    if mode == "required":
+        raise RuntimeError(f"resource limits unavailable: {error}")
+    return {"enabled": False, "mode": mode, "reason": error}
+
+
+def _public_resource_limits(resource_limits):
+    return {
+        key: value for key, value in resource_limits.items()
+        if key != "executable"
+    }
 
 
 def _sandbox_command(command, *, worktree, owned_path, runtime_root,
@@ -420,6 +523,13 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
     if worktree not in owned.parents:
         raise ValueError(f"owned path escapes worktree: {owned_path}")
     runtime_root = Path(runtime_root).resolve()
+    for path, label in ((worktree, "worktree"), (runtime_root, "runtime root")):
+        if path == Path("/tmp") or Path("/tmp") in path.parents:
+            raise ValueError(
+                f"{label} cannot be under /tmp because strict runs hide host /tmp: {path}")
+        if path == Path("/run") or Path("/run") in path.parents:
+            raise ValueError(
+                f"{label} cannot be under /run because strict runs hide host /run: {path}")
     runtime_dirs = {
         "XDG_DATA_HOME": runtime_root / "data",
         "XDG_CACHE_HOME": runtime_root / "cache",
@@ -433,7 +543,16 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
         executable,
         "--die-with-parent",
         "--new-session",
+        "--unshare-pid",
+        "--unshare-ipc",
+        "--unshare-uts",
+        "--unshare-cgroup-try",
+        "--cap-drop", "ALL",
         "--ro-bind", "/", "/",
+        # Do not expose host daemon and desktop sockets. Read-only socket files
+        # can still be connected to, so a read-only root alone is insufficient.
+        "--tmpfs", "/run",
+        "--tmpfs", "/tmp",
         # Bun/OpenCode needs live device and proc mounts. Replacing the
         # read-only recursive binds also avoids a Bun startup crash.
         "--dev", "/dev",
@@ -450,7 +569,7 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
 
 
 def _run_validation(worktree, commands, log_path, *, owned_path, runtime_root,
-                    bwrap_bin):
+                    bwrap_bin, resource_limits, timeout_seconds):
     results = []
     with log_path.open("w") as log:
         for command in commands:
@@ -463,14 +582,28 @@ def _run_validation(worktree, commands, log_path, *, owned_path, runtime_root,
                 runtime_root=runtime_root,
                 bwrap_bin=bwrap_bin,
             )
-            completed = subprocess.run(
-                sandboxed,
-                cwd=worktree,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-            )
-            results.append({"command": command, "exit_code": completed.returncode})
-            if completed.returncode:
+            sandboxed = _resource_command(sandboxed, resource_limits)
+            try:
+                completed = subprocess.run(
+                    sandboxed,
+                    cwd=worktree,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    timeout=timeout_seconds,
+                )
+                exit_code = completed.returncode
+                timed_out = False
+            except subprocess.TimeoutExpired:
+                log.write(f"TIMEOUT after {timeout_seconds} seconds\n")
+                log.flush()
+                exit_code = 124
+                timed_out = True
+            results.append({
+                "command": command,
+                "exit_code": exit_code,
+                "timed_out": timed_out,
+            })
+            if exit_code:
                 break
     return results
 
@@ -502,7 +635,7 @@ print(f"CONTRACT_AUDIT_OK {len(classes)} task class(es)")
 
 
 def _run_contract_audit(worktree, owned_path, seed, log_path, *, runtime_root,
-                        bwrap_bin):
+                        bwrap_bin, resource_limits, timeout_seconds):
     classes = _task_classes(worktree, owned_path)
     if not classes:
         return {"classes": [], "exit_code": 2}
@@ -515,21 +648,32 @@ def _run_contract_audit(worktree, owned_path, seed, log_path, *, runtime_root,
         runtime_root=runtime_root,
         bwrap_bin=bwrap_bin,
     )
+    command = _resource_command(command, resource_limits)
     with log_path.open("w") as log:
-        completed = subprocess.run(
-            command,
-            cwd=worktree,
-            env=environment,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-        )
-    return {"classes": classes, "exit_code": completed.returncode}
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=worktree,
+                env=environment,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=timeout_seconds,
+            )
+            exit_code = completed.returncode
+            timed_out = False
+        except subprocess.TimeoutExpired:
+            log.write(f"TIMEOUT after {timeout_seconds} seconds\n")
+            exit_code = 124
+            timed_out = True
+    return {"classes": classes, "exit_code": exit_code, "timed_out": timed_out}
 
 
 def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
                model, agent, variant, opencode_bin, harness_version,
                base_seed, forward_seed, temperature, top_p, bwrap_bin,
-               sandbox_version, max_steps, timeout_seconds):
+               sandbox_version, max_steps, timeout_seconds, adapter, provider,
+               adapter_bin, adapter_version, resource_limits,
+               validation_timeout_seconds):
     trial_root = invocation_root / trial.trial_id
     worktree = trial_root / "worktree"
     trial_root.mkdir(parents=True)
@@ -550,6 +694,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         sandbox_version=sandbox_version,
         max_steps=max_steps,
         timeout_seconds=timeout_seconds,
+        provider_name=provider,
+        adapter_name=adapter,
+        adapter_version=adapter_version,
     )
     parent_source_id = None
     if trial.parent:
@@ -580,13 +727,21 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         max_steps=max_steps,
     ))
     started = datetime.now(timezone.utc).isoformat()
+    opencode_model = model if adapter == "direct" else f"{provider}/{model}"
     command = _opencode_command(
         opencode_bin,
-        model=model,
+        model=opencode_model,
         agent=agent,
         worktree=worktree,
         prompt=prompt,
         variant=variant,
+    )
+    command = _adapter_command(
+        command,
+        adapter=adapter,
+        provider=provider,
+        adapter_bin=adapter_bin,
+        model=model,
     )
     command = _sandbox_command(
         command,
@@ -595,8 +750,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         runtime_root=trial_root / "runtime",
         bwrap_bin=bwrap_bin,
     )
+    command = _resource_command(command, resource_limits)
     environment = dict(os.environ)
-    environment["OPENCODE_CONFIG"] = str(config_path)
+    environment["OPENCODE_CONFIG_CONTENT"] = config_path.read_text()
     environment["OPENCODE_DISABLE_EXTERNAL_SKILLS"] = "true"
     environment["OPENCODE_DISABLE_CLAUDE_CODE_SKILLS"] = "true"
     timed_out = False
@@ -626,14 +782,40 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
                           worktree, trial.owned_path, requested_seed,
                           trial_root / "contract_audit.log",
                           runtime_root=validation_runtime,
-                          bwrap_bin=bwrap_bin))
+                          bwrap_bin=bwrap_bin,
+                          resource_limits=resource_limits,
+                          timeout_seconds=validation_timeout_seconds))
     contract_ok = contract_audit["exit_code"] == 0
+    sample_path = worktree / trial.owned_path / f"samples_{trial.trial_id}.md"
+    sample_sha256_before = (
+        hashlib.sha256(sample_path.read_bytes()).hexdigest()
+        if sample_path.is_file() else None
+    )
+    validation_commands = (_sample_command(trial), *trial.validation)
     validation = [] if not gates_open else _run_validation(
-        worktree, trial.validation, trial_root / "validation.log",
+        worktree, validation_commands, trial_root / "validation.log",
         owned_path=trial.owned_path,
         runtime_root=validation_runtime,
-        bwrap_bin=bwrap_bin)
-    validation_ok = bool(validation) and all(item["exit_code"] == 0 for item in validation)
+        bwrap_bin=bwrap_bin,
+        resource_limits=resource_limits,
+        timeout_seconds=validation_timeout_seconds)
+    sample_sha256_after = (
+        hashlib.sha256(sample_path.read_bytes()).hexdigest()
+        if sample_path.is_file() else None
+    )
+    sample_validation = {
+        "sha256_before": sample_sha256_before,
+        "sha256_after": sample_sha256_after,
+        "reproducible": (
+            sample_sha256_before is not None
+            and sample_sha256_before == sample_sha256_after
+        ),
+    }
+    validation_ok = (
+        bool(validation)
+        and all(item["exit_code"] == 0 for item in validation)
+        and sample_validation["reproducible"]
+    )
     changed_paths = _changed_paths(worktree)
     outside = _outside_owned(changed_paths, trial.owned_path)
     if timed_out:
@@ -667,11 +849,13 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "harness_exit_code": harness_exit_code,
         "timed_out": timed_out,
         "sandbox": {"name": "bubblewrap", "version": sandbox_version},
+        "resource_limits": _public_resource_limits(resource_limits),
         "changed_paths": changed_paths,
         "outside_owned_path": outside,
         "task_metadata": discovered_meta,
         "task_metadata_matches": metadata_ok,
         "sample_review": sample_review,
+        "sample_validation": sample_validation,
         "contract_audit": contract_audit,
         "validation": validation,
         "status": status,
@@ -700,8 +884,11 @@ def _select_trials(plan, trial_ids=(), queue_names=()):
 def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worker",
              variant=None, seed=0, forward_seed=True, temperature=None, top_p=None,
              opencode_bin="opencode", bwrap_bin="bwrap", runs_root=None,
-             repo_root=None, max_steps=48, timeout_seconds=1800,
-             queue_names=()):
+             repo_root=None, max_steps=56, timeout_seconds=1800,
+             queue_names=(), adapter="direct", provider=None, adapter_bin=None,
+             resource_limit_mode="auto", systemd_run_bin="systemd-run",
+             memory_max="8G", tasks_max=512, cpu_quota="400%",
+             validation_timeout_seconds=300):
     """Run selected trials concurrently in isolated Git worktrees."""
     plan = load_plan(plan_path)
     repo_root = Path(repo_root).resolve() if repo_root else _repo_root(plan.path.parent)
@@ -709,6 +896,19 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
     base_commit = subprocess.check_output(
         ["git", "rev-parse", plan.base_ref], cwd=repo_root, text=True).strip()
     harness_version = subprocess.check_output([opencode_bin, "--version"], text=True).strip()
+    if adapter == "harness-link" and not provider:
+        raise ValueError("--provider is required with --adapter harness-link")
+    if adapter == "harness-link":
+        resolved_adapter = shutil.which(adapter_bin or provider)
+        if resolved_adapter is None:
+            raise RuntimeError(
+                f"Harness Link provider command not found: {adapter_bin or provider!r}")
+        adapter_version = subprocess.check_output(
+            [resolved_adapter, "--version"], text=True).strip()
+    elif adapter == "direct":
+        adapter_version = None
+    else:
+        raise ValueError(f"unsupported adapter: {adapter}")
     bwrap_path = shutil.which(bwrap_bin)
     if bwrap_path is None:
         raise RuntimeError(
@@ -717,6 +917,13 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         )
     sandbox_version = subprocess.check_output(
         [bwrap_path, "--version"], text=True).strip()
+    resource_limits = _resolve_resource_limits(
+        resource_limit_mode,
+        systemd_run_bin=systemd_run_bin,
+        memory_max=memory_max,
+        tasks_max=tasks_max,
+        cpu_quota=cpu_quota,
+    )
     root = Path(runs_root).resolve() if runs_root else repo_root.parent / f".{repo_root.name}-task-search"
     invocation = root / plan.name / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     invocation.mkdir(parents=True)
@@ -728,11 +935,15 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             "queues": list(queue_names),
             "base_commit": base_commit,
             "model": model,
+            "provider": provider or model.split("/", 1)[0],
+            "adapter": {"name": adapter, "version": adapter_version},
             "seed": seed,
             "seed_forwarded": forward_seed,
             "max_steps": max_steps,
             "timeout_seconds": timeout_seconds,
+            "validation_timeout_seconds": validation_timeout_seconds,
             "sandbox": {"name": "bubblewrap", "version": sandbox_version},
+            "resource_limits": _public_resource_limits(resource_limits),
             "results": sorted(results, key=lambda item: item["trial_id"]),
         })
 
@@ -744,6 +955,8 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
                 model, agent, variant, opencode_bin, harness_version,
                 seed, forward_seed, temperature, top_p, bwrap_path,
                 sandbox_version, max_steps, timeout_seconds,
+                adapter, provider, adapter_bin, adapter_version, resource_limits,
+                validation_timeout_seconds,
             ): trial.trial_id
             for trial in selected
         }
@@ -776,6 +989,10 @@ def _parser():
     run = subparsers.add_parser("run", help="launch folder-scoped OpenCode workers")
     run.add_argument("plan")
     run.add_argument("--model", required=True)
+    run.add_argument(
+        "--adapter", choices=("direct", "harness-link"), default="direct")
+    run.add_argument("--provider", help="provider command, e.g. albert or nim")
+    run.add_argument("--adapter-bin", help="explicit Harness Link provider executable")
     run.add_argument("--jobs", type=int, default=1)
     run.add_argument("--trial", action="append", default=[])
     run.add_argument("--queue", action="append", default=[])
@@ -790,10 +1007,20 @@ def _parser():
     )
     run.add_argument("--temperature", type=float)
     run.add_argument("--top-p", type=float)
-    run.add_argument("--max-steps", type=int, default=48)
+    run.add_argument("--max-steps", type=int, default=56)
     run.add_argument("--timeout-seconds", type=int, default=1800)
+    run.add_argument("--validation-timeout-seconds", type=int, default=300)
     run.add_argument("--opencode-bin", default="opencode")
     run.add_argument("--bwrap-bin", default="bwrap")
+    run.add_argument(
+        "--resource-limits", choices=("auto", "required", "none"),
+        default="auto",
+        help="apply a user systemd scope to every worker and validation process",
+    )
+    run.add_argument("--systemd-run-bin", default="systemd-run")
+    run.add_argument("--memory-max", default="8G")
+    run.add_argument("--tasks-max", type=int, default=512)
+    run.add_argument("--cpu-quota", default="400%")
     run.add_argument("--runs-root")
     return parser
 
@@ -830,8 +1057,18 @@ def main(argv=None):
             opencode_bin=args.opencode_bin,
             bwrap_bin=args.bwrap_bin,
             runs_root=args.runs_root,
+            adapter=args.adapter,
+            provider=args.provider,
+            adapter_bin=args.adapter_bin,
+            resource_limit_mode=args.resource_limits,
+            systemd_run_bin=args.systemd_run_bin,
+            memory_max=args.memory_max,
+            tasks_max=args.tasks_max,
+            cpu_quota=args.cpu_quota,
+            validation_timeout_seconds=args.validation_timeout_seconds,
         )
         for result in results:
-            print(f"{result['trial_id']}\t{result['status']}\t{result['worktree']}")
+            print(f"{result['trial_id']}\t{result['status']}\t"
+                  f"{result.get('worktree', '-')}")
         if any(result["status"] != "success" for result in results):
             raise SystemExit(1)
