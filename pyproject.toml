@@ -67,7 +67,7 @@ training = ["torch", "transformers", "datasets", "trl", "safetensors", "prodigyp
 include = ["reasoning_core*"]
 
 [tool.setuptools.package-data]
-"reasoning_core" = ["resources/**"]
+"reasoning_core" = ["resources/**", "task_search/**/*.md", "task_search/**/*.yaml"]
 
 [tool.hatch.version]
 path = "reasoning_core/__init__.py"

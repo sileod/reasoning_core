@@ -24,8 +24,16 @@ def test_parent_snapshot_survives_changes_and_rename(tmp_path):
     parent_source, metadata = snapshot_parent(
         parent,
         idea="try a variant",
-        hypothesis="the variant improves hard examples",
+        hypothesis="H1",
         changes="change generation",
+        generation={
+            "provider_name": "openrouter",
+            "model_name": "deepseek/example",
+            "harness_name": "opencode",
+            "harness_version": "1.18.20",
+            "agent_name": "build",
+            "settings": {"variant": "high"},
+        },
         store=store,
     )
     parent.write_text("class Changed:\n    pass\n")
@@ -36,9 +44,37 @@ def test_parent_snapshot_survives_changes_and_rename(tmp_path):
     assert metadata == {
         "parent_source_id": store.put(original),
         "idea": "try a variant",
-        "hypothesis": "the variant improves hard examples",
+        "hypothesis": "H1",
         "changes": "change generation",
+        "generation": {
+            "provider_name": "openrouter",
+            "model_name": "deepseek/example",
+            "harness_name": "opencode",
+            "harness_version": "1.18.20",
+            "agent_name": "build",
+            "settings": {"variant": "high"},
+        },
     }
+
+
+def test_snapshot_requires_resolved_generation_identity(tmp_path):
+    parent = tmp_path / "parent.py"
+    parent.write_text("x = 1\n")
+
+    try:
+        snapshot_parent(
+            parent,
+            idea="variant",
+            hypothesis="H1",
+            changes="change x",
+            generation={"model_name": "example"},
+            store=SourceStore(tmp_path / "objects"),
+        )
+    except ValueError as error:
+        assert "provider_name" in str(error)
+        assert "harness_version" in str(error)
+    else:
+        raise AssertionError("incomplete generation metadata was accepted")
 
 
 def test_concurrent_identical_put_is_atomic(tmp_path):

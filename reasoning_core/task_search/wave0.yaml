@@ -1,0 +1,468 @@
+version: 1
+name: WAVE0
+
+queues:
+  pilot:
+    - N4
+    - M1
+  new_p0:
+    - N1
+    - N2
+    - N3
+    - N4
+    - N5
+    - N6
+  new_later:
+    - N7
+    - N8
+    - N9
+    - N10
+    - N11
+    - N12
+  mutations_p0:
+    - M1
+    - M2
+    - M3
+    - M4
+    - M5
+    - M6
+    - M7
+    - M8
+    - M9
+    - M10
+    - M11
+    - M12
+    - M13
+  mutations_p1:
+    - M14
+    - M15
+    - M16
+    - M17
+    - M18
+    - M19
+    - M20
+  weekend_p0:
+    - N1
+    - N2
+    - N3
+    - N4
+    - N5
+    - N6
+    - M1
+    - M2
+    - M3
+    - M4
+    - M5
+    - M6
+    - M7
+    - M8
+    - M9
+    - M10
+    - M13
+
+defaults:
+  base_ref: cc1e4a4
+
+context_files:
+  - AGENTS.md
+  - TASK_AUTHORING_GUIDE.md
+  - TASK_MUTATION_GUIDE.md
+  - reasoning_core/task_search/CONTEXT.md
+
+trials:
+  - id: N1
+    hypothesis: N1
+    idea: Add an EUF congruence-closure reasoning primitive.
+    changes: Implement ground equality entailment and consistency queries over nested function terms.
+    instruction: >-
+      Implement congruence_closure using Z3 EUF or a small algorithm checked
+      against Z3. Scale term count, nesting depth, and equality-chain/core depth.
+      Answers must be short Booleans or exact consistency labels.
+    owned_path: reasoning_core/tasks/generated/wave0/n01_congruence_closure
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n01_congruence_closure
+
+  - id: N2
+    hypothesis: N2
+    idea: Add modular linear-congruence reasoning.
+    changes: Implement canonical residue, no-solution, and multiple-solution queries for modular systems.
+    instruction: >-
+      Implement modular_congruence_system. Use SymPy CRT for one-dimensional
+      cases and Z3 modular arithmetic for general systems. Canonicalize every
+      answer and scale structural constraint depth.
+    owned_path: reasoning_core/tasks/generated/wave0/n02_modular_congruence_system
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n02_modular_congruence_system
+
+  - id: N3
+    hypothesis: N3
+    idea: Add principal simple-type inference for lambda terms.
+    changes: Generate typed skeletons, erase annotations, and infer canonicalized principal types.
+    instruction: >-
+      Implement lambda_type_inference with capture-safe binding and unification.
+      Canonicalize type variables by first occurrence so answers are unique.
+      Include independently checked positive and ill-typed cases if useful.
+    owned_path: reasoning_core/tasks/generated/wave0/n03_lambda_type_inference
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n03_lambda_type_inference
+
+  - id: N4
+    hypothesis: N4
+    idea: Add explicit finite-automaton state execution.
+    changes: Implement DFA/NFA final-state, acceptance, and first-rejection queries.
+    instruction: >-
+      Implement finite_automaton_execution over explicit transition tables.
+      Scale states, word length, and NFA active-set size while keeping answer
+      formats canonical and compact.
+    owned_path: reasoning_core/tasks/generated/wave0/n04_finite_automaton_execution
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n04_finite_automaton_execution
+
+  - id: N5
+    hypothesis: N5
+    idea: Add exact Hamming-code syndrome decoding.
+    changes: Implement corrupted-word error localization and corrected-payload queries over GF(2).
+    instruction: >-
+      Implement hamming_decode with explicit code conventions and parity-check
+      matrices. Use NumPy or concise GF(2) operations and verify every syndrome
+      and correction independently.
+    owned_path: reasoning_core/tasks/generated/wave0/n05_hamming_decode
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n05_hamming_decode
+
+  - id: N6
+    hypothesis: N6
+    idea: Add permutation composition, inversion, and powers.
+    changes: Implement queries across cycle and mapping representations with canonical answers.
+    instruction: >-
+      Implement permutation_algebra using SymPy Permutation. Cover composition,
+      inverses, powers, images, and cycle queries without mixing incompatible
+      conventions; state the convention concisely in each prompt.
+    owned_path: reasoning_core/tasks/generated/wave0/n06_permutation_algebra
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n06_permutation_algebra
+
+  - id: N7
+    hypothesis: N7
+    idea: Add global capacitated-flow reasoning.
+    changes: Implement maximum-flow values and canonical minimum-cut-side queries.
+    instruction: >-
+      Implement max_flow_min_cut using NetworkX. Ensure directed capacities are
+      clear and canonicalize tied cuts lexicographically or generate unique cuts.
+    owned_path: reasoning_core/tasks/generated/wave0/n07_max_flow_min_cut
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n07_max_flow_min_cut
+
+  - id: N8
+    hypothesis: N8
+    idea: Add bipartite matching as a direct reasoning primitive.
+    changes: Implement maximum-cardinality or maximum-weight matching with deterministic tie handling.
+    instruction: >-
+      Implement bipartite_matching with NetworkX and controlled augmenting-path
+      depth. Answers must be canonical under ties.
+    owned_path: reasoning_core/tasks/generated/wave0/n08_bipartite_matching
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n08_bipartite_matching
+
+  - id: N9
+    hypothesis: N9
+    idea: Add all-path dominator reasoning on directed graphs.
+    changes: Implement dominance and immediate-dominator queries over CFG-like graphs.
+    instruction: >-
+      Implement graph_dominators using NetworkX immediate_dominators. Generate
+      reachable CFG-like graphs and make source and answer conventions explicit.
+    owned_path: reasoning_core/tasks/generated/wave0/n09_graph_dominators
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n09_graph_dominators
+
+  - id: N10
+    hypothesis: N10
+    idea: Add binary-tree reconstruction from traversal pairs.
+    changes: Implement parent, child, and subtree queries after traversal reconstruction.
+    instruction: >-
+      Implement tree_reconstruction for preorder+inorder and inorder+postorder.
+      Generate unique node labels and independently reconstruct the tree before
+      scoring compact relationship queries.
+    owned_path: reasoning_core/tasks/generated/wave0/n10_tree_reconstruction
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n10_tree_reconstruction
+
+  - id: N11
+    hypothesis: N11
+    idea: Add interval abstract interpretation of tiny programs.
+    changes: Implement interval propagation and abstract-range queries at program points.
+    instruction: >-
+      Implement interval_abstract_interpretation over a small branching language.
+      Check abstract results against exhaustive bounded concrete execution and
+      distinguish sound over-approximation from exact concrete ranges.
+    owned_path: reasoning_core/tasks/generated/wave0/n11_interval_abstract_interpretation
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n11_interval_abstract_interpretation
+
+  - id: N12
+    hypothesis: N12
+    idea: Add minimum-spanning-tree reasoning.
+    changes: Implement MST total-weight or canonical edge-list queries with deterministic ties.
+    instruction: >-
+      Implement minimum_spanning_tree using NetworkX. Generate connected weighted
+      undirected graphs and reject ambiguity or canonicalize tied optima.
+    owned_path: reasoning_core/tasks/generated/wave0/n12_minimum_spanning_tree
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/generated/wave0/n12_minimum_spanning_tree
+
+  - id: M1
+    parent: reasoning_core/tasks/regex.py
+    hypothesis: H5
+    idea: Test whether short witnesses teach more than regex-language labels.
+    changes: Add intersection/disjointness with shortest-common-witness or None answers.
+    instruction: >-
+      Derive a regex_reasoning mutation using the existing exact FSM machinery.
+      Add intersection and disjointness queries; return the shortest canonical
+      common witness for nonempty intersections and None for disjoint languages.
+    owned_path: reasoning_core/tasks/mutated/wave0/m01_regex_intersection
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m01_regex_intersection
+
+  - id: M2
+    parent: reasoning_core/tasks/regex.py
+    hypothesis: H10
+    idea: Test shallow composition of familiar finite-state primitives.
+    changes: Add depth-2/3 Boolean language expressions and exact relation/emptiness queries.
+    instruction: >-
+      Derive a regex_reasoning mutation supporting shallow Boolean language
+      expressions such as (A intersect not B) subset C and symmetric-difference
+      emptiness. Reuse exact automata operations and keep answers short.
+    owned_path: reasoning_core/tasks/mutated/wave0/m02_regex_boolean_languages
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m02_regex_boolean_languages
+
+  - id: M3
+    parent: reasoning_core/tasks/arithmetics.py
+    hypothesis: H7
+    idea: Test whether shared-state reuse improves transfer over expression trees.
+    changes: Replace arithmetic trees with let-bound DAGs reusing intermediates two to four times.
+    instruction: >-
+      Derive an arithmetics mutation with let-bound arithmetic DAGs. Hold basic
+      operator semantics comparable to the parent while controlling reuse and
+      dependency depth.
+    owned_path: reasoning_core/tasks/mutated/wave0/m03_arithmetic_dags
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m03_arithmetic_dags
+
+  - id: M4
+    parent: reasoning_core/tasks/arithmetics.py
+    hypothesis: H3
+    idea: Test paired local counterfactual sensitivity in arithmetic.
+    changes: Present original and one-edit expressions and ask for old/new values or delta.
+    instruction: >-
+      Derive an arithmetics mutation pairing an expression with one marked
+      literal or operator edit. Keep both results canonical and ensure the edit
+      usually changes the answer.
+    owned_path: reasoning_core/tasks/mutated/wave0/m04_arithmetic_counterfactual
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m04_arithmetic_counterfactual
+
+  - id: M5
+    parent: reasoning_core/tasks/arithmetics.py
+    hypothesis: H1
+    idea: Test bidirectional process reasoning at controlled internal depth.
+    changes: Hide and query an internal process state instead of only the initial value.
+    instruction: >-
+      Derive a math_word_problem mutation asking for the amount immediately
+      before or after step k. Control the number of forward/backward steps needed
+      to identify the internal state.
+    owned_path: reasoning_core/tasks/mutated/wave0/m05_internal_process_inversion
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m05_internal_process_inversion
+
+  - id: M6
+    parent: reasoning_core/tasks/arithmetics.py
+    hypothesis: H2
+    idea: Test formally irrelevant but query-coupled distractors.
+    changes: Add connected distractor chains sharing entities and units while preserving the proof core.
+    instruction: >-
+      Derive a math_word_problem mutation with connected distractor chains.
+      Match entities and units to the useful chain, verify irrelevance formally,
+      and hold minimal proof depth fixed.
+    owned_path: reasoning_core/tasks/mutated/wave0/m06_word_problem_distractors
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m06_word_problem_distractors
+
+  - id: M7
+    parent: reasoning_core/tasks/equation_system.py
+    hypothesis: H9
+    idea: Test identifiable projections of ambiguous global solutions.
+    changes: Ask for a uniquely determined linear functional in an underdetermined system.
+    instruction: >-
+      Derive an equation_system mutation where the full solution is not unique
+      but a displayed linear functional is. Verify identifiability symbolically
+      and keep the functional answer canonical.
+    owned_path: reasoning_core/tasks/mutated/wave0/m07_identifiable_projection
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m07_identifiable_projection
+
+  - id: M8
+    parent: reasoning_core/tasks/equation_system.py
+    hypothesis: H1
+    idea: Test elimination-core depth independently of prompt size.
+    changes: Control elimination depth while adding matched nuisance equations and variables.
+    instruction: >-
+      Derive an equation_system mutation with explicit elimination depth to the
+      queried quantity while keeping overall dimensions approximately fixed.
+      Record a solver-derived depth diagnostic in metadata.
+    owned_path: reasoning_core/tasks/mutated/wave0/m08_elimination_depth
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m08_elimination_depth
+
+  - id: M9
+    parent: reasoning_core/tasks/constraint_satisfaction.py
+    hypothesis: H5
+    idea: Test short structural certificates rather than CSP labels.
+    changes: Ask which clue is necessary or removable without changing the answer.
+    instruction: >-
+      Derive a constraint_satisfaction mutation using existing exact
+      core/essentiality machinery. Make the clue answer unique and compact.
+    owned_path: reasoning_core/tasks/mutated/wave0/m09_clue_essentiality
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m09_clue_essentiality
+
+  - id: M10
+    parent: reasoning_core/tasks/constraint_satisfaction.py
+    hypothesis: H3
+    idea: Test explicit paired interventions in constraint worlds.
+    changes: Present original and one-clue counterfactual together and ask both answers or flip status.
+    instruction: >-
+      Derive a constraint_satisfaction mutation pairing the original instance
+      and a one-clue intervention. Verify both worlds exactly and use a short
+      canonical paired answer.
+    owned_path: reasoning_core/tasks/mutated/wave0/m10_csp_counterfactual
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m10_csp_counterfactual
+
+  - id: M11
+    parent: reasoning_core/tasks/math_geometry.py
+    hypothesis: H6
+    idea: Test geometric semantic invariance under exact representation changes.
+    changes: Apply exact relation-preserving transformations while matching structural difficulty.
+    instruction: >-
+      Derive a planar_geometry_relations mutation applying random exact
+      similarities or relation-safe affine transformations. Preserve the query
+      relation and verify it independently after transformation.
+    owned_path: reasoning_core/tasks/mutated/wave0/m11_geometry_invariance
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m11_geometry_invariance
+
+  - id: M12
+    parent: reasoning_core/tasks/math_geometry.py
+    hypothesis: H1
+    idea: Test construction-core depth independently of distractor count.
+    changes: Require two to four dependent geometric constructions with matched unrelated points.
+    instruction: >-
+      Derive a planar_geometry_relations mutation controlling dependency depth
+      through intersections, midpoints, or related exact constructions. Match
+      distractor counts across depths.
+    owned_path: reasoning_core/tasks/mutated/wave0/m12_geometry_construction_depth
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m12_geometry_construction_depth
+
+  - id: M13
+    parent: reasoning_core/tasks/qualitative_causal_reasoning.py
+    hypothesis: H3
+    idea: Test an explicit observation-versus-intervention contrast.
+    changes: Ask observational association and intervention effect on the same confounded DAG.
+    instruction: >-
+      Derive a qualitative_causal_reasoning mutation pairing observational and
+      do-intervention queries on one graph. Return one canonical qualitative
+      pair and verify both components with the existing kernels.
+    owned_path: reasoning_core/tasks/mutated/wave0/m13_observe_do_pair
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m13_observe_do_pair
+
+  - id: M14
+    parent: reasoning_core/tasks/qualitative_causal_reasoning.py
+    hypothesis: H10
+    idea: Test shallow composition of intervention and conditioning primitives.
+    changes: Add do-plus-conditioning and optional two-intervention qualitative queries.
+    instruction: >-
+      Derive a qualitative_causal_reasoning mutation composing do() with
+      conditioning and optionally two interventions. Preserve short signed
+      answers and exact graph semantics.
+    owned_path: reasoning_core/tasks/mutated/wave0/m14_composed_causal_queries
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m14_composed_causal_queries
+
+  - id: M15
+    parent: reasoning_core/tasks/logic_depth.py
+    hypothesis: H10
+    idea: Test shallow composition across separate proof branches.
+    changes: Require conjunctive queries whose predicates derive from distinct branches.
+    instruction: >-
+      Derive a logic_qa mutation with conjunctive queries requiring two separate
+      derivations. Reject cases where either conjunct is lexical or follows from
+      the other branch accidentally.
+    owned_path: reasoning_core/tasks/mutated/wave0/m15_conjunctive_logic
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m15_conjunctive_logic
+
+  - id: M16
+    parent: reasoning_core/tasks/logic_depth.py
+    hypothesis: H1
+    idea: Test controlled nonmonotonic conflict depth.
+    changes: Generate matched default, exception, and exception-to-exception cases.
+    instruction: >-
+      Derive a defeasible_nli mutation with label-balanced conflict depths and
+      matched vocabulary. Make conflict depth the main difficulty variable.
+    owned_path: reasoning_core/tasks/mutated/wave0/m16_defeasible_conflict_depth
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m16_defeasible_conflict_depth
+
+  - id: M17
+    parent: reasoning_core/tasks/probabilistic_reasoning.py
+    hypothesis: H8
+    idea: Test probability decision-boundary sampling.
+    changes: Present two complete MAP explanations and control their log-probability margin.
+    instruction: >-
+      Derive a most_probable_evidence mutation presenting two plausible complete
+      explanations. Compute exact probabilities, control the log-margin, and
+      answer with the winning option only.
+    owned_path: reasoning_core/tasks/mutated/wave0/m17_near_tie_map
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m17_near_tie_map
+
+  - id: M18
+    parent: reasoning_core/tasks/belief_tracking.py
+    hypothesis: H3
+    idea: Test paired counterfactual sensitivity in epistemic tracking.
+    changes: Pair stories differing in one observation or delivery event and query belief before/after.
+    instruction: >-
+      Derive a belief_tracking mutation pairing stories with one marked event
+      edit. Hold all other surface content fixed and verify both belief states.
+    owned_path: reasoning_core/tasks/mutated/wave0/m18_belief_counterfactual
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m18_belief_counterfactual
+
+  - id: M19
+    parent: reasoning_core/tasks/table_qa.py
+    hypothesis: H4
+    idea: Test whether short targets rescue relational table reasoning.
+    changes: Restrict SQL tasks to one scalar or short identifier with controlled composition depth.
+    instruction: >-
+      Derive a table_qa mutation whose SQL result is exactly one scalar or short
+      identifier. Preserve relational composition while eliminating long CSV or
+      table-generation targets.
+    owned_path: reasoning_core/tasks/mutated/wave0/m19_scalar_sql
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m19_scalar_sql
+
+  - id: M20
+    parent: reasoning_core/tasks/planning.py
+    hypothesis: H4
+    idea: Test whether short repair targets rescue planning reasoning.
+    changes: Replace full-plan generation with first-invalid-action or unique-replacement queries.
+    instruction: >-
+      Derive a planning mutation presenting a nearly valid plan. Ask for the
+      first invalid action or unique replacement and verify by executing the
+      transition model.
+    owned_path: reasoning_core/tasks/mutated/wave0/m20_plan_repair
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider reasoning_core/tasks/mutated/wave0/m20_plan_repair

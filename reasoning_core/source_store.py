@@ -6,6 +6,18 @@ from pathlib import Path
 import tempfile
 
 
+_GENERATION_FIELDS = ("provider_name", "model_name", "harness_name", "harness_version")
+
+
+def _generation_metadata(generation):
+    if not isinstance(generation, dict):
+        raise TypeError("generation must be a dictionary")
+    missing = [field for field in _GENERATION_FIELDS if not generation.get(field)]
+    if missing:
+        raise ValueError(f"missing generation metadata: {', '.join(missing)}")
+    return dict(generation)
+
+
 class SourceStore:
     """Store source snapshots by their SHA-256 digest."""
 
@@ -68,7 +80,7 @@ class SourceStore:
         return self._checked_source(self._path(source_id), source_id).decode("utf-8")
 
 
-def snapshot_parent(parent_path, *, idea, hypothesis, changes, store=None):
+def snapshot_parent(parent_path, *, idea, hypothesis, changes, generation, store=None):
     """Read and snapshot a parent, returning the exact source and child metadata."""
     source = Path(parent_path).read_bytes().decode("utf-8")
     parent_source_id = (store or SourceStore()).put(source)
@@ -77,5 +89,6 @@ def snapshot_parent(parent_path, *, idea, hypothesis, changes, store=None):
         "idea": idea,
         "hypothesis": hypothesis,
         "changes": changes,
+        "generation": _generation_metadata(generation),
     }
     return source, metadata

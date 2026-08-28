@@ -26,23 +26,34 @@ identity is independent of filenames and Git history.
 
 ## Descendant metadata
 
-Each generated or mutated descendant carries a concise literal module-level
-mapping:
+Each generated or mutated task carries a concise literal module-level mapping.
+Use `None` for `parent_source_id` only when a genuinely new task has no source
+parent:
 
 ```python
 TASK_META = {
     "parent_source_id": "<sha256>",
     "idea": "increase compositional distractor depth",
-    "hypothesis": "deeper distractors reduce shortcut accuracy at levels 3+",
+    "hypothesis": "H1",
     "changes": "sample two-hop distractors instead of one-hop distractors",
+    "generation": {
+        "provider_name": "<provider-id>",
+        "model_name": "<exact-provider/model-id>",
+        "harness_name": "opencode",
+        "harness_version": "<exact-version>",
+        "agent_name": "<agent-profile>",
+        "settings": {},
+    },
 }
 ```
 
 - `parent_source_id` identifies the exact source used as the parent.
 - `idea` names the capability or variation being explored.
-- `hypothesis` states the expected measurable effect. This is the field for
-  grouping and testing task hypotheses across runs.
+- `hypothesis` is a stable hypothesis ID defined by the task-search wave.
 - `changes` describes the concrete implementation or distribution change.
+- `generation` records the resolved, non-secret generation setup. The provider
+  label, exact model ID, harness name/version, agent profile, and non-default
+  settings belong here; endpoints, API keys, and credential-file paths do not.
 
 Keep these values short. Store run IDs, measurements, and reports in experiment
 outputs, keyed by task source IDs, rather than embedding results in task files.
@@ -57,8 +68,16 @@ from reasoning_core.source_store import SourceStore, snapshot_parent
 parent_source, task_meta = snapshot_parent(
     "reasoning_core/tasks/example.py",
     idea="increase compositional distractor depth",
-    hypothesis="deeper distractors reduce shortcut accuracy at levels 3+",
+    hypothesis="H1",
     changes="sample two-hop distractors instead of one-hop distractors",
+    generation={
+        "provider_name": "openrouter",
+        "model_name": "<exact-provider/model-id>",
+        "harness_name": "opencode",
+        "harness_version": "<exact-version>",
+        "agent_name": "build",
+        "settings": {"variant": "high"},
+    },
     store=SourceStore(),
 )
 ```
@@ -70,3 +89,8 @@ prevents the stored parent and the represented parent from diverging.
 When a descendant later becomes a parent, snapshot its complete source in the
 same way. This produces an ancestry chain without requiring a Git commit, and
 every historical parent remains retrievable after edits or renames.
+
+Generation metadata should be injected by the launcher from the resolved
+invocation, not authored by the generating model. A public launcher may select
+any OpenCode provider/model reference; provider credentials and custom endpoint
+configuration remain user-local.
