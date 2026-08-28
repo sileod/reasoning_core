@@ -67,11 +67,8 @@ queues:
     - N4
     - N5
     - N6
-    - N7
-    - N8
     - N9
     - N10
-    - N11
     - N12
     - M1
     - M2
@@ -92,7 +89,7 @@ queues:
     - M20
 
 defaults:
-  base_ref: cc1e4a4
+  base_ref: f4a58332140df20fb8fce3105f72f13cd040225e
 
 context_files:
   - AGENTS.md
