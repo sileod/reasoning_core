@@ -16,6 +16,17 @@ version: 1
 name: WAVE3
 
 queues:
+  # the four wave3 failures whose cause was infrastructure or a fixed prompt gap,
+  # not the idea: S26 (pytest tail hid the assertion diff), S35 (level-6 generate
+  # never returned), S36 (harness SIGTERM), S37 (bare relative sample path on the
+  # read-only worktree root). S22's answer space is genuinely too narrow -- it
+  # needs a reshaped idea, not a rerun.
+  retry:
+    - S26
+    - S35
+    - S36
+    - S37
+
   pilot:
     - S26
     - S31
@@ -48,7 +59,7 @@ queues:
     - S37
 
 defaults:
-  base_ref: 5bab2c9747a89204fea6571158dc075fc7f57046
+  base_ref: 21f602a
 
 context_files:
   - AGENTS.md
