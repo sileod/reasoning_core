@@ -30,6 +30,8 @@ from reasoning_core.task_search.runner import (
     _owned_digest,
     _undiscoverable,
     generation_metadata,
+    render_prompt,
+    PACE,
     load_plan,
     opencode_config,
     render_prompt,
@@ -559,3 +561,20 @@ def test_unparseable_candidate_metadata_raises_something_catchable(tmp_path, sou
     (owned / "task.py").write_text(source)
     with pytest.raises(error):
         _task_metadata(tmp_path, "reasoning_core/tasks/generated/n1")
+
+
+def test_pace_changes_the_prompt_and_is_recorded():
+    """The hurry stance is an assumption about the bottleneck, so it has to be A/B-able."""
+    plan = load_plan(PLAN)
+    trial = plan.trials[0]
+    prompts = {name: render_prompt(plan, trial, ROOT, pace=name) for name in PACE}
+
+    assert len(set(prompts.values())) == len(PACE)
+    assert "Hurry" in prompts["hurry"] and "Hurry" not in prompts["deliberate"]
+    assert "two or three formulations" in prompts["deliberate"]
+    # Everything outside the pacing block is shared, so waves stay comparable.
+    for prompt in prompts.values():
+        assert trial.instruction in prompt and "TASK_META" in prompt
+
+    assert generation_metadata("m", "v", "a", pace="deliberate")["settings"]["pace"] == (
+        "deliberate")

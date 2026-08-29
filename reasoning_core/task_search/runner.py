@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import textwrap
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -131,12 +132,48 @@ def _repo_root(start):
     return Path(output.strip()).resolve()
 
 
+# How hard the worker is told to hurry. The step budget does not set this on its own:
+# a worker told to explore spends the same budget differently from one told to start
+# writing. It lives in a table because it is an assumption about where the bottleneck
+# is rather than a fact -- every review of this system has questioned it -- and an
+# assumption you can only test by A/B is one worth being able to set from the CLI.
+# The wave's pace is recorded in generation metadata, so waves stay comparable.
+PACE = {
+    "hurry": {
+        "stance": "That is enough only if you do not explore: the assignment and the"
+                  " guides above already contain everything you need, and a working"
+                  " task has been written from this prompt alone with no repository"
+                  " reads at all. Hurry, and work in this order:",
+        "first_step": "Start writing immediately -- one call to read the parent if you"
+                      " have one, then a single call that writes the whole module",
+    },
+    "steady": {
+        "stance": "Spend the first two or three calls understanding the assignment --"
+                  " read the parent, and skim one neighbouring task for the house"
+                  " style -- then commit to a design and write it. Work in this order:",
+        "first_step": "Read the parent if you have one and at most one neighbouring"
+                      " task, then write the whole module in a single call",
+    },
+    "deliberate": {
+        "stance": "Design before you implement. Write down two or three formulations of"
+                  " this task, say for each what a lazy solver could exploit and what"
+                  " makes level 5 harder than level 0, pick one and say why, and only"
+                  " then write code. A wrong design polished for twenty steps scores"
+                  " worse than a right one written in five. Work in this order:",
+        "first_step": "State the formulation you chose and why in two sentences, then"
+                      " write the whole module",
+    },
+}
+DEFAULT_PACE = "hurry"
+
+
 def _sha256(data):
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
-def render_prompt(plan, trial, repo_root, task_meta=None):
+def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
     """Compose stable global context with one compact assignment."""
+    pacing = PACE[pace]
     sections = [
         f"# Task-search assignment {trial.trial_id}",
         "",
@@ -172,15 +209,14 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "trailing `echo` or `2>/dev/null` gets the whole call denied. A denied call",
         "costs a step and re-sending it costs another -- change tool instead. The owned",
         "path is created by your first write, so never `ls` or `mkdir` to check it.",
-        f"You have {_budget_phrase(task_meta)}: one tool call is one step and a denied",
-        "call still counts. That is enough only if you do not explore -- the assignment",
-        "and the guides above already contain everything you need, and a working task",
-        "has been written from this prompt alone with no repository reads at all.",
-        "Hurry, and work in this order:",
-        "1. Start writing immediately -- one call to read the parent if you have one,",
-        "   then a single call that writes the whole module under the owned path: a `Config`",
-        "   subclass, a `Task` subclass whose name does not contain `Task`, and the",
-        "   exact TASK_META below, pasted rather than retyped.",
+        *textwrap.wrap(
+            f"You have {_budget_phrase(task_meta)}: one tool call is one step and a"
+            f" denied call still counts. {pacing['stance']}", 79),
+        *textwrap.wrap(
+            f"1. {pacing['first_step']} under the owned path: a `Config` subclass, a"
+            " `Task` subclass whose name does not contain `Task`, and the exact"
+            " TASK_META below, pasted rather than retyped.",
+            79, subsequent_indent="   "),
         f"2. In one more call write both a `test_<your_module>.py` next to the module --",
         "   pytest collects only files named `test_*.py` containing `test_*` functions --",
         f"   and `generate_samples_{trial.trial_id}.py`, seeded with{_seed_phrase(task_meta)}",
@@ -274,9 +310,10 @@ def generation_metadata(model, harness_version, agent, variant=None,
                         sandbox_version=None, max_steps=56,
                         timeout_seconds=1800, provider_name=None,
                         adapter_name="direct", adapter_version=None,
-                        harness_name="opencode"):
+                        harness_name="opencode", pace=DEFAULT_PACE):
     settings = {
         "variant": variant,
+        "pace": pace,
         "requested_seed": requested_seed,
         "seed_forwarded": seed_forwarded,
         "temperature": temperature,
@@ -945,7 +982,8 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
                base_seed, forward_seed, temperature, top_p, bwrap_bin,
                sandbox_version, max_steps, timeout_seconds, adapter, provider,
                adapter_bin, adapter_version, resource_limits,
-               validation_timeout_seconds, credential_env_names):
+               validation_timeout_seconds, credential_env_names,
+               pace=DEFAULT_PACE):
     trial_root = invocation_root / trial.trial_id
     worktree = trial_root / "worktree"
     trial_root.mkdir(parents=True)
@@ -971,6 +1009,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         adapter_name=adapter,
         adapter_version=adapter_version,
         harness_name=harness,
+        pace=pace,
     )
     parent_source_id = None
     if trial.parent:
@@ -987,7 +1026,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "changes": trial.changes,
         "generation": generation,
     }
-    prompt = render_prompt(plan, trial, repo_root, task_meta)
+    prompt = render_prompt(plan, trial, repo_root, task_meta, pace)
     prompt_path = trial_root / "prompt.md"
     prompt_path.write_text(prompt)
     runtime_root = trial_root / "runtime"
@@ -1285,8 +1324,11 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
              queue_names=(), adapter="direct", provider=None, adapter_bin=None,
              resource_limit_mode="auto", systemd_run_bin="systemd-run",
              memory_max="8G", tasks_max=512, cpu_quota="400%",
-             validation_timeout_seconds=300, credential_env_names=()):
+             validation_timeout_seconds=300, credential_env_names=(),
+             pace=DEFAULT_PACE):
     """Run selected trials concurrently in isolated Git worktrees."""
+    if pace not in PACE:
+        raise ValueError(f"unknown pace: {pace!r}; choose from {', '.join(sorted(PACE))}")
     plan = load_plan(plan_path)
     repo_root = Path(repo_root).resolve() if repo_root else _repo_root(plan.path.parent)
     selected = _select_trials(plan, trial_ids, queue_names)
@@ -1345,6 +1387,7 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             "max_steps": max_steps,
             "timeout_seconds": timeout_seconds,
             "validation_timeout_seconds": validation_timeout_seconds,
+            "pace": pace,
             "sandbox": {"name": "bubblewrap", "version": sandbox_version},
             "resource_limits": _public_resource_limits(resource_limits),
             "scrubbed_credential_env_names": sorted(credential_env_names),
@@ -1360,7 +1403,7 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
                 seed, forward_seed, temperature, top_p, bwrap_path,
                 sandbox_version, max_steps, timeout_seconds,
                 adapter, provider, adapter_bin, adapter_version, resource_limits,
-                validation_timeout_seconds, tuple(credential_env_names),
+                validation_timeout_seconds, tuple(credential_env_names), pace,
             ): trial.trial_id
             for trial in selected
         }
@@ -1390,6 +1433,7 @@ def _parser():
     render = subparsers.add_parser("render", help="render one worker prompt")
     render.add_argument("plan")
     render.add_argument("trial_id")
+    render.add_argument("--pace", choices=sorted(PACE), default=DEFAULT_PACE)
     run = subparsers.add_parser("run", help="launch folder-scoped coding workers")
     run.add_argument("plan")
     run.add_argument("--model", required=True)
@@ -1417,6 +1461,8 @@ def _parser():
     run.add_argument("--temperature", type=float)
     run.add_argument("--top-p", type=float)
     run.add_argument("--max-steps", type=int, default=56)
+    run.add_argument("--pace", choices=sorted(PACE), default=DEFAULT_PACE,
+                     help="how hard the worker is told to hurry; recorded in generation metadata so waves stay comparable")
     run.add_argument("--timeout-seconds", type=int, default=1800)
     run.add_argument("--validation-timeout-seconds", type=int, default=300)
     run.add_argument("--opencode-bin", default="opencode")
@@ -1448,7 +1494,11 @@ def main(argv=None):
         trial = next((item for item in plan.trials if item.trial_id == args.trial_id), None)
         if trial is None:
             raise SystemExit(f"unknown trial: {args.trial_id}")
-        print(render_prompt(plan, trial, _repo_root(plan.path.parent)), end="")
+        # A template preview: execution builds a model-, seed- and budget-dependent
+        # TASK_META and passes it in. The prompt a worker actually got is its
+        # prompt.md, in the trial directory.
+        print(render_prompt(plan, trial, _repo_root(plan.path.parent),
+                            pace=args.pace), end="")
     else:
         results = run_plan(
             args.plan,
@@ -1479,6 +1529,7 @@ def main(argv=None):
             cpu_quota=args.cpu_quota,
             validation_timeout_seconds=args.validation_timeout_seconds,
             credential_env_names=args.credential_env,
+            pace=args.pace,
         )
         for result in results:
             print(f"{result['trial_id']}\t{result['status']}\t"

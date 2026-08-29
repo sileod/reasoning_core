@@ -141,7 +141,15 @@ even when accepted, remote agentic sampling should be treated as best-effort
 rather than bit-for-bit deterministic.
 
 Workers are bounded to 56 agent steps and 30 minutes by default; both limits are
-recorded and configurable with `--max-steps` and `--timeout-seconds`. After the
+recorded and configurable with `--max-steps` and `--timeout-seconds`.
+
+`--pace` sets how hard the worker is told to hurry, independently of that budget:
+`hurry` (the default) tells it not to explore and to start writing immediately,
+`steady` allows a few orientation calls, and `deliberate` asks it to propose two
+or three formulations and say what a lazy solver could exploit before writing any
+code. The pace is recorded in generation metadata, so waves remain comparable and
+the stance can be A/B-ed rather than assumed. Everything outside the pacing block
+is identical across the three. After the
 worker exits, the coordinator imports every owned `Task` subclass, runs its real
 `validate()` contract, and samples 64 additional examples to reject gold-answer
 failures or blank/whitespace/gibberish answers that incorrectly score as fully

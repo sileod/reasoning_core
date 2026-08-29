@@ -167,6 +167,12 @@ implementation — several short independent proposal workers with no write acce
 a critic that ranks them, and only the winner entering this pipeline — is the
 change most likely to matter, and it is not built.
 
+What *is* built is the knob: `--pace hurry|steady|deliberate` varies only the
+stance block of the prompt, records itself in generation metadata, and leaves
+everything else byte-identical, so the assumption can be measured on a replayed
+wave instead of argued about. `deliberate` asks for two or three formulations and
+their exploitable shortcuts before any code is written.
+
 ## Running it without a model
 
 ```bash
