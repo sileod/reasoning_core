@@ -1,0 +1,274 @@
+# WAVE2: from-scratch only, and written after wave 1 was audited rather than counted.
+#
+# Wave 1's scratch queue returned 6/6 on the harness's own gates, and two of those
+# six were still bad tasks: S1 word_problem_chains narrated its own total, so
+# answering with the last number in the prompt scored 1.00, and S6
+# subset_optimization could not generate a single level-6 example because its search
+# never terminated. Both now fail mechanically (prior_audit's --max-shortcut and its
+# level sweep), so this wave is the first whose instructions can assume those two
+# gates exist. Each instruction below therefore says what varies across examples and
+# where the search is bounded, because those are the two things the gates measure.
+#
+# The standing constraints are unchanged: the answer has to vary across examples or
+# the gameability gate takes it; the answer should be short while the state it
+# depends on is not; and it must not restate one of the 76 shipped tasks. Prose
+# framings are preferred over symbolic ones at equal depth -- that is measured, not
+# a style opinion.
+version: 1
+name: WAVE2
+
+queues:
+  pilot:
+    - S14
+    - S24
+  scratch_p0:
+    - S14
+    - S15
+    - S16
+    - S17
+    - S18
+    - S19
+  scratch_p1:
+    - S20
+    - S21
+    - S22
+    - S23
+    - S24
+    - S25
+  scratch_all:
+    - S14
+    - S15
+    - S16
+    - S17
+    - S18
+    - S19
+    - S20
+    - S21
+    - S22
+    - S23
+    - S24
+    - S25
+
+defaults:
+  base_ref: df33f74b4500816d52e63927466eac6cd3278426
+
+context_files:
+  - AGENTS.md
+  - TASK_AUTHORING_GUIDE.md
+  - reasoning_core/task_search/CONTEXT.md
+
+trials:
+  - id: S14
+    hypothesis: S14
+    idea: Add simultaneous congruence solving over several moduli.
+    changes: Ask for the smallest non-negative integer satisfying a stated system of congruences.
+    instruction: >-
+      Implement congruence_systems. State three to six congruences of the form
+      "x leaves remainder r when divided by m" in prose, with pairwise coprime
+      moduli, and ask for the smallest non-negative x that satisfies all of them.
+      Solve by the constructive CRT, not by scanning. Difficulty is the number of
+      congruences and the size of the moduli. The answer is one integer, and it
+      must not appear anywhere in the prompt: choose the remainders freely and let
+      the product of the moduli set the range, so the answer is spread over that
+      whole range rather than clustered on small values.
+    owned_path: reasoning_core/tasks/generated/wave2/s14_congruence_systems
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s14_congruence_systems
+
+  - id: S15
+    hypothesis: S15
+    idea: Add periodicity reasoning over strings.
+    changes: Ask for the smallest period, the longest proper border, or the number of distinct borders.
+    instruction: >-
+      Implement string_periodicity. Give one string over a small alphabet and ask
+      for its smallest period, its longest proper border, or how many proper
+      borders it has -- state which in the prompt. Build strings that are
+      deliberately near-periodic, by taking a short block, repeating it, and then
+      perturbing one or two positions, so the answer is not simply the length.
+      Compute it with the failure function of KMP, which is linear, so every level
+      terminates. Difficulty is the string length and how close the perturbation
+      brings it to a shorter period. The answer is an integer.
+    owned_path: reasoning_core/tasks/generated/wave2/s15_string_periodicity
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s15_string_periodicity
+
+  - id: S16
+    hypothesis: S16
+    idea: Add minimum-repair reasoning over typed bracket sequences.
+    changes: Ask for the fewest insertions that make a mixed bracket string balanced.
+    instruction: >-
+      Implement bracket_repair. Give a string of round, square and curly brackets
+      that is not balanced, and ask for the fewest single-bracket insertions that
+      would balance it. Compute it with the standard stack scan -- push openers,
+      and on a mismatched or missing closer count one insertion -- which is linear
+      and so terminates at every level. Difficulty is the string length, the
+      number of bracket types and how deeply the damage is nested. The answer is
+      an integer, and the generator must vary how many repairs are needed rather
+      than always damaging the string once.
+    owned_path: reasoning_core/tasks/generated/wave2/s16_bracket_repair
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s16_bracket_repair
+
+  - id: S17
+    hypothesis: S17
+    idea: Add expected-value reasoning over a small absorbing Markov chain.
+    changes: Ask for the exact expected number of steps to absorption from a stated start state.
+    instruction: >-
+      Implement absorption_expected_steps. Describe a small chain in prose -- a
+      board game, a queue, a repair process -- with three to seven transient
+      states, stated transition probabilities as simple fractions, and at least
+      one absorbing state, then ask for the exact expected number of steps to
+      absorption from a named start. Solve the linear system exactly with
+      Fraction or SymPy Rational, never by simulation, so the answer is exact and
+      the generator is deterministic. Reject any instance whose transient part is
+      singular or whose absorbing state is unreachable. Difficulty is the number
+      of transient states and the denominators. The answer is one exact fraction
+      in lowest terms; state that convention in the prompt.
+    owned_path: reasoning_core/tasks/generated/wave2/s17_absorption_expected_steps
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s17_absorption_expected_steps
+
+  - id: S18
+    hypothesis: S18
+    idea: Add calendar and duration arithmetic in ordinary prose.
+    changes: Ask for the resulting date, weekday or elapsed count after a chain of stated offsets.
+    instruction: >-
+      Implement calendar_reasoning. Narrate a schedule -- a shipment, a course, a
+      trial period -- with a start date and a chain of offsets in mixed units
+      (business days, weeks, months, hours across a stated UTC offset change), and
+      ask for the resulting date, the weekday, or the number of business days
+      between two points. Compute with datetime and an explicit business-day rule
+      you state in the prompt; do not use a holiday calendar the reader cannot
+      see. Difficulty is the number of offsets and whether they cross a month or
+      year boundary. The answer is a date in ISO form, a weekday name, or an
+      integer -- pick one per example and say which. Draw start dates from a wide
+      range of years so the answer is not concentrated on one month.
+    owned_path: reasoning_core/tasks/generated/wave2/s18_calendar_reasoning
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s18_calendar_reasoning
+
+  - id: S19
+    hypothesis: S19
+    idea: Add composition reasoning over permutations in cycle notation.
+    changes: Ask for the order of a composed permutation, or the image of a point under a power.
+    instruction: >-
+      Implement permutation_composition. State two or three permutations of a
+      small set in cycle notation and ask for the order of their composite, the
+      image of a named point under a stated power of it, or the composite written
+      as disjoint cycles in a canonical form you define and state. Compose
+      directly and take the lcm of cycle lengths for the order, so nothing is
+      searched. Difficulty is the set size, the number of factors and the size of
+      the power. The answer is an integer or a canonical cycle string; if it is a
+      cycle string, canonicalise it exactly, since score_answer compares strings.
+    owned_path: reasoning_core/tasks/generated/wave2/s19_permutation_composition
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s19_permutation_composition
+
+  - id: S20
+    hypothesis: S20
+    idea: Add syndrome decoding over a stated linear code.
+    changes: Ask which position was corrupted, or what the corrected word is.
+    instruction: >-
+      Implement syndrome_decoding. State the parity-check rules of a small binary
+      linear code in prose -- which positions each check covers -- give a received
+      word with at most one error, and ask for the one-based index of the
+      corrupted position, or for the corrected word. Compute the syndrome by
+      evaluating the stated checks; there is nothing to search. Difficulty is the
+      code length and the number of checks. Vary the error position uniformly over
+      the whole word, including the no-error case, so no single index and no
+      constant answer wins.
+    owned_path: reasoning_core/tasks/generated/wave2/s20_syndrome_decoding
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s20_syndrome_decoding
+
+  - id: S21
+    hypothesis: S21
+    idea: Add benefit or premium determination under rules with exceptions.
+    changes: Ask for the amount a stated policy yields for a described case, not for an eligibility label.
+    instruction: >-
+      Implement policy_determination. State a small rulebook in prose -- tiered
+      rates, a cap, a deductible, one or two exceptions that override an earlier
+      rule -- then describe a case and ask for the resulting amount. Ask for the
+      amount, never for a yes/no or an eligibility label: a small label set loses
+      the gameability gate. Compute the amount by applying the rules in the order
+      the prompt states, and make sure at least one stated figure in the case is
+      irrelevant to the answer. Difficulty is the number of rules, the depth of
+      the exception chain and how many case figures are distractors. The answer is
+      one number, and it must never be a figure quoted in the prompt.
+    owned_path: reasoning_core/tasks/generated/wave2/s21_policy_determination
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s21_policy_determination
+
+  - id: S22
+    hypothesis: S22
+    idea: Add register-pressure reasoning over expression trees.
+    changes: Ask for the minimum number of registers an expression needs under a stated machine model.
+    instruction: >-
+      Implement register_pressure. Give an arithmetic expression as ordinary
+      infix text, state a machine model in which every binary operation takes both
+      operands in registers and either operand may be evaluated first, and ask for
+      the minimum number of registers needed to evaluate it. The answer is the
+      Ershov number: a leaf needs one, and a node whose children need a and b
+      needs max(a, b) if they differ and a + 1 if they are equal. That recursion
+      is linear in the tree, so every level terminates. Difficulty is the
+      expression size and how balanced the tree is. The answer is a small integer,
+      so build expressions whose shapes vary enough that no single value dominates.
+    owned_path: reasoning_core/tasks/generated/wave2/s22_register_pressure
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s22_register_pressure
+
+  - id: S23
+    hypothesis: S23
+    idea: Add market-clearing reasoning over an order book.
+    changes: Ask for the clearing price or the traded quantity implied by stated bids and asks.
+    instruction: >-
+      Implement market_clearing. List bids and asks as prose orders -- who will
+      buy how many units at what price, who will sell -- and ask for the uniform
+      clearing price, the total quantity traded at it, or the surplus of one side.
+      Build the cumulative demand and supply curves and take their crossing; state
+      the tie-breaking rule in the prompt and follow it exactly. Reject instances
+      with no crossing, or with a crossing that is not unique under your stated
+      rule. Difficulty is the number of orders and how close the curves run. The
+      answer is one number, drawn from a price grid wide enough that no constant
+      and no quoted price wins.
+    owned_path: reasoning_core/tasks/generated/wave2/s23_market_clearing
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s23_market_clearing
+
+  - id: S24
+    hypothesis: S24
+    idea: Add dependency resolution under version constraints.
+    changes: Ask which version a resolver picks given stated ranges and an available version list.
+    instruction: >-
+      Implement version_resolution. State a handful of packages, the versions
+      available for each, and constraints between them in the ordinary notation a
+      developer reads (>=, <, ==, caret and tilde ranges, which you define in the
+      prompt), then ask which version of a named package the resolver picks under
+      a stated policy -- highest satisfying version, resolved in a stated order.
+      Enumerate the candidate assignments in a fixed order and stop at the first
+      that satisfies every constraint; keep the version lists small so the
+      enumeration is bounded at every level. Difficulty is the number of packages
+      and the depth of the transitive constraints. The answer is one version
+      string, and the generator must ensure the picked version is not the newest
+      one listed, or the task is solvable by reading the last line.
+    owned_path: reasoning_core/tasks/generated/wave2/s24_version_resolution
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s24_version_resolution
+
+  - id: S25
+    hypothesis: S25
+    idea: Add measure reasoning over lattice polygons.
+    changes: Ask for the area, the boundary point count, or the interior point count of a stated polygon.
+    instruction: >-
+      Implement lattice_polygons. Give the vertices of a simple polygon on the
+      integer grid, in order, and ask for twice its area, the number of lattice
+      points on its boundary, or the number strictly inside it. Use the shoelace
+      formula, gcd counting along each edge, and Pick's theorem; all three are
+      closed-form, so nothing is searched. Verify the polygon is simple before
+      emitting it and regenerate if it is not, with a bounded number of attempts.
+      Difficulty is the vertex count and the coordinate range. The answer is an
+      integer; spread the coordinate range with difficulty so the answers do not
+      cluster.
+    owned_path: reasoning_core/tasks/generated/wave2/s25_lattice_polygons
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave2/s25_lattice_polygons
