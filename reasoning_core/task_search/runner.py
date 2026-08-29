@@ -248,7 +248,16 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "  whatever else it does. Bound every rejection-sampling loop; the cost is",
         "  heavy-tailed and one pathological instance is enough.",
         "",
-        "Finish with a concise summary of changes and self-check results.",
+        "Do not end your turn before the self-check has printed a line for every one of",
+        "the eleven gates and none of them says FAIL. Three of fifteen trials in the last",
+        "wave stopped of their own accord inside three minutes, having used twelve of",
+        "twenty-eight steps and written the task module but neither the test, the sample",
+        "script nor the samples file, and all three were scored as failures: a trial that",
+        "stops early scores exactly as badly as one that runs out. Reasoning about whether",
+        "the code is right is not a substitute for running the check -- it is one call and",
+        "it answers the question.",
+        "",
+        "Then finish with a concise summary of changes and self-check results.",
         "",
     ))
     return "\n".join(sections)
