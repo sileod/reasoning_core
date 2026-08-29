@@ -142,6 +142,11 @@ def main(argv=None):
               f" {worst['shortcut']:.2f} > {args.max_shortcut:.2f}; the prompt states its"
               " own answer, so the task is extraction and not reasoning", file=sys.stderr)
         return 1
+    if args.max_const is not None:
+        # Passing is not the same as passing comfortably, and only this line tells the
+        # author which of the two they did.
+        print(f"OK: worst constant guess {worst['const']:.2f}, worst prompt-surface guess"
+              f" {worst['shortcut']:.2f} ({worst_rule or '-'}), ceiling {args.max_const:.2f}")
     return 0
 
 

@@ -256,7 +256,7 @@ def main(argv=None):
 
     code, out = sh("python -m reasoning_core.task_search.prior_audit --path "
                    f"{owned} --n {args.n} --max-const 0.4 --max-shortcut 0.4 --budget-seconds 45")
-    report.gate("gameability", code == 0, "" if code == 0 else tail(out, 10))
+    report.gate("gameability", code == 0, tail(out, 1) if code == 0 else tail(out, 10))
     print(f"\n{report.failed} gate(s) failing.", flush=True)
     return report.failed
 
