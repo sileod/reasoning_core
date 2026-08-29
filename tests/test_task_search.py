@@ -37,7 +37,7 @@ from reasoning_core.task_search.runner import (
     _owned_digest,
     _plan_problems,
     _frozen_module_drift,
-    SAMPLE_SECTIONS,
+    sample_shortfall,
     _prior_audit_command,
     _undiscoverable,
     generation_metadata,
@@ -307,9 +307,9 @@ def test_sample_review_hard_gate_uses_durable_artifacts(tmp_path):
     sample = root / "samples_N1.md"
     (root / "generate_samples_N1.py").write_text("# sample generator\n")
     sample.write_text(
-        "# Level 0\nPrompt: a\nAnswer: b\n"
-        "# Level 2\nPrompt: c\nAnswer: d\n"
-        "# Level 5\nPrompt: e\nAnswer: f\n"
+        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
+        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
+        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
     )
     events = tmp_path / "events.jsonl"
     target = str(sample)
@@ -345,7 +345,11 @@ def test_sample_command_exit_is_observed_but_not_a_hard_gate(tmp_path):
     root.mkdir(parents=True)
     (root / "generate_samples_N1.py").write_text("# generator\n")
     sample = root / "samples_N1.md"
-    sample.write_text("# Level 0\nAnswer\n# Level 2\nAnswer\n# Level 5\nAnswer\n")
+    sample.write_text(
+        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
+        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
+        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
+    )
     command = (
         "PYTHONDONTWRITEBYTECODE=1 python "
         f"{owned}/generate_samples_N1.py"
@@ -377,7 +381,11 @@ def test_sample_event_order_is_observational_not_a_hard_gate(tmp_path):
     root.mkdir(parents=True)
     (root / "generate_samples_N1.py").write_text("# generator\n")
     sample = root / "samples_N1.md"
-    sample.write_text("# Level 0\nAnswer\n# Level 2\nAnswer\n# Level 5\nAnswer\n")
+    sample.write_text(
+        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
+        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
+        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
+    )
     # Built, not spelled out: the recorded command has to match the one the harness
     # runs, and it has gained a PYTHONPATH since this test was written.
     command = _sample_command_for(owned, "N1")
@@ -538,7 +546,8 @@ def test_owned_digest_sees_a_file_rewritten_after_the_contract_audit(tmp_path):
     frozen = _owned_digest(tmp_path, relative, exclude=("samples_N1.md",))
 
     # The generator rewriting its own output is allowed and must not trip the gate.
-    (owned / "samples_N1.md").write_text("level 0 level 2 level 5 answer\n")
+    (owned / "samples_N1.md").write_text("level 0 answer answer level 2 answer"
+                                        " answer level 5 answer answer\n")
     assert _owned_digest(tmp_path, relative, exclude=("samples_N1.md",)) == frozen
 
     (owned / "task.py").write_text("GOLD = 2\n")
@@ -577,11 +586,21 @@ def test_owned_digest_sees_a_swap_that_leaves_the_bytes_alone(tmp_path):
 def test_self_check_reports_the_sections_the_gate_actually_requires():
     """The self-check is the worker's only view of this gate, so its copy has to match.
 
-    selfcheck runs inside the sandbox and cannot import the runner to share the tuple,
-    so the two definitions are pinned here instead -- a worker told it passed a gate the
+    selfcheck runs inside the sandbox and cannot import the runner to share the code,
+    so the two copies are pinned here by behaviour -- a worker told it passed a gate the
     coordinator then fails it on is the failure this whole harness exists to avoid.
     """
-    assert selfcheck.SECTIONS == SAMPLE_SECTIONS
+    thorough = ("## Level 0\nP\nAnswer: 1\nP\nAnswer: 2\n"
+                "## Level 2\nP\nAnswer: 3\nP\nAnswer: 4\n"
+                "## Level 5\nP\nAnswer: 5\nP\nAnswer: 6\n")
+    # One example per level: the headings are all there, which is all the gate used
+    # to look for. Three of 480 sample files looked exactly like this.
+    thin = thorough.replace("P\nAnswer: 2\n", "").replace("P\nAnswer: 4\n", "")
+    for body in (thorough, thin, "", "Level 0\nLevel 2\nLevel 5\nAnswer"):
+        assert sample_shortfall(body) == selfcheck.sample_shortfall(body)
+    assert sample_shortfall(thorough) == []
+    assert [s.split()[1] for s in sample_shortfall(thin)] == ["0", "2"]
+    assert len(sample_shortfall("")) == 3
 
 
 def test_plan_problems_are_the_ones_check_used_to_miss():

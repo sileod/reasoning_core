@@ -290,8 +290,9 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
         "  salt pins at all. Iterate `sorted(...)` over anything whose order is visible,",
         "  and key on a string or a tuple of ints, never on an object.",
         f"- `sections` needs `samples_{trial.trial_id}.md` to carry two complete",
-        "  prompt/answer examples at each of levels 0, 2 and 5; the `Level 0` / `Level 2`",
-        "  / `Level 5` / `Answer` headings are checked literally.",
+        "  prompt/answer examples at each of levels 0, 2 and 5. The headings `Level 0`,",
+        "  `Level 2` and `Level 5` are matched literally and the word `Answer` is counted",
+        "  under each: one example per level fails, however well the file reads.",
         "- `contract` generates 64 examples and requires score_answer to return 1.0 on",
         "  every gold answer and less than 1.0 on empty and junk strings.",
         "- `speed` times generate_example at the DEFAULT config, which is the one the",
@@ -615,7 +616,25 @@ def _task_metadata(worktree, owned_path):
 # The sections a samples file has to show. Named once, because the self-check
 # reports this gate to the worker and the two rules going out of step would tell
 # the worker it had passed something the coordinator then failed it on.
-SAMPLE_SECTIONS = ("level 0", "level 2", "level 5", "answer")
+SAMPLE_LEVELS = ("0", "2", "5")
+SAMPLE_EXAMPLES = 2
+
+
+def sample_shortfall(body):
+    """Which required levels does the samples file not actually show twice?
+
+    The gate used to be four substrings, which a file carrying the right headings and
+    a single example passed just as happily as one carrying two. Measured over 480
+    sample files, three did exactly that, and their authors were told they had passed.
+    """
+    body = body.lower()
+    hits = [(m.start(), m.group(1)) for m in re.finditer(r"level\s*([025])\b", body)]
+    counts = dict.fromkeys(SAMPLE_LEVELS, 0)
+    for index, (position, level) in enumerate(hits):
+        end = hits[index + 1][0] if index + 1 < len(hits) else len(body)
+        counts[level] += body.count("answer", position, end)
+    return [f"level {level} shows {counts[level]} of {SAMPLE_EXAMPLES} answers"
+            for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
 
 
 def _sample_review(worktree, owned_path, trial_id, events_path):
@@ -634,8 +653,9 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
         "command_succeeded": False,
     }
     if sample_path.is_file():
-        content = sample_path.read_text().lower()
-        result["required_sections"] = all(marker in content for marker in SAMPLE_SECTIONS)
+        shortfall = sample_shortfall(sample_path.read_text())
+        result["required_sections"] = not shortfall
+        result["sample_shortfall"] = shortfall
     target = "/" + result["path"]
     expected_command = _sample_command_for(owned_path, trial_id)
     last_write = -1

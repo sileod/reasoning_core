@@ -17,12 +17,30 @@ call, so gates run cheapest-first behind a shared deadline, every line is flushe
 it is produced, and a gate that would overrun is skipped rather than allowed to eat
 the budget and have the entire report killed with nothing printed.
 """
-import argparse, ast, hashlib, json, os, pathlib, shlex, subprocess, sys, time
+import argparse, ast, hashlib, json, os, pathlib, re, shlex, subprocess, sys, time
 
-# Kept in step with runner.SAMPLE_SECTIONS by a test, not by an import: this
-# module runs inside the sandbox, where importing the runner would drag in yaml
-# and the package, and a self-check that cannot start reports nothing at all.
-SECTIONS = ("level 0", "level 2", "level 5", "answer")
+# Kept in step with the runner's copy by a test, not by an import: this module runs
+# inside the sandbox, where importing the runner would drag in yaml and the package,
+# and a self-check that cannot start reports nothing at all.
+SAMPLE_LEVELS = ("0", "2", "5")
+SAMPLE_EXAMPLES = 2
+
+
+def sample_shortfall(body):
+    """Which required levels does the samples file not actually show twice?
+
+    The gate used to be four substrings, which a file carrying the right headings and
+    a single example passed just as happily as one carrying two. Measured over 480
+    sample files, three did exactly that, and their authors were told they had passed.
+    """
+    body = body.lower()
+    hits = [(m.start(), m.group(1)) for m in re.finditer(r"level\s*([025])\b", body)]
+    counts = dict.fromkeys(SAMPLE_LEVELS, 0)
+    for index, (position, level) in enumerate(hits):
+        end = hits[index + 1][0] if index + 1 < len(hits) else len(body)
+        counts[level] += body.count("answer", position, end)
+    return [f"level {level} shows {counts[level]} of {SAMPLE_EXAMPLES} answers"
+            for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
 # opencode kills a bash call at 300s (runner.py's _mini_config) and the harness gives
 # each validation command the same. Stop early enough to print the summary.
 DEADLINE = time.monotonic() + 240
@@ -200,10 +218,10 @@ def main(argv=None):
     if not ran:
         return report.failed
     body = samples.read_text().lower() if samples.is_file() else ""
-    missing = [s for s in SECTIONS if s not in body]
-    report.gate("sections", not missing,
-                f"{samples.name} is missing the literal heading(s) {missing}"
-                if missing else "all of Level 0, Level 2, Level 5, Answer present")
+    shortfall = sample_shortfall(body)
+    report.gate("sections", not shortfall,
+                f"{samples.name}: " + "; ".join(shortfall) if shortfall
+                else "two prompt/answer examples at each of levels 0, 2 and 5")
 
     digests = []
     for salt in ("0", "0", "1", "1", "2"):
