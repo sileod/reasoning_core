@@ -88,6 +88,28 @@ queues:
     - M19
     - M20
 
+  # The 18 trials retry_a lost, replayed against the determinism gate that
+  # replaced the staleness gate and the prompt that now names sorted().
+  retry_b:
+    - N1
+    - N3
+    - N5
+    - N6
+    - N9
+    - N12
+    - M1
+    - M4
+    - M7
+    - M9
+    - M10
+    - M11
+    - M12
+    - M13
+    - M14
+    - M18
+    - M19
+    - M20
+
 defaults:
   base_ref: 274d119ce59d3f73ca80c0e224d11335d809f6e8
 
