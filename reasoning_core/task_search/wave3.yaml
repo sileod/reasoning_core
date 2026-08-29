@@ -1,0 +1,276 @@
+# WAVE3: from-scratch only, written after wave 2 found the hole the gates could not see.
+#
+# S17 absorption_expected_steps passed all eleven gates with the best profile in its
+# wave -- distinct 1.00, constant guess 0.03 -- and reported expected absorption times
+# of -44/5, because its transition rows summed above one and nothing ever checked. The
+# gates score an answer against the generator that produced it, so self-consistency is
+# all they can see. `_sample_sanity` now asks a reader whether the gold answer is
+# possible at all, and every instruction below names the domain its answer has to stay
+# in, because that is the cheapest place to enforce it.
+#
+# The standing constraints are unchanged: the answer has to vary across examples or the
+# gameability gate takes it; the answer should be short while the state it depends on is
+# not; and it must not restate one of the 76 shipped tasks. Prose framings are preferred
+# over symbolic ones at equal depth -- that is measured, not a style opinion.
+version: 1
+name: WAVE3
+
+queues:
+  pilot:
+    - S26
+    - S31
+  scratch_p0:
+    - S26
+    - S27
+    - S28
+    - S29
+    - S30
+    - S31
+  scratch_p1:
+    - S32
+    - S33
+    - S34
+    - S35
+    - S36
+    - S37
+  scratch_all:
+    - S26
+    - S27
+    - S28
+    - S29
+    - S30
+    - S31
+    - S32
+    - S33
+    - S34
+    - S35
+    - S36
+    - S37
+
+defaults:
+  base_ref: 5bab2c9747a89204fea6571158dc075fc7f57046
+
+context_files:
+  - AGENTS.md
+  - TASK_AUTHORING_GUIDE.md
+  - reasoning_core/task_search/CONTEXT.md
+
+trials:
+  - id: S26
+    hypothesis: S26
+    idea: Add continued-fraction reasoning over exact rationals.
+    changes: Ask for a named convergent of a rational given by its continued-fraction expansion, or the expansion of a given rational.
+    instruction: >-
+      Implement continued_fractions. Either give a rational in prose ("a fraction
+      equal to 355 divided by 113") and ask for its continued-fraction coefficients
+      as a comma-separated list, or give the coefficients and ask for the k-th
+      convergent as a fraction in lowest terms -- state which in the prompt and vary
+      which across examples. Compute both with the Euclidean recurrence, which
+      terminates, so every level generates. Difficulty is the number of coefficients
+      and their size. A convergent is a positive fraction in lowest terms whenever
+      the input is positive; assert that domain in generate_entry and redraw when it
+      fails. Vary the numerators so the answer is not clustered on a few values.
+    owned_path: reasoning_core/tasks/generated/wave3/s26_continued_fractions
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s26_continued_fractions
+
+  - id: S27
+    hypothesis: S27
+    idea: Add first-order unification over small symbolic terms.
+    changes: Ask what a named variable is bound to by the most general unifier of two terms, or whether they unify at all.
+    instruction: >-
+      Implement term_unification. Give two first-order terms built from a few
+      function symbols, constants and variables, and ask what the most general
+      unifier binds one named variable to, answering with the term or with "none"
+      when the two do not unify. Implement the standard unification algorithm with
+      the occurs check, and make roughly a third of the examples fail to unify --
+      through an arity clash, a symbol clash and an occurs-check failure, varied
+      across examples, not always the same cause. Difficulty is term depth and the
+      number of distinct variables. The answer is a term in the same syntax the
+      prompt uses, so state that syntax; a binding must never contain the variable
+      it binds.
+    owned_path: reasoning_core/tasks/generated/wave3/s27_term_unification
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s27_term_unification
+
+  - id: S28
+    hypothesis: S28
+    idea: Add principal-type inference over a tiny lambda calculus.
+    changes: Ask for the principal type of a closed term, or whether it is typable.
+    instruction: >-
+      Implement principal_type. Give a small closed lambda term over abstraction,
+      application, a few integer and boolean constants and an if-then-else, written
+      in prose-friendly syntax you define in the prompt, and ask for its principal
+      type in the arrow notation you state, or "untypable". Infer it with
+      Hindley-Milner unification and normalise the type variable names left to right
+      so the gold answer is canonical -- an uncanonical answer format is the usual
+      way this task becomes unscoreable. Difficulty is term size and how many type
+      variables survive. Include untypable terms in a minority of examples. Never
+      emit a type containing an unbound variable name.
+    owned_path: reasoning_core/tasks/generated/wave3/s28_principal_type
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s28_principal_type
+
+  - id: S29
+    hypothesis: S29
+    idea: Add deadline scheduling on a single machine.
+    changes: Ask how many jobs can meet their deadlines, or the minimum total lateness.
+    instruction: >-
+      Implement deadline_scheduling. Describe five to twelve jobs in prose, each
+      with a processing time and a deadline, all on one machine with no
+      preemption, and ask for the largest number that can finish on time. Compute
+      it with Moore-Hodgson -- sort by deadline, and when the running time exceeds
+      a deadline drop the longest job scheduled so far -- which is polynomial and
+      terminates at every level. Difficulty is the job count and how tight the
+      deadlines are relative to total processing time. The answer is an integer
+      between zero and the number of jobs; assert that and redraw when the draw
+      makes every job fit or none fit, because a saturated instance is a constant
+      answer.
+    owned_path: reasoning_core/tasks/generated/wave3/s29_deadline_scheduling
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s29_deadline_scheduling
+
+  - id: S30
+    hypothesis: S30
+    idea: Add exact series-parallel reduction over resistor networks.
+    changes: Ask for the equivalent resistance of a described network as an exact fraction.
+    instruction: >-
+      Implement resistor_networks. Describe a network of resistors in prose as
+      nested series and parallel combinations -- "a 3 ohm and a 5 ohm resistor in
+      parallel, that pair in series with a 2 ohm resistor" -- and ask for the
+      equivalent resistance as an exact fraction in lowest terms. Build the network
+      as a random series-parallel tree and evaluate it bottom-up with Fraction, so
+      it always terminates. Difficulty is the tree depth and the number of
+      resistors. Resistance is strictly positive and no larger than the sum of all
+      resistances: assert both bounds in generate_entry and redraw when they fail.
+      Vary the resistor values so the answer is not repeatedly a small integer.
+    owned_path: reasoning_core/tasks/generated/wave3/s30_resistor_networks
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s30_resistor_networks
+
+  - id: S31
+    hypothesis: S31
+    idea: Add Sprague-Grundy reasoning over a sum of small impartial games.
+    changes: Ask who wins a described position, or the Grundy value of the whole game.
+    instruction: >-
+      Implement grundy_values. Describe two to five independent heaps in prose,
+      each played under a stated move rule -- take any one to three tokens, take a
+      square number of tokens, split a heap into two unequal parts -- and ask for
+      the Grundy value of the whole position, or which player wins with perfect
+      play. Compute each heap's Grundy value by memoised mex over its own move set
+      and xor them, which terminates because heap sizes are bounded. Difficulty is
+      the heap count, the heap sizes and how many distinct move rules appear.
+      Grundy values are non-negative integers; when you ask who wins, vary the
+      answer so it is not the same player in most examples.
+    owned_path: reasoning_core/tasks/generated/wave3/s31_grundy_values
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s31_grundy_values
+
+  - id: S32
+    hypothesis: S32
+    idea: Add lexicographic ranking and unranking over permutations and multiset words.
+    changes: Ask for the rank of a given arrangement, or the arrangement at a given rank.
+    instruction: >-
+      Implement lexicographic_ranking. Give either an arrangement of distinct or
+      repeated letters and ask for its one-based rank among all distinct
+      arrangements in dictionary order, or a rank and ask for the arrangement --
+      state which and vary it across examples. Compute with factorial-number-system
+      arithmetic over multiset counts, never by enumerating, so long words stay
+      cheap at every level. Difficulty is the word length and how many letters
+      repeat. A rank is between one and the number of distinct arrangements
+      inclusive; assert that bound both when you generate it and when you compute
+      it, and choose ranks spread over the whole range rather than near the ends.
+    owned_path: reasoning_core/tasks/generated/wave3/s32_lexicographic_ranking
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s32_lexicographic_ranking
+
+  - id: S33
+    hypothesis: S33
+    idea: Add arithmetic in signed-digit and mixed-radix positional systems.
+    changes: Ask for a value converted into balanced ternary or a stated mixed radix, or for a sum computed in that system.
+    instruction: >-
+      Implement signed_digit_arithmetic. Define a positional system in the prompt --
+      balanced ternary with digits T, 0 and 1, or a mixed radix whose place values
+      you state -- and ask for the representation of a given integer, or for the sum
+      of two given representations written back in the same system. Convert with the
+      standard carry rules and verify by converting back before returning, so the
+      gold answer is never a representation that does not denote the stated value.
+      Difficulty is the magnitude and how many carries or borrows the operation
+      needs. Include negative values, and vary the digit strings so no single string
+      is a common answer.
+    owned_path: reasoning_core/tasks/generated/wave3/s33_signed_digit_arithmetic
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s33_signed_digit_arithmetic
+
+  - id: S34
+    hypothesis: S34
+    idea: Add closed-form reasoning over linear recurrences.
+    changes: Ask for a distant term of a recurrence stated in prose with its initial conditions.
+    instruction: >-
+      Implement linear_recurrences. State a linear recurrence of order two or three
+      in prose -- "each week's count is twice the previous week's minus three times
+      the week before" -- with integer coefficients and initial values, and ask for
+      the value at a stated index far enough that iterating by hand is impractical
+      but exact integer arithmetic is cheap. Compute by fast matrix exponentiation
+      over integers or Fractions, never floats, so the answer is exact. Difficulty
+      is the order, the coefficient size and the index. The answer is a single
+      integer that must not appear in the prompt: check that the initial values and
+      coefficients differ from it, and redraw when they do not.
+    owned_path: reasoning_core/tasks/generated/wave3/s34_linear_recurrences
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s34_linear_recurrences
+
+  - id: S35
+    hypothesis: S35
+    idea: Add exact conditional-probability reasoning over a described finite experiment.
+    changes: Ask for a conditional or posterior probability as a fraction in lowest terms.
+    instruction: >-
+      Implement conditional_probability. Describe a finite experiment in prose --
+      urns drawn from in sequence, a test with stated error rates applied to a
+      stated population, a two-stage choice -- and ask for a conditional probability
+      as an exact fraction in lowest terms. Enumerate the finite outcome space with
+      Fraction weights and sum it, rather than applying a formula, so the answer is
+      exact and the construction is checkable. Every stated branch probability must
+      lie in [0, 1] and the branches out of each node must sum to exactly 1; assert
+      both, and assert the answer lies in [0, 1], redrawing when any fails -- an
+      experiment whose probabilities do not sum to one produces an answer no solver
+      could reach. Difficulty is the number of stages and branches.
+    owned_path: reasoning_core/tasks/generated/wave3/s35_conditional_probability
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s35_conditional_probability
+
+  - id: S36
+    hypothesis: S36
+    idea: Add counting over the language of a small regular expression.
+    changes: Ask how many strings of a stated length the described pattern matches.
+    instruction: >-
+      Implement regular_language_counting. Describe a pattern in prose or in a
+      syntax you state -- concatenation, alternation, optionality and starred blocks
+      over a two- or three-letter alphabet -- and ask how many distinct strings of a
+      stated length it matches. Build the automaton, determinise it, and count
+      accepting paths by dynamic programming over the length, which is polynomial
+      and terminates at every level; never enumerate the strings. Difficulty is the
+      pattern size, the alphabet and the length. The answer is a non-negative
+      integer; redraw when it is zero or when it equals the total number of strings
+      of that length, since both make the task guessable from the length alone.
+    owned_path: reasoning_core/tasks/generated/wave3/s36_regular_language_counting
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s36_regular_language_counting
+
+  - id: S37
+    hypothesis: S37
+    idea: Add exact rational plane geometry without floating point.
+    changes: Ask for an intersection point, an area, or a containment decision over rational coordinates.
+    instruction: >-
+      Implement rational_plane_geometry. Give a small configuration of points, lines
+      and segments with integer coordinates in prose, and ask for one exact value:
+      the intersection point of two lines as a pair of fractions, the area of the
+      described polygon by the shoelace formula, or whether a stated point lies
+      inside it. Use Fraction and integer determinants throughout -- no floats, and
+      no tolerance comparisons. Difficulty is the coordinate range and the number of
+      vertices. Reject degenerate draws in a loop: parallel lines when you ask for
+      an intersection, collinear or self-intersecting vertices when you ask for an
+      area. An area is strictly positive; assert it.
+    owned_path: reasoning_core/tasks/generated/wave3/s37_rational_plane_geometry
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave3/s37_rational_plane_geometry
