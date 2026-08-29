@@ -1053,13 +1053,17 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         hashlib.sha256(sample_path.read_bytes()).hexdigest()
         if sample_path.is_file() else None
     )
-    # Run the generator three times: twice under one string-hash salt, once under
-    # another. Two runs at the same salt disagreeing means the generator is stateful;
-    # only the third disagreeing means the prompt renders an unsorted set, which Python
-    # orders differently in every process. A samples file that was merely stale is
-    # recorded, not gated -- the run above has already refreshed it.
+    # Run the generator five times, twice under each of two string-hash salts and once
+    # under a third. A same-salt pair disagreeing means the generator is stateful or
+    # keys on an object whose hash is its id, which PYTHONHASHSEED does not pin at all;
+    # only cross-salt disagreement means an unsorted set of strings reaches the output.
+    # Two same-salt pairs rather than one because M1 in wave 20260829T072855Z agreed
+    # with itself on four consecutive runs at salt 0 and disagreed on the fifth: at
+    # three runs this gate passes an id-hashing generator about a quarter of the time.
+    # A samples file that was merely stale is recorded, not gated -- the run above has
+    # already refreshed it.
     recheck, recheck_digests = [], []
-    for salt in ("0", "0", "1"):
+    for salt in ("0", "0", "1", "1", "2"):
         if not gates_open:
             break
         recheck += _run_validation(
@@ -1080,12 +1084,13 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "sha256_recheck": recheck_digests,
         "stale": (sample_sha256_before is not None
                   and sample_sha256_before != sample_sha256_after),
-        "reproducible": (len(recheck_digests) == 3
+        "reproducible": (len(recheck_digests) == 5
                          and recheck_digests[0] is not None
                          and len(set(recheck_digests)) == 1),
         "irreproducible_as": (
-            None if len(recheck_digests) < 3 or len(set(recheck_digests)) == 1
-            else "stateful" if recheck_digests[0] != recheck_digests[1]
+            None if len(recheck_digests) < 5 or len(set(recheck_digests)) == 1
+            else "stateful" if (recheck_digests[0] != recheck_digests[1]
+                                or recheck_digests[2] != recheck_digests[3])
             else "hash_order"),
         "checked": bool(recheck) and all(r["exit_code"] == 0 for r in recheck),
     }

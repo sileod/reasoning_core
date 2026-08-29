@@ -122,15 +122,20 @@ def main(argv=None):
                 if missing else "all of Level 0, Level 2, Level 5, Answer present")
 
     digests = []
-    for salt in ("0", "0", "1"):
+    for salt in ("0", "0", "1", "1", "2"):
         code, out = sh(f"PYTHONPATH=. python {generator}", {"PYTHONHASHSEED": salt})
         digests.append(hashlib.sha256(samples.read_bytes()).hexdigest()[:8] if code == 0 else "ERR")
+    same_salt = digests[0] != digests[1] or digests[2] != digests[3]
     report.gate("reproducible", len(set(digests)) == 1, " ".join(digests) + (
         "" if len(set(digests)) == 1 else
-        ("  -- two runs at the same salt disagree, so the generator keeps state between calls"
-         if digests[0] != digests[1] else
-         "  -- only the third salt differs, so an unsorted set or dict reaches the output;"
-         " iterate sorted(...) over it")))
+        ("  -- two runs at the SAME salt disagree, so either the generator keeps state"
+         " between calls or it iterates a dict/set keyed on objects, whose hash is their"
+         " memory address and which PYTHONHASHSEED does not pin; key on a string or a"
+         " tuple of ints instead" if same_salt else
+         "  -- the same-salt pairs agreed, so this is most likely an unsorted set or"
+         " dict of strings reaching the output: iterate sorted(...) over it. An"
+         " object-keyed dict can also produce this pattern by chance, so if every"
+         " set you render is already sorted, look for one keyed on objects.")))
 
     code, out = sh("python -m pytest -p no:cacheprovider --import-mode=importlib " + owned)
     report.gate("pytest", code == 0, "" if code == 0 else tail(out, 20))
