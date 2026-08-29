@@ -159,6 +159,19 @@ level 5 requires deeper reasoning than level 0, whether the task duplicates one
 that already exists, or whether a mutation changed only the variable its hypothesis
 names.
 
+Worse, until wave 2 nothing asked whether the task was *right*. Every gate scores an
+answer against the generator that produced it, so all any of them can see is
+self-consistency — which is cheap to satisfy while being impossible. S17 passed all
+eleven gates with the best profile in its wave (distinct 1.00, constant guess 0.03)
+and reported expected absorption times of `-44/5`: its transition rows summed above
+one and it never checked. `_sample_sanity` closes this with one reviewer call per
+trial over the samples file — could a correct solver produce this gold answer from
+this prompt? — filed as `answers_impossible`. On the 16 trials it was calibrated
+against it flagged S17 and cleared the other 15. It fails open on a missing key or
+an unreachable endpoint, so a reviewer outage cannot reject a good task; the cost is
+that a wave run without `ALBERT_API_KEY` in the coordinator's environment silently
+has no semantic gate at all.
+
 The step budget is the other half. The cheapest action available to a worker that
 already has code is `selfcheck → patch the failing gate → selfcheck`, so steps buy
 convergence on the verifier rather than a better task. But the budget is also
