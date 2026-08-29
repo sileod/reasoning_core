@@ -1313,12 +1313,11 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     # The section markers are re-read here, not where _sample_review looked: that check
     # ran on whatever file the worker left behind, and the deterministic replay above
     # has since overwritten it. A stale file with the right markers used to pass.
-    replayed_sections = False
+    replayed_shortfall = ["samples file is missing"]
     if sample_path.is_file():
-        replayed = sample_path.read_text().lower()
-        replayed_sections = all(marker in replayed for marker in
-                                ("level 0", "level 2", "level 5", "answer"))
-    sample_review["required_sections_after_replay"] = replayed_sections
+        replayed_shortfall = sample_shortfall(sample_path.read_text())
+    sample_review["required_sections_after_replay"] = not replayed_shortfall
+    sample_review["shortfall_after_replay"] = replayed_shortfall
     sample_validation = {
         "sha256_before": sample_sha256_before,
         "sha256_after": sample_sha256_after,
@@ -1339,7 +1338,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         bool(validation)
         and all(item["exit_code"] == 0 for item in validation)
         and sample_validation["reproducible"]
-        and replayed_sections
+        and not replayed_shortfall
     )
     candidate_frozen = not mutated_paths
     changed_paths = _changed_paths(worktree)
