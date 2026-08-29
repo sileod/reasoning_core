@@ -144,21 +144,36 @@ preview; the prompt a worker actually got is `prompt.md` in its trial directory.
 ## The largest gap: nothing here checks whether the task is any good
 
 Every gate is mechanical. Discovery, metadata, runtime, determinism, pytest, the
-scoring contract, the constant-answer prior — a task can pass all of them and
-still be a bad task. Nothing asks whether the difficulty axis is meaningful,
-whether level 5 requires deeper reasoning than level 0, whether the task
-duplicates one that already exists, or whether a mutation changed only the
-variable its hypothesis names. `prior_audit` is the single semantic gate and it
-tests exactly one failure mode.
+scoring contract — a task can pass all of them and still be a bad task. Wave 1's
+scratch queue returned 6/6 on the gates as they then stood, and auditing those six
+by hand found two bad ones: S1 narrated its own total, so answering with the last
+number in the prompt scored 1.00 at every level, and S6 could not generate a
+single level-6 example because its search never terminated and only the *default*
+config is ever timed. Real yield was 4/6, not 6/6.
 
-This interacts badly with the step budget. The cheapest action available to a
-worker that already has code is `selfcheck → patch the failing gate → selfcheck`,
-so more steps buy convergence on the verifier rather than a better task, which is
-consistent with the measurement above: cutting the budget from 56 steps to 28
-raised the success rate. The plan compounds it — each trial arrives with `idea`,
-`changes` and an `instruction` already fixed, so the worker is implementing an
-assignment, not searching over formulations, and the prompt tells it to start
-writing immediately and not explore.
+`prior_audit` now tests three failure modes rather than one — the constant answer,
+the answer readable off the prompt's surface (`--max-shortcut`, which separates S1
+at 1.00 from the worst promoted task at 0.33), and a level that cannot generate at
+all. That is still not a check on whether the task is *good*: nothing asks whether
+level 5 requires deeper reasoning than level 0, whether the task duplicates one
+that already exists, or whether a mutation changed only the variable its hypothesis
+names.
+
+The step budget is the other half. The cheapest action available to a worker that
+already has code is `selfcheck → patch the failing gate → selfcheck`, so steps buy
+convergence on the verifier rather than a better task. But the budget is also
+binding: over the 64 trials run at 28 steps, those that finished under the ceiling
+succeeded 0.63 of the time and those that hit it 0.29, and 14 of the 34
+ceiling-hitters are `sample_not_reproducible` against 2 of the 30 below it — a
+worker that runs out of steps never re-runs the self-check and so never sees its
+own nondeterminism. The earlier reading that cutting 56 → 28 *raised* the success
+rate does not survive: that comparison spans the change that gave the self-check
+its name, and from-scratch trials now finish in 11–25 steps while mutations
+routinely exhaust 28. `run.json` records `steps` (used/max/exhausted); read it
+first on any failure, because the status names the artifact that was missing, not
+the cause. The plan compounds the ideation problem — each trial arrives with
+`idea`, `changes` and an `instruction` already fixed, so the worker is implementing
+an assignment, not searching over formulations.
 
 Read the success rates accordingly. They measure *"implements a specified task
 without tripping a mechanical gate"*, which is what the machinery is actually
