@@ -19,6 +19,9 @@ the budget and have the entire report killed with nothing printed.
 """
 import argparse, ast, hashlib, json, os, pathlib, shlex, subprocess, sys, time
 
+# Kept in step with runner.SAMPLE_SECTIONS by a test, not by an import: this
+# module runs inside the sandbox, where importing the runner would drag in yaml
+# and the package, and a self-check that cannot start reports nothing at all.
 SECTIONS = ("level 0", "level 2", "level 5", "answer")
 # opencode kills a bash call at 300s (runner.py's _mini_config) and the harness gives
 # each validation command the same. Stop early enough to print the summary.

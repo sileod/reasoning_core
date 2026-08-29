@@ -4,6 +4,8 @@ import tempfile
 
 import pytest
 
+from reasoning_core.task_search import selfcheck
+
 from reasoning_core.task_search.runner import (
     _sample_command_for,
     opencode_permissions,
@@ -28,6 +30,7 @@ from reasoning_core.task_search.runner import (
     _task_classes,
     _task_metadata,
     _owned_digest,
+    SAMPLE_SECTIONS,
     _undiscoverable,
     generation_metadata,
     render_prompt,
@@ -534,6 +537,43 @@ def test_owned_digest_sees_a_file_rewritten_after_the_contract_audit(tmp_path):
     after = _owned_digest(tmp_path, relative, exclude=("samples_N1.md",))
     assert after["files"]["task.py"] != frozen["files"]["task.py"]
     assert after["tree_sha256"] != frozen["tree_sha256"]
+
+
+def test_owned_digest_sees_a_swap_that_leaves_the_bytes_alone(tmp_path):
+    """Content is not the file. A digest over bytes alone certifies the wrong thing.
+
+    Both swaps here read back identical content through the path that was frozen, so a
+    content-only hash calls the candidate unchanged: one hands the accepted task.py to
+    a file outside the owned directory, the other only flips a mode bit.
+    """
+    owned = tmp_path / "reasoning_core" / "tasks" / "generated" / "n1"
+    owned.mkdir(parents=True)
+    (owned / "task.py").write_text("GOLD = 1\n")
+    relative = "reasoning_core/tasks/generated/n1"
+    frozen = _owned_digest(tmp_path, relative)
+
+    (tmp_path / "elsewhere.py").write_text("GOLD = 1\n")
+    (owned / "task.py").unlink()
+    (owned / "task.py").symlink_to(tmp_path / "elsewhere.py")
+    assert (owned / "task.py").read_text() == "GOLD = 1\n"
+    swapped = _owned_digest(tmp_path, relative)
+    assert swapped["tree_sha256"] != frozen["tree_sha256"]
+
+    (owned / "task.py").unlink()
+    (owned / "task.py").write_text("GOLD = 1\n")
+    assert _owned_digest(tmp_path, relative) == frozen
+    (owned / "task.py").chmod(0o755)
+    assert _owned_digest(tmp_path, relative)["tree_sha256"] != frozen["tree_sha256"]
+
+
+def test_self_check_reports_the_sections_the_gate_actually_requires():
+    """The self-check is the worker's only view of this gate, so its copy has to match.
+
+    selfcheck runs inside the sandbox and cannot import the runner to share the tuple,
+    so the two definitions are pinned here instead -- a worker told it passed a gate the
+    coordinator then fails it on is the failure this whole harness exists to avoid.
+    """
+    assert selfcheck.SECTIONS == SAMPLE_SECTIONS
 
 
 def test_undiscoverable_flags_what_the_audit_imports_but_discovery_skips():

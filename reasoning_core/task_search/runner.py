@@ -606,6 +606,12 @@ def _task_metadata(worktree, owned_path):
     return found
 
 
+# The sections a samples file has to show. Named once, because the self-check
+# reports this gate to the worker and the two rules going out of step would tell
+# the worker it had passed something the coordinator then failed it on.
+SAMPLE_SECTIONS = ("level 0", "level 2", "level 5", "answer")
+
+
 def _sample_review(worktree, owned_path, trial_id, events_path):
     sample_name = f"samples_{trial_id}.md"
     script_name = f"generate_samples_{trial_id}.py"
@@ -623,9 +629,7 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
     }
     if sample_path.is_file():
         content = sample_path.read_text().lower()
-        result["required_sections"] = all(
-            marker in content for marker in ("level 0", "level 2", "level 5", "answer")
-        )
+        result["required_sections"] = all(marker in content for marker in SAMPLE_SECTIONS)
     target = "/" + result["path"]
     expected_command = _sample_command_for(owned_path, trial_id)
     last_write = -1
@@ -683,12 +687,24 @@ def _owned_digest(worktree, owned_path, exclude=()):
     """
     root = Path(worktree) / owned_path
     files = {}
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or "__pycache__" in path.parts:
-            continue
-        relative = path.relative_to(root).as_posix()
-        if relative not in exclude:
-            files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    for parent, directories, names in os.walk(root, followlinks=False):
+        directories[:] = [name for name in directories if name != "__pycache__"]
+        # Directory symlinks are listed but never descended, so record them here or
+        # a swapped-in link to a tree outside the worktree leaves no trace at all.
+        for name in sorted(names + directories):
+            path = Path(parent, name)
+            relative = path.relative_to(root).as_posix()
+            if relative in exclude:
+                continue
+            # Content alone is not the file: a task.py replaced by a symlink to an
+            # identical file elsewhere, or one that only gained the executable bit,
+            # moves nothing in a digest that hashes bytes and nothing else.
+            mode = oct(path.lstat().st_mode)
+            if path.is_symlink():
+                files[relative] = ["link", mode, os.readlink(path)]
+            elif path.is_file():
+                files[relative] = ["file", mode,
+                                   hashlib.sha256(path.read_bytes()).hexdigest()]
     return {"files": files, "tree_sha256": hashlib.sha256(
         json.dumps(files, sort_keys=True).encode()).hexdigest()}
 
