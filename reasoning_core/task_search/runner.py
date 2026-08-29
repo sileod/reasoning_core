@@ -183,14 +183,14 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "3. Then run the self-check. It is the whole harness in one command, it takes",
         "   about half a minute, and it is the only verification command you need:",
         f"   `{_selfcheck_command(trial)}`",
-        "   It reports nine gates -- implementation, task_meta, smoke, samples, sections,",
-        "   reproducible, pytest, contract, gameability -- and PASS on all nine is exactly",
+        "   It reports ten gates -- implementation, discovery, task_meta, smoke, samples,",
+        "   sections, reproducible, pytest, contract, gameability -- and PASS on all ten is",
         "   what the harness scores as a success, so fix whatever it names and run it",
         "   again. Do not verify any other way: a hand-written python -c costs the same",
         "   step and checks less. Run it early, while there is budget left to act on it;",
         "   trials are being lost to gates their author never saw.",
         f"4. Spend whatever steps remain widening the tests, re-running the self-check",
-        "   after each change. Leave the last word to a run with nine PASSes.",
+        "   after each change. Leave the last word to a run with ten PASSes.",
         "",
         "Failure modes measured on one-shot attempts at this prompt, all caught by the",
         "self-check:",
@@ -319,7 +319,7 @@ def _sample_command(trial):
 def _selfcheck_command_for(owned_path, trial_id):
     # One call that runs every gate, including the three -- TASK_META, the contract
     # audit, the sample headings -- that otherwise surface only in run.json, after the
-    # trial is already lost. Measured at 26 seconds for all nine.
+    # trial is already lost. Measured at half a minute for all ten.
     return ("PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -m"
             f" reasoning_core.task_search.selfcheck {owned_path} {trial_id}")
 

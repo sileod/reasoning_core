@@ -83,6 +83,18 @@ def main(argv=None):
                      ", ".join(f"{m}.{c}" for m, c in classes) or
                      "no class subclassing Task under the owned path", fatal=True)
 
+    # Passing implementation is not the same as shipping: _discover_tasks walks the
+    # tasks tree by AST and drops anything under a directory or file whose name starts
+    # with "_" or ".", so a task can validate perfectly and still never reach DATASETS.
+    from reasoning_core import _discover_tasks
+    shipped, _ = _discover_tasks("reasoning_core/tasks")
+    mine = sorted(n for n, (module, _) in shipped.items()
+                  if module.replace(".", "/") in
+                  {m.split("reasoning_core.tasks.", 1)[-1].replace(".", "/") for m, _ in classes})
+    report.gate("discovery", bool(mine),
+                ", ".join(mine) or "no class under the owned path reaches DATASETS;"
+                " check that no directory or file on the path starts with _ or .")
+
     spec = os.environ.get("TASK_SEARCH_SPEC")
     want = json.load(open(spec))["task_meta"] if spec and os.path.exists(spec) else None
     if len(metas) != 1:
