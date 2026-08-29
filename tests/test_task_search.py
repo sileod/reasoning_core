@@ -1,12 +1,15 @@
 import dataclasses
 import json
+import random
+import time
+import types
 from pathlib import Path
 import subprocess
 import tempfile
 
 import pytest
 
-from reasoning_core.task_search import selfcheck
+from reasoning_core.task_search import prior_audit, selfcheck
 
 from reasoning_core.task_search.runner import (
     _sample_command_for,
@@ -33,8 +36,9 @@ from reasoning_core.task_search.runner import (
     _task_metadata,
     _owned_digest,
     _plan_problems,
-    _selfcheck_drift,
+    _frozen_module_drift,
     SAMPLE_SECTIONS,
+    _prior_audit_command,
     _undiscoverable,
     generation_metadata,
     render_prompt,
@@ -604,30 +608,76 @@ def test_plan_problems_are_the_ones_check_used_to_miss():
         "base_ref does not resolve to a commit: no-such-ref"]
 
 
-def test_selfcheck_drift_catches_a_base_ref_left_behind(tmp_path):
-    """Workers run the self-check frozen at base_ref; the gates are whatever is live.
+def test_frozen_module_drift_catches_a_base_ref_left_behind(tmp_path):
+    """Workers run the harness modules frozen at base_ref; the gates are whatever is live.
 
     Nothing else in the harness compares those two, so a gate tightened without moving
     base_ref forward would go out silently -- and the worker it fails would have been
-    told, by the harness itself, that it had passed.
+    told, by the harness itself, that it had passed. A flag added to prior_audit is
+    worse still: the coordinator writes the command line live, so the pinned copy is
+    handed an argument it has never heard of.
     """
-    relative = "reasoning_core/task_search/selfcheck.py"
-    path = tmp_path / relative
-    path.parent.mkdir(parents=True)
+    paths = {name: tmp_path / f"reasoning_core/task_search/{name}.py"
+             for name in ("selfcheck", "prior_audit")}
     git = lambda *args: subprocess.run(("git",) + args, cwd=tmp_path, check=True,
                                        capture_output=True)
     git("init", "-q")
     git("config", "user.email", "t@t"), git("config", "user.name", "t")
     (tmp_path / "unrelated").write_text("x\n")
-    path.write_text("SECTIONS = ()\n")
-    git("add", "unrelated"), git("commit", "-qm", "before the self-check existed")
-    assert "cannot self-check" in _selfcheck_drift(tmp_path, "HEAD")
+    for name, path in paths.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"# {name}\n")
+    git("add", "unrelated"), git("commit", "-qm", "before the harness existed")
+    assert "cannot run it at all" in _frozen_module_drift(tmp_path, "HEAD")
 
-    git("add", relative), git("commit", "-qm", "pin it")
-    assert _selfcheck_drift(tmp_path, "HEAD") == ""
+    git("add", "-A"), git("commit", "-qm", "pin them")
+    assert _frozen_module_drift(tmp_path, "HEAD") == ""
 
-    path.write_text("SECTIONS = ('level 9',)\n")
-    assert "Move base_ref forward" in _selfcheck_drift(tmp_path, "HEAD")
+    # A flag added to prior_audit alone is enough: the pinned copy would reject it.
+    paths["prior_audit"].write_text("# prior_audit --max-shortcut\n")
+    drift = _frozen_module_drift(tmp_path, "HEAD")
+    assert "Move base_ref forward" in drift and "prior_audit.py" in drift
+
+
+def test_self_check_and_coordinator_audit_on_the_same_thresholds():
+    """Two files spell out this command line; a gate added to one only is a lie.
+
+    The self-check reports `gameability` to the worker. If the coordinator audits at a
+    threshold the self-check does not pass, the worker is told it passed a gate the
+    harness is about to fail it on.
+    """
+    command = _prior_audit_command(load_plan(PLAN).trials[0])
+    source = (ROOT / "reasoning_core/task_search/selfcheck.py").read_text()
+    for flag in ("--max-const", "--max-shortcut"):
+        value = command.split(flag)[1].split()[0]
+        assert f"{flag} {value}" in source, f"{flag} differs between selfcheck and runner"
+
+
+def test_prior_audit_sees_a_prompt_that_states_its_own_answer():
+    """The gate the wave was missing: eleven mechanical PASSes on a worthless task.
+
+    A generated word problem ended every prompt with the number it was asking for. It
+    passed determinism, the contract, pytest and the constant-guess prior -- the answers
+    all differ, so nothing keyed on the answer distribution could see it.
+    """
+    assert prior_audit.shortcuts("gave 3 away, leaving 7 apples.")["last_number"] == "7"
+    assert prior_audit.shortcuts("")["last_number"] == ""
+
+    class Copyable:
+        """Solvable by reading the last number off the prompt."""
+        config = types.SimpleNamespace(set_level=lambda level: None)
+
+        def generate_example(self):
+            n = random.randrange(1000)
+            return types.SimpleNamespace(prompt=f"the total is {n}. What is the total?",
+                                         answer=str(n))
+        def score_answer(self, answer, entry):
+            return float(str(answer) == entry.answer)
+
+    task = Copyable()
+    report = prior_audit.audit(task, 0, 20, time.time() + 20)
+    assert report["const"] < 0.4 and report["distinct"] > 0.9
+    assert report["shortcut"] == 1.0 and report["rule"] == "last_number"
 
 
 def test_undiscoverable_flags_what_the_audit_imports_but_discovery_skips():

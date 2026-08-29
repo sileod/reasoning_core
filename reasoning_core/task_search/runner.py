@@ -396,7 +396,7 @@ def _prior_audit_command(trial):
     # it validates; measured on the first six wave0 tasks, two of them lost.
     return (
         "PYTHONDONTWRITEBYTECODE=1 python -m reasoning_core.task_search.prior_audit"
-        f" --path {trial.owned_path} --n 30 --max-const 0.4 --budget-seconds 45"
+        f" --path {trial.owned_path} --n 30 --max-const 0.4 --max-shortcut 0.4 --budget-seconds 45"
     )
 
 
@@ -706,24 +706,31 @@ def _plan_problems(plan, repo_root):
     return problems
 
 
-def _selfcheck_drift(repo_root, base_ref):
-    """Is the self-check the worker will run the same one the gates now enforce?
+def _frozen_module_drift(repo_root, base_ref):
+    """Do the modules a worker runs match the ones the coordinator enforces?
 
-    Workers run inside a worktree checked out at base_ref, so the self-check they see is
-    frozen at that commit while the gates judging them are whatever the coordinator
-    imported. Let those drift apart and the harness starts telling workers they passed
-    something it is about to fail them on -- and the worker has no way to find out.
+    Workers run inside a worktree checked out at base_ref, so every harness module they
+    invoke is frozen at that commit while the coordinator runs whatever is in the working
+    tree. Let those drift apart and the harness starts telling workers they passed
+    something it is about to fail them on -- and the worker has no way to find out. Worse
+    for prior_audit: the coordinator builds its command line live, so a flag added here
+    is an argparse error inside every worktree pinned before it.
     """
-    relative = "reasoning_core/task_search/selfcheck.py"
-    live = (Path(repo_root) / relative).read_bytes()
-    try:
-        pinned = subprocess.check_output(["git", "show", f"{base_ref}:{relative}"],
-                                         cwd=repo_root)
-    except subprocess.CalledProcessError:
-        return f"{base_ref} has no {relative}: workers cannot self-check at all"
-    if pinned != live:
-        return (f"the self-check at {base_ref} differs from the working tree; workers"
-                " are judged by gates they cannot see. Move base_ref forward.")
+    problems = []
+    for relative in ("reasoning_core/task_search/selfcheck.py",
+                     "reasoning_core/task_search/prior_audit.py"):
+        live = (Path(repo_root) / relative).read_bytes()
+        try:
+            pinned = subprocess.check_output(["git", "show", f"{base_ref}:{relative}"],
+                                             cwd=repo_root)
+        except subprocess.CalledProcessError:
+            problems.append(f"{base_ref} has no {relative}: workers cannot run it at all")
+            continue
+        if pinned != live:
+            problems.append(f"{relative} at {base_ref} differs from the working tree")
+    if problems:
+        return ("workers are judged by code they cannot see. Move base_ref forward.\n  "
+                + "\n  ".join(problems))
     return ""
 
 
@@ -1416,7 +1423,7 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
     problems = _plan_problems(plan, repo_root)
     if problems:
         raise ValueError("plan cannot run:\n  " + "\n  ".join(problems))
-    drift = _selfcheck_drift(repo_root, base_commit)
+    drift = _frozen_module_drift(repo_root, base_commit)
     if drift:
         print(f"WARNING: {drift}", file=sys.stderr)
     if adapter == "harness-link" and not provider:
@@ -1574,7 +1581,7 @@ def main(argv=None):
         repo_root = _repo_root(plan.path.parent)
         for problem in _plan_problems(plan, repo_root):
             print(f"PROBLEM: {problem}")
-        drift = _selfcheck_drift(repo_root, plan.base_ref)
+        drift = _frozen_module_drift(repo_root, plan.base_ref)
         if drift:
             print(f"WARNING: {drift}")
         for name, members in plan.queues.items():
