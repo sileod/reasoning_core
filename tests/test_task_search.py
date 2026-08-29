@@ -14,6 +14,7 @@ from reasoning_core.task_search import prior_audit, selfcheck
 from reasoning_core.task_search.runner import (
     _sample_command_for,
     _step_usage,
+    _sample_sanity,
     opencode_permissions,
     Trial,
     SearchPlan,
@@ -790,3 +791,24 @@ def test_step_usage_flags_a_worker_that_ran_out_of_budget(tmp_path):
     assert _step_usage(events, 28) == {"used": 28, "max": 28, "exhausted": True}
     assert _step_usage(events, 60)["exhausted"] is False
     assert _step_usage(tmp_path / "absent.jsonl", 28) is None
+
+
+def test_sample_sanity_fails_open_without_a_reviewer(tmp_path, monkeypatch):
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_KEY_ENV", "TASK_SEARCH_ABSENT_KEY")
+    monkeypatch.delenv("TASK_SEARCH_ABSENT_KEY", raising=False)
+    assert _sample_sanity(tmp_path / "samples_S1.md") == {
+        "verdict": None, "why": "no reviewer key"}
+
+
+def test_sample_sanity_reads_the_verdict_and_reason(tmp_path, monkeypatch):
+    import io, json as _json
+    samples = tmp_path / "samples_S1.md"
+    samples.write_text("Answer: -44/5\n")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_KEY_ENV", "TASK_SEARCH_FAKE_KEY")
+    monkeypatch.setenv("TASK_SEARCH_FAKE_KEY", "x")
+    reply = _json.dumps({"choices": [{"message": {"content":
+        "VERDICT: INVALID\nWHY: expected time is negative."}}]})
+    monkeypatch.setattr("reasoning_core.task_search.runner.urllib.request.urlopen",
+                        lambda *a, **k: io.BytesIO(reply.encode()))
+    assert _sample_sanity(samples) == {
+        "verdict": "INVALID", "why": "expected time is negative."}

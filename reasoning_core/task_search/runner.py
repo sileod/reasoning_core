@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 
 import yaml
 
@@ -263,6 +264,14 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
         "  directly. S11 in wave1 lost an otherwise-passing task to one helper call.",
         "- generation must survive every level: enforce construction invariants by",
         "  resampling in a loop, never with an `assert` that only holds at level 0.",
+        "- no gate checks that your answer is mathematically possible; they only check",
+        "  that it is stable and hard to guess. If the quantity you ask for has a",
+        "  domain -- a count is a non-negative integer, a probability lies in [0, 1],",
+        "  an expected time is positive, rows of a transition matrix sum to 1 -- assert",
+        "  that domain in `generate_entry` and reject the draw when it fails. S17 in",
+        "  wave2 passed every gate reporting an expected absorption time of -44/5,",
+        "  from rows that summed above 1. Read your own samples file before you stop:",
+        "  an answer no solver could produce is the one failure the harness cannot see.",
     ))
     if task_meta is not None:
         sections.extend((
@@ -646,6 +655,61 @@ def sample_shortfall(body):
         counts[level] += body.count("answer", position, end)
     return [f"level {level} shows {counts[level]} of {SAMPLE_EXAMPLES} answers"
             for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
+
+
+_SANITY_URL = "https://albert.api.etalab.gouv.fr/v1/chat/completions"
+_SANITY_ASK = """You are checking a generated reasoning task for mathematical validity, not style.
+
+Below are worked examples: each shows the prompt shown to a solver and the gold answer
+the generator computed. Decide one thing only: could a correct solver ever produce that
+gold answer from that prompt?
+
+Flag an example when the gold answer is outside the domain of the quantity the prompt
+asks for (a negative count or expected time, a probability above 1, a length that is not
+an integer), when the prompt's own data is impossible (probabilities out of one state
+summing above 1, a described object that cannot exist), or when the answer plainly
+contradicts the prompt. Do not flag wording, difficulty, formatting or ambiguity.
+
+Answer in this exact shape, nothing else:
+VERDICT: VALID or INVALID
+WHY: one sentence naming the example and the violated constraint, or "-" when VALID."""
+
+
+def _sample_sanity(sample_path):
+    """Ask a reader whether the gold answers in the samples file are possible at all.
+
+    Every other gate asks whether an answer is stable, hard to guess and consistent with
+    the generator that produced it. None asks whether it is right, and self-consistency
+    is cheap to satisfy while wrong: S17 in wave2 passed all eleven gates reporting an
+    expected absorption time of -44/5, from transition rows that summed above 1. This is
+    one call per trial, over the samples file alone -- on the 16 trials it was calibrated
+    against it flagged that one and none of the 15 good ones.
+
+    Fails open. A missing key, an unreachable endpoint or an unparseable reply all return
+    a null verdict, because a reviewer outage must never reject a task that is fine.
+    """
+    key = os.environ.get(os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "ALBERT_API_KEY"), "")
+    if not key:
+        return {"verdict": None, "why": "no reviewer key"}
+    if not sample_path.is_file():
+        return {"verdict": None, "why": "no samples file"}
+    body = json.dumps({
+        "model": os.environ.get("TASK_SEARCH_REVIEW_MODEL", "deepseek-v4-flash"),
+        "temperature": 0,
+        "messages": [{"role": "system", "content": _SANITY_ASK},
+                     {"role": "user", "content": sample_path.read_text()[:20000]}],
+    }).encode()
+    try:
+        request = urllib.request.Request(_SANITY_URL, body, {
+            "Authorization": "Bearer " + key, "Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=180) as response:
+            text = json.load(response)["choices"][0]["message"]["content"]
+    except Exception as error:
+        return {"verdict": None, "why": f"reviewer unreachable: {error}"}
+    found = re.search(r"VERDICT:\s*(VALID|INVALID)", text)
+    why = re.search(r"WHY:\s*(.+)", text)
+    return {"verdict": found.group(1) if found else None,
+            "why": (why.group(1).strip() if why else text.strip())[:400]}
 
 
 def _step_usage(events_path, max_steps):
@@ -1366,6 +1430,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         and sample_validation["reproducible"]
         and not replayed_shortfall
     )
+    sample_sanity = _sample_sanity(sample_path)
     candidate_frozen = not mutated_paths
     changed_paths = _changed_paths(worktree)
     outside = _outside_owned(changed_paths, trial.owned_path)
@@ -1393,6 +1458,8 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         status = "sample_not_reproducible"
     elif not validation_ok:
         status = "validation_failed"
+    elif sample_sanity["verdict"] == "INVALID":
+        status = "answers_impossible"
     else:
         status = "success"
     record = {
@@ -1413,6 +1480,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "harness_exit_code": harness_exit_code,
         "harness_log": str(events_path),
+        "sample_sanity": sample_sanity,
         "steps": _step_usage(events_path, max_steps),
         "trajectory": str(trajectory_path) if trajectory_path else None,
         "timed_out": timed_out,
