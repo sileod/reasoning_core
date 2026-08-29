@@ -658,6 +658,32 @@ def test_frozen_module_drift_catches_a_base_ref_left_behind(tmp_path):
     assert "Move base_ref forward" in drift and "prior_audit.py" in drift
 
 
+def test_prior_audit_reports_a_level_the_generator_cannot_reach():
+    """The speed gate times the default config, so a dead top level passed unseen.
+
+    A generated subset-optimisation task passed all eleven gates and could not produce
+    a single level 6 example: its search blew template's per-example timeout, which is
+    raised from a signal handler and does not descend from Exception.
+    """
+    class DiesAtDepth:
+        config = types.SimpleNamespace(set_level=lambda level: None)
+
+        def generate_example(self):
+            raise selfcheck_timeout()
+
+        def score_answer(self, answer, entry):
+            return 0.0
+
+    report = prior_audit.audit(DiesAtDepth(), 6, 20, time.time() + 20)
+    assert report["n"] == 0 and "Boom" in report["error"]
+
+
+class selfcheck_timeout(BaseException):
+    """Stands in for template.TimeoutException, which is not an Exception either."""
+    def __str__(self):
+        return "Boom"
+
+
 def test_self_check_and_coordinator_audit_on_the_same_thresholds():
     """Two files spell out this command line; a gate added to one only is a lie.
 

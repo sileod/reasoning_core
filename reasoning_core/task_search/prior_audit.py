@@ -50,12 +50,26 @@ def _load_from_path(root):
 def audit(task, level, n, deadline):
     task.config.set_level(level)
     entries = []
+    error = ""
     for _ in range(n):
-        # generate_example, not generate: only this path renders the prompt, and the
-        # prompt is half of what is being audited.
-        entries.append(task.generate_example())
+        try:
+            # generate_example, not generate: only this path renders the prompt, and
+            # the prompt is half of what is being audited. It also carries template's
+            # per-example timeout, which is how a level nobody can generate at shows
+            # up here -- the speed gate only ever times the default config.
+            entries.append(task.generate_example())
+        # BaseException, not Exception: template raises its per-example TimeoutException
+        # from a signal handler and it does not descend from Exception.
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:
+            error = f"{type(exc).__name__}: {exc}".strip().splitlines()[0][:120]
+            break
         if time.time() > deadline:
             break
+    if not entries:
+        return {"n": 0, "error": error or "no examples generated", "distinct": 0.0,
+                "const": 0.0, "shortcut": 0.0, "rule": "-", "len": 0.0, "top": ""}
     answers = [str(e.answer) for e in entries]
     top, ntop = collections.Counter(answers).most_common(1)[0]
     rules = {name: statistics.mean(task.score_answer(shortcuts(e.prompt)[name], e)
@@ -64,6 +78,7 @@ def audit(task, level, n, deadline):
     worst_rule = max(rules, key=rules.get)
     return {
         "n": len(entries),
+        "error": error,
         "distinct": len(set(answers)) / len(answers),
         "const": statistics.mean(task.score_answer(top, e) for e in entries),
         "shortcut": rules[worst_rule],
@@ -97,9 +112,14 @@ def main(argv=None):
 
     worst = {"const": 0.0, "shortcut": 0.0}
     worst_rule = ""
+    broken = []
     for name, task in tasks:
         for level in LEVELS:
             r = audit(task, level, args.n, time.time() + args.budget_seconds)
+            if r["error"]:
+                # A level the generator cannot survive is a broken level, whatever the
+                # rates say; the sweep is the only place it is ever exercised.
+                broken.append(f"level {level}: {r['error']}")
             # Too few samples to read a rate off; a slow generator should not fail here.
             if r["n"] >= 8:
                 worst["const"] = max(worst["const"], r["const"])
@@ -107,7 +127,12 @@ def main(argv=None):
                     worst["shortcut"], worst_rule = r["shortcut"], r["rule"]
             print(f"{name:28s} L{level}  n={r['n']:3d}  distinct={r['distinct']:4.2f}"
                   f"  const_reward={r['const']:4.2f}  shortcut={r['shortcut']:4.2f}"
-                  f" ({r['rule']})  len={r['len']:5.1f}  ex={r['top'][:24]!r}")
+                  f" ({r['rule']})  len={r['len']:5.1f}  ex={r['top'][:24]!r}"
+                  + (f"  BROKEN {r['error']}" if r["error"] else ""))
+    if broken and args.max_const is not None:
+        print("FAIL: generation does not survive every level:\n  " + "\n  ".join(broken),
+              file=sys.stderr)
+        return 1
     if args.max_const is not None and worst["const"] > args.max_const:
         print(f"FAIL: a constant guess scores {worst['const']:.2f} > {args.max_const:.2f};"
               " the task is winnable without reading the prompt", file=sys.stderr)
