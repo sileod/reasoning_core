@@ -10,6 +10,7 @@ import tempfile
 import pytest
 
 from reasoning_core.task_search import prior_audit, selfcheck
+from reasoning_core.task_search import trajectory
 
 from reasoning_core.task_search.runner import (
     _sample_command_for,
@@ -536,6 +537,28 @@ def test_self_check_is_the_only_verification_command_the_prompt_asks_for(tmp_pat
     # separately quoted prior_audit invocation.
     assert "PYTHONHASHSEED" not in prompt
     assert "prior_audit" not in prompt
+
+
+def test_selfcheck_pytest_stops_at_an_actionable_short_traceback():
+    command = selfcheck.pytest_command("owned/task")
+
+    assert "-q -x --tb=short" in command
+    assert command.endswith("--import-mode=importlib owned/task")
+
+
+def test_live_trajectory_reads_budget_from_invocation_summary(tmp_path):
+    wave = tmp_path / "run"
+    trial = wave / "S26"
+    trial.mkdir(parents=True)
+    (wave / "summary.json").write_text(json.dumps({"max_steps": 28}))
+    (trial / "events.jsonl").write_text(
+        json.dumps({"type": "step_start", "part": {}}) + "\n")
+
+    row = trajectory.read(trial)
+
+    assert row["status"] == "no run.json"
+    assert row["steps"] == 1
+    assert row["budget"] == 28
 
 
 def test_owned_digest_sees_a_file_rewritten_after_the_contract_audit(tmp_path):

@@ -96,6 +96,12 @@ def tail(text, n=12):
     return "\n".join("    | " + line for line in lines[-n:])
 
 
+def pytest_command(owned):
+    """Stop at one failure and keep its assertion diff inside the report tail."""
+    return ("python -m pytest -q -x --tb=short -p no:cacheprovider "
+            "--import-mode=importlib " + owned)
+
+
 class Report:
     def __init__(self):
         self.failed, self.stop = 0, False
@@ -243,8 +249,11 @@ def main(argv=None):
          " object-keyed dict can also produce this pattern by chance, so if every"
          " set you render is already sorted, look for one keyed on objects.")))
 
-    code, out = sh("python -m pytest -p no:cacheprovider --import-mode=importlib " + owned,
-                   limit=90)
+    # Normal pytest tracebacks put the useful assertion diff well before the final
+    # summary. Tailing that output showed workers only the failing test name: S26 in
+    # wave3 guessed at the cause, edited the wrong edge case, and exhausted its 28
+    # steps. One short traceback is both smaller and actionable.
+    code, out = sh(pytest_command(owned), limit=90)
     report.gate("pytest", code == 0, "" if code == 0 else tail(out, 20))
 
     code, out = sh("python -c %s %s %d" % (

@@ -25,6 +25,8 @@ def read(trial_dir):
         if (trial_dir / "events.jsonl").is_file() else []
     run = json.loads((trial_dir / "run.json").read_text()) \
         if (trial_dir / "run.json").is_file() else {}
+    summary = json.loads((trial_dir.parent / "summary.json").read_text()) \
+        if (trial_dir.parent / "summary.json").is_file() else {}
     calls, denied, checks, texts = [], [], [], []
     for event in events:
         if event["type"] == "text":
@@ -43,7 +45,10 @@ def read(trial_dir):
         "id": trial_dir.name,
         "status": run.get("status", "no run.json"),
         "steps": sum(1 for e in events if e["type"] == "step_start"),
-        "budget": (run.get("generation") or {}).get("settings", {}).get("max_steps"),
+        # run.json appears only after every coordinator gate completes. During the
+        # model phase the invocation summary is the durable source of this value.
+        "budget": ((run.get("generation") or {}).get("settings", {}).get("max_steps")
+                   or summary.get("max_steps")),
         "calls": calls,
         "denied": denied,
         "checks": checks,
