@@ -563,8 +563,13 @@ def test_unparseable_candidate_metadata_raises_something_catchable(tmp_path, sou
         _task_metadata(tmp_path, "reasoning_core/tasks/generated/n1")
 
 
-def test_pace_changes_the_prompt_and_is_recorded():
-    """The hurry stance is an assumption about the bottleneck, so it has to be A/B-able."""
+def test_pace_changes_the_prompt_and_nothing_else():
+    """The hurry stance is an assumption about the bottleneck, so it has to be A/B-able.
+
+    Only the two pacing strings may differ between arms. Substituting them out has to
+    leave three byte-identical prompts, or the arm is confounded with whatever else
+    moved -- which is how `pace` leaking into TASK_META was caught.
+    """
     plan = load_plan(PLAN)
     trial = plan.trials[0]
     prompts = {name: render_prompt(plan, trial, ROOT, pace=name) for name in PACE}
@@ -572,9 +577,17 @@ def test_pace_changes_the_prompt_and_is_recorded():
     assert len(set(prompts.values())) == len(PACE)
     assert "Hurry" in prompts["hurry"] and "Hurry" not in prompts["deliberate"]
     assert "two or three formulations" in prompts["deliberate"]
-    # Everything outside the pacing block is shared, so waves stay comparable.
-    for prompt in prompts.values():
-        assert trial.instruction in prompt and "TASK_META" in prompt
 
-    assert generation_metadata("m", "v", "a", pace="deliberate")["settings"]["pace"] == (
-        "deliberate")
+    def without_pacing(text, name):
+        # Normalise first: textwrap re-flows the pacing sentence into the surrounding
+        # paragraph, so the phrase is only findable once the line breaks are gone.
+        text = " ".join(text.split())
+        for phrase in PACE[name].values():
+            text = text.replace(" ".join(phrase.split()), "<PACING>")
+        return text
+
+    stripped = {without_pacing(text, name) for name, text in prompts.items()}
+    assert len(stripped) == 1, "pace changed something outside the pacing block"
+
+    # Recorded at the wave level, never inside the provenance mapping the worker pastes.
+    assert "pace" not in generation_metadata("m", "v", "a")["settings"]

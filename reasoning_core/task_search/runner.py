@@ -205,10 +205,15 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
         "which needs no `__init__.py`. Do not commit, push, or move the assignment.",
         "Read files with the read, glob and grep tools: `cat`, `head`, `sed` and `wc`",
         "are denied. bash allows only python, git status/diff, ls, pwd, cd, mkdir and",
-        "the self-check below; every `&&` segment is checked separately, so a",
-        "trailing `echo` or `2>/dev/null` gets the whole call denied. A denied call",
-        "costs a step and re-sending it costs another -- change tool instead. The owned",
-        "path is created by your first write, so never `ls` or `mkdir` to check it.",
+        "the self-check below. One command per call, and nothing after it: `;`, `|`,",
+        "`&&` and `2>&1` split the line and each piece is checked on its own, so",
+        "`... | tail -30`, `... 2>/dev/null` and `...; echo done` are all denied as a",
+        "whole -- 149 of the 183 denied calls measured on this prompt were exactly",
+        "that, and the self-check already prints only what you need. Type the allowed",
+        "command literally: an env assignment inserted in the middle misses the",
+        "allowance too. A denied call costs a step and re-sending it costs another --",
+        "change tool instead. The owned path is created by your first write, so never",
+        "`ls` or `mkdir` to check it.",
         *textwrap.wrap(
             f"You have {_budget_phrase(task_meta)}: one tool call is one step and a"
             f" denied call still counts. {pacing['stance']}", 79),
@@ -310,10 +315,9 @@ def generation_metadata(model, harness_version, agent, variant=None,
                         sandbox_version=None, max_steps=56,
                         timeout_seconds=1800, provider_name=None,
                         adapter_name="direct", adapter_version=None,
-                        harness_name="opencode", pace=DEFAULT_PACE):
+                        harness_name="opencode"):
     settings = {
         "variant": variant,
-        "pace": pace,
         "requested_seed": requested_seed,
         "seed_forwarded": seed_forwarded,
         "temperature": temperature,
@@ -403,6 +407,11 @@ def opencode_permissions(trial):
         "git diff*": "allow",
         "python -c *": "allow",
         "PYTHONDONTWRITEBYTECODE=1 python -c *": "allow",
+        # The same call the two above already allow, with the env prefix workers
+        # actually type. Matching is prefix-anchored, so an assignment in the middle
+        # misses every pattern: 33 of 183 denials in the first six waves were this
+        # spelling of a command that was already permitted.
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -c *": "allow",
         # Navigation only; none of these can read file contents, so the
         # *.env read deny still holds. Denying them wasted ~30% of turns.
         "ls*": "allow",
@@ -1009,7 +1018,6 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         adapter_name=adapter,
         adapter_version=adapter_version,
         harness_name=harness,
-        pace=pace,
     )
     parent_source_id = None
     if trial.parent:
@@ -1265,6 +1273,10 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "hypothesis": trial.hypothesis,
         "base_commit": base_commit,
         "plan_sha256": plan.sha256,
+        # Wave-level, deliberately not inside TASK_META: anything in there is pasted
+        # into the worker's prompt, and a pace A/B whose treatment also edits the
+        # provenance mapping is not measuring the pacing alone.
+        "pace": pace,
         "prompt_sha256": _sha256(prompt),
         "generation": generation,
         "parent_source_id": parent_source_id,
