@@ -1,0 +1,251 @@
+# WAVE1: from-scratch only.
+#
+# Wave 0 measured a scratch/mutation split of 6/6 against 6/12 on the same base
+# commit and prompt, and every ContextOverflowError in six waves came from a
+# mutation trial reading a 37KB parent module. Nine of wave 0's twelve scratch
+# ideas have shipped, so the binding constraint on a scratch-only wave is the
+# supply of ideas, not the success rate. These thirteen are that supply.
+#
+# Each one is chosen against three things the roster has already measured:
+# the answer has to vary across examples or the gameability gate takes it
+# (no yes/no, no small fixed label set); the answer should be short while the
+# state it depends on is not, because answer length is the dominant transfer
+# tax; and it should not restate a shipped task in reasoning_core/tasks/.
+version: 1
+name: WAVE1
+
+queues:
+  pilot:
+    - S1
+    - S5
+  scratch_p0:
+    - S1
+    - S2
+    - S3
+    - S4
+    - S5
+    - S6
+  scratch_p1:
+    - S7
+    - S8
+    - S9
+    - S10
+    - S11
+    - S12
+    - S13
+  scratch_all:
+    - S1
+    - S2
+    - S3
+    - S4
+    - S5
+    - S6
+    - S7
+    - S8
+    - S9
+    - S10
+    - S11
+    - S12
+    - S13
+
+defaults:
+  base_ref: c0e97d06290f4594b64012c2ad85ebd4eee49b27
+
+context_files:
+  - AGENTS.md
+  - TASK_AUTHORING_GUIDE.md
+  - reasoning_core/task_search/CONTEXT.md
+
+trials:
+  # The single largest measured gap against reasoning-gym: GSM-style prose maths.
+  - id: S1
+    hypothesis: S1
+    idea: Add multi-step quantitative word problems in natural prose.
+    changes: Compose rate, work, mixture and unit-price relations into a chain whose answer is one number.
+    instruction: >-
+      Implement word_problem_chains. Build a small symbolic relation chain
+      (rates, work done together, mixtures, unit prices) and render it as
+      ordinary English prose, not as equations. Difficulty is the number of
+      composed relations and whether an intermediate quantity is unstated. The
+      answer is a single number in lowest terms; state the unit in the prompt so
+      the answer never needs one. Vary the numbers widely so no constant wins.
+    owned_path: reasoning_core/tasks/generated/wave1/s01_word_problem_chains
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s01_word_problem_chains
+
+  - id: S2
+    hypothesis: S2
+    idea: Add compound-unit conversion through a chain of stated equivalences.
+    changes: Convert a quantity across derived units using only equivalences given in the prompt.
+    instruction: >-
+      Implement unit_conversion_chains. Give the solver a handful of unit
+      equivalences in the prompt, some irrelevant, and ask for one quantity
+      restated in a target compound unit. Use invented as well as real units so
+      the answer cannot come from memorised constants. Difficulty is the chain
+      length and the number of distractor equivalences. The answer is a number
+      rounded to a stated number of decimal places.
+    owned_path: reasoning_core/tasks/generated/wave1/s02_unit_conversion_chains
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s02_unit_conversion_chains
+
+  - id: S3
+    hypothesis: S3
+    idea: Add critical-path reasoning over a precedence DAG with durations.
+    changes: Ask for the makespan, or the slack of one named task, on a scheduling graph.
+    instruction: >-
+      Implement project_scheduling using NetworkX for the DAG. Generate a
+      precedence DAG with integer durations and ask for the makespan or for the
+      total slack of one named activity. Describe the graph as a list of
+      "X must finish before Y" sentences, not as an edge list. Difficulty is the
+      node count and the number of parallel branches. The answer is an integer.
+    owned_path: reasoning_core/tasks/generated/wave1/s03_project_scheduling
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s03_project_scheduling
+
+  - id: S4
+    hypothesis: S4
+    idea: Add rule-governed ledger reconciliation over a transaction stream.
+    changes: Apply an ordered stream of prose transactions under tiered fee and reversal rules.
+    instruction: >-
+      Implement ledger_reconciliation. State a short rulebook in the prompt
+      (percentage fees with tiers, reversals that also reverse their fee,
+      interest applied at a stated point) and then a stream of transactions in
+      order. Ask for the closing balance or the total fee charged. Difficulty is
+      the stream length and how many rules interact. The answer is a number to
+      two decimal places; compute it in integer cents internally.
+    owned_path: reasoning_core/tasks/generated/wave1/s04_ledger_reconciliation
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s04_ledger_reconciliation
+
+  - id: S5
+    hypothesis: S5
+    idea: Add n-th term evaluation for a stated recurrence.
+    changes: Give a recurrence and its base cases, ask for a far term or the first term past a threshold.
+    instruction: >-
+      Implement recurrence_unrolling. State a recurrence and its base cases
+      explicitly in the prompt -- linear with constant coefficients at low
+      levels, then with a polynomial inhomogeneous term or a two-step
+      dependency. Ask for the n-th term, or for the least index whose term
+      exceeds a bound. Choose n large enough that unrolling by hand is the point.
+      The answer is a single integer.
+    owned_path: reasoning_core/tasks/generated/wave1/s05_recurrence_unrolling
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s05_recurrence_unrolling
+
+  - id: S6
+    hypothesis: S6
+    idea: Add bounded discrete optimization over a small item set.
+    changes: Ask for the optimal value of a knapsack-style selection under one or two constraints.
+    instruction: >-
+      Implement subset_optimization. Present items with a value and one or two
+      costs and a budget, in prose, and ask for the best achievable total value.
+      Solve exactly by dynamic programming and reject any instance whose optimum
+      is attained by more than one value-distinct subset only if you ask for the
+      subset; asking for the value avoids the ambiguity entirely, so prefer that.
+      Difficulty is the item count and the number of constraints. The answer is
+      an integer.
+    owned_path: reasoning_core/tasks/generated/wave1/s06_subset_optimization
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s06_subset_optimization
+
+  - id: S7
+    hypothesis: S7
+    idea: Add edit distance under non-uniform operation costs.
+    changes: Ask for the minimum total cost of transforming one string into another.
+    instruction: >-
+      Implement weighted_edit_distance. Give per-operation costs in the prompt
+      (insert, delete, and substitution costs that may depend on the character
+      class) and two short strings, and ask for the minimum total cost. Compute
+      it with dynamic programming. Difficulty is the string length and how
+      irregular the cost table is. The answer is an integer.
+    owned_path: reasoning_core/tasks/generated/wave1/s07_weighted_edit_distance
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s07_weighted_edit_distance
+
+  - id: S8
+    hypothesis: S8
+    idea: Add polynomial arithmetic over a small finite field.
+    changes: Ask for a gcd, a remainder or a factor of polynomials over GF(p).
+    instruction: >-
+      Implement finite_field_polynomials using SymPy's GF domain. Ask for the
+      monic gcd, the remainder of a division, or the irreducible factors of a
+      polynomial over GF(p) for a small prime p stated in the prompt. Fix and
+      state the printing convention for the answer, and canonicalise it, since
+      score_answer compares strings. Difficulty is the degree and the prime.
+    owned_path: reasoning_core/tasks/generated/wave1/s08_finite_field_polynomials
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s08_finite_field_polynomials
+
+  - id: S9
+    hypothesis: S9
+    idea: Add alphametic puzzles with a unique digit assignment.
+    changes: Ask for the digits that make a stated letter-addition true.
+    instruction: >-
+      Implement cryptarithmetic. Generate a letter-addition puzzle, search all
+      assignments, and keep only instances with exactly one solution and no
+      leading zero. Ask for the assignment as a canonical string, for example
+      the letters in alphabetical order with their digits. Difficulty is the
+      number of distinct letters and addends. Bound the search: the generator
+      must stay well inside four seconds an example.
+    owned_path: reasoning_core/tasks/generated/wave1/s09_cryptarithmetic
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s09_cryptarithmetic
+
+  - id: S10
+    hypothesis: S10
+    idea: Add binary-heap simulation over a sequence of operations.
+    changes: Apply pushes, pops and decrease-keys and ask for the resulting array.
+    instruction: >-
+      Implement heap_simulation. State the sift-up and sift-down convention
+      explicitly in the prompt, then give a sequence of push, pop-min and
+      replace operations on a min-heap held as an array. Ask for the final array
+      or for the element at a named index. Difficulty is the operation count.
+      The answer is a comma-separated integer list or a single integer.
+    owned_path: reasoning_core/tasks/generated/wave1/s10_heap_simulation
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s10_heap_simulation
+
+  - id: S11
+    hypothesis: S11
+    idea: Add interval abstract interpretation of tiny imperative programs.
+    changes: Ask for the interval a variable holds at a program point.
+    instruction: >-
+      Implement interval_analysis. Generate a short imperative program with
+      assignments, conditionals and a bounded loop over small integers, and ask
+      for the sound interval of one variable at one labelled point. Compute the
+      answer by concrete interpretation over every reachable input in the stated
+      input range, so the interval is exact rather than merely sound. State the
+      answer format as a bracketed pair. Difficulty is the program length and
+      the branching depth.
+    owned_path: reasoning_core/tasks/generated/wave1/s11_interval_analysis
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s11_interval_analysis
+
+  - id: S12
+    hypothesis: S12
+    idea: Add maximum-flow reasoning on small capacitated networks.
+    changes: Ask for the value of a maximum flow or for the capacity of a minimum cut.
+    instruction: >-
+      Implement network_flow using NetworkX maximum_flow_value. Generate a small
+      capacitated directed network with a named source and sink, described as a
+      list of "up to k units can move from X to Y" sentences. Ask for the
+      maximum flow value or the total capacity of a minimum cut. Difficulty is
+      the node and edge count. The answer is an integer.
+    owned_path: reasoning_core/tasks/generated/wave1/s12_network_flow
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s12_network_flow
+
+  - id: S13
+    hypothesis: S13
+    idea: Add assignment reasoning on weighted bipartite graphs.
+    changes: Ask for the cost of the optimal assignment between two small sets.
+    instruction: >-
+      Implement optimal_assignment using SciPy linear_sum_assignment or the
+      NetworkX equivalent. Give a small cost matrix as prose -- workers and
+      jobs, with a cost for each pairing -- and ask for the minimum total cost
+      of a complete assignment. Ask for the cost, not the matching, so ties need
+      no canonicalisation. Difficulty is the matrix size and the spread of the
+      costs. The answer is an integer.
+    owned_path: reasoning_core/tasks/generated/wave1/s13_optimal_assignment
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave1/s13_optimal_assignment
