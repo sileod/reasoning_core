@@ -50,7 +50,7 @@ queues:
     - S25
 
 defaults:
-  base_ref: df33f74b4500816d52e63927466eac6cd3278426
+  base_ref: ff47d938ffb09bf65c1dac609f122e2f72be956f
 
 context_files:
   - AGENTS.md
