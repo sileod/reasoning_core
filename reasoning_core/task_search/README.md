@@ -1,5 +1,8 @@
 # Task Search
 
+Reading this for a code review? Start with [REVIEW.md](REVIEW.md): where the
+weight is, what has been measured, and the weak points already known.
+
 `reasoning_core.task_search` distributes a versioned search plan to independent
 coding-harness workers. It is provider- and harness-neutral: the selected
 harness resolves model access from user-local configuration or Harness Link,
