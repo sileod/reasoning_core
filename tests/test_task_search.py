@@ -13,6 +13,7 @@ from reasoning_core.task_search import prior_audit, selfcheck
 
 from reasoning_core.task_search.runner import (
     _sample_command_for,
+    _step_usage,
     opencode_permissions,
     Trial,
     SearchPlan,
@@ -780,3 +781,12 @@ def test_pace_changes_the_prompt_and_nothing_else():
 
     # Recorded at the wave level, never inside the provenance mapping the worker pastes.
     assert "pace" not in generation_metadata("m", "v", "a")["settings"]
+
+
+def test_step_usage_flags_a_worker_that_ran_out_of_budget(tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.write_text("".join(
+        json.dumps({"type": "step_start"}) + "\n" for _ in range(28)))
+    assert _step_usage(events, 28) == {"used": 28, "max": 28, "exhausted": True}
+    assert _step_usage(events, 60)["exhausted"] is False
+    assert _step_usage(tmp_path / "absent.jsonl", 28) is None

@@ -641,6 +641,25 @@ def sample_shortfall(body):
             for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
 
 
+def _step_usage(events_path, max_steps):
+    """How much of the step budget the worker spent, and whether it ran out.
+
+    A trial that runs out of steps mid-fix is filed under whichever artifact it had
+    not written yet, so the status names the missing file and not the cause: M10 in
+    wave 20260829T092634Z fixed its NameError on its 27th of 28 steps and was
+    recorded as sample_review_failed. Measured over the 64 trials run at 28 steps,
+    trials that finished under the ceiling succeed 0.63 of the time and trials that
+    hit it 0.29, so this is the first number to look at on any failure.
+    """
+    try:
+        lines = Path(events_path).read_text().splitlines()
+    except FileNotFoundError:
+        return None
+    used = sum(1 for line in lines if '"step_start"' in line)
+    return {"used": used, "max": max_steps,
+            "exhausted": bool(max_steps) and used >= max_steps}
+
+
 def _sample_review(worktree, owned_path, trial_id, events_path):
     sample_name = f"samples_{trial_id}.md"
     script_name = f"generate_samples_{trial_id}.py"
@@ -1387,6 +1406,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "finished_at": datetime.now(timezone.utc).isoformat(),
         "harness_exit_code": harness_exit_code,
         "harness_log": str(events_path),
+        "steps": _step_usage(events_path, max_steps),
         "trajectory": str(trajectory_path) if trajectory_path else None,
         "timed_out": timed_out,
         "sandbox": {"name": "bubblewrap", "version": sandbox_version},
