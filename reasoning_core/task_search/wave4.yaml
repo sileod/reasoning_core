@@ -1,0 +1,279 @@
+version: 1
+name: WAVE4
+
+# Twelve from-scratch ideas chosen against the two things that killed wave1-3
+# trials on the idea rather than the implementation: a narrow answer space (S22
+# scored const_reward 0.47 because its answer is one small integer) and a
+# generator that enumerates what it should count (S35, S36). Every idea below
+# answers with a string, a list, a fraction or an unbounded integer, and every
+# one has a polynomial algorithm named in its instruction.
+
+queues:
+  pilot:
+    - S41
+    - S45
+  scratch_p0:
+    - S38
+    - S39
+    - S40
+    - S41
+    - S42
+    - S43
+  scratch_p1:
+    - S44
+    - S45
+    - S46
+    - S47
+    - S48
+    - S49
+  scratch_all:
+    - S38
+    - S39
+    - S40
+    - S41
+    - S42
+    - S43
+    - S44
+    - S45
+    - S46
+    - S47
+    - S48
+    - S49
+
+defaults:
+  base_ref: f2966ff
+
+context_files:
+  - AGENTS.md
+  - TASK_AUTHORING_GUIDE.md
+  - reasoning_core/task_search/CONTEXT.md
+
+trials:
+  - id: S38
+    hypothesis: S38
+    idea: Add a task that separates two finite automata by exhibiting a witness string.
+    changes: Give two small automata or two regular expressions and ask for the shortest string accepted by one and rejected by the other.
+    instruction: >-
+      Implement language_separation. Describe two deterministic finite automata in
+      prose -- states, alphabet, start state, accepting states, transition table --
+      and ask for the shortest string accepted by the first and rejected by the
+      second, breaking ties lexicographically, or "none" when their languages
+      agree. Compute it with a breadth-first search over the product automaton,
+      which is linear in the product size, never by enumerating strings by length.
+      Difficulty is the number of states and the alphabet size. Make about a fifth
+      of the examples equivalent so "none" is a real answer but not a common one,
+      and draw the automata so witness lengths spread over several values rather
+      than clustering on one or two.
+    owned_path: reasoning_core/tasks/generated/wave4/s38_language_separation
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s38_language_separation
+
+  - id: S39
+    hypothesis: S39
+    idea: Add multiplicative-order and discrete-logarithm reasoning in a prime modulus.
+    changes: Ask for the order of an element modulo a prime, or the smallest exponent carrying one element to another.
+    instruction: >-
+      Implement multiplicative_order. Give a prime modulus and an element and ask
+      either for the multiplicative order of that element, or for the smallest
+      non-negative exponent k with base**k congruent to a stated target, answering
+      "none" when the target is outside the cyclic subgroup. State which question
+      the prompt is asking and vary it across examples. Compute the order by
+      factoring p-1 and testing the divisors, and the logarithm with baby-step
+      giant-step; both are fast even for a six-digit prime, so no level should ever
+      loop over the whole group. Difficulty is the size of the prime. The answer is
+      an integer that ranges over most of the divisor set or most of the group, so
+      choose primes whose p-1 has several distinct factors rather than primes that
+      make every order equal to p-1.
+    owned_path: reasoning_core/tasks/generated/wave4/s39_multiplicative_order
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s39_multiplicative_order
+
+  - id: S40
+    hypothesis: S40
+    idea: Add canonical Huffman coding over a stated symbol frequency table.
+    changes: Ask for the codeword of a named symbol under the canonical code, or the total encoded length of a message.
+    instruction: >-
+      Implement canonical_huffman. Give a table of symbols and their frequencies in
+      prose and ask either for the canonical Huffman codeword of one named symbol,
+      as a bit string, or for the total number of bits a stated message occupies
+      under that code. Canonical coding removes the tree ambiguity, so spell the
+      rule out in the prompt: build the code lengths with the usual greedy merge,
+      breaking ties by the smaller symbol, then assign codewords in order of
+      increasing length and, within a length, alphabetical symbol order. Difficulty
+      is the number of symbols and the spread of the frequencies. The codeword
+      answer is a bit string of varying length, which is what keeps the answer
+      space wide -- do not let one symbol dominate every table.
+    owned_path: reasoning_core/tasks/generated/wave4/s40_canonical_huffman
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s40_canonical_huffman
+
+  - id: S41
+    hypothesis: S41
+    idea: Add the Burrows-Wheeler transform and its inverse over short strings.
+    changes: Ask for the transform of a string, or for the string a given transform came from.
+    instruction: >-
+      Implement burrows_wheeler. Either give a short string with a terminator
+      character and ask for its Burrows-Wheeler transform, or give a transform and
+      ask for the original string -- say which in the prompt and vary it. The
+      forward direction sorts the rotations; the inverse uses the standard LF
+      mapping over the sorted first column, which is linear, so never reconstruct
+      by trying candidate strings. Difficulty is the string length and the alphabet
+      size. Both answers are strings, so the answer space is as wide as the input
+      space; assert in generate_entry that the inverse of the transform is the
+      original before emitting an example, and redraw if it is not.
+    owned_path: reasoning_core/tasks/generated/wave4/s41_burrows_wheeler
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s41_burrows_wheeler
+
+  - id: S42
+    hypothesis: S42
+    idea: Add structural validation of a document against a small schema.
+    changes: Ask which path in a nested document violates a stated schema.
+    instruction: >-
+      Implement schema_validation. Give a small schema in prose -- required keys,
+      value types, allowed ranges, array element types -- and a nested JSON
+      document, and ask for the dotted path of the first violation in a stated
+      traversal order, answering "valid" when there is none. Define the traversal
+      order explicitly in the prompt (keys in the order the schema lists them,
+      arrays by index) so the answer is unique. Difficulty is nesting depth and the
+      number of keys. Vary the kind of violation across examples -- a missing
+      required key, a wrong type, an out-of-range number, a bad array element --
+      and vary where in the document it sits, so the answer is a path that ranges
+      over the whole document rather than always the first key. Keep roughly a
+      fifth of the documents valid.
+    owned_path: reasoning_core/tasks/generated/wave4/s42_schema_validation
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s42_schema_validation
+
+  - id: S43
+    hypothesis: S43
+    idea: Add three-way merge reasoning over short line-based files.
+    changes: Ask for the merged file, or for the line at which two edits conflict.
+    instruction: >-
+      Implement three_way_merge. Give a base file as numbered lines and two edited
+      versions, and ask for the merged file when the edits are disjoint, or for the
+      first base line number at which they conflict when they touch the same
+      region. State the merge rule in the prompt: an edit is a changed, inserted or
+      deleted line, two edits conflict when they overlap in the base, and a clean
+      merge applies both. Build the edit scripts by comparing each version to the
+      base line by line, which is linear -- there is no need for a diff algorithm
+      over the two versions. Difficulty is the file length and the number of edits.
+      Make roughly a third of the examples conflict. The clean-merge answer is a
+      multi-line file, so say exactly how to format it.
+    owned_path: reasoning_core/tasks/generated/wave4/s43_three_way_merge
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s43_three_way_merge
+
+  - id: S44
+    hypothesis: S44
+    idea: Add spreadsheet formula evaluation with references and dependency cycles.
+    changes: Ask for the value of a named cell, or for the cells that form a circular reference.
+    instruction: >-
+      Implement spreadsheet_evaluation. Give a small grid of cells, some holding
+      numbers and some holding formulas over other cells with plus, minus, times
+      and a SUM over a rectangular range, and ask for the value of one named cell,
+      or for the cells on the circular reference when one exists, listed in
+      alphabetical order. Evaluate by a topological order over the reference graph
+      and detect the cycle with the same traversal, so a cyclic sheet costs no more
+      than an acyclic one. Difficulty is the grid size and the formula depth. Keep
+      the values exact integers and let them grow, so the answer is not confined to
+      a small range; make roughly a fifth of the sheets cyclic.
+    owned_path: reasoning_core/tasks/generated/wave4/s44_spreadsheet_evaluation
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s44_spreadsheet_evaluation
+
+  - id: S45
+    hypothesis: S45
+    idea: Add chemical equation balancing as exact integer linear algebra.
+    changes: Ask for the smallest whole-number coefficients that balance a stated reaction.
+    instruction: >-
+      Implement equation_balancing. Give an unbalanced reaction over invented or
+      real formulas -- element symbols with subscripts, several species on each
+      side -- and ask for the smallest positive whole-number coefficients, as a
+      comma-separated list in the order the reaction writes the species. Solve it
+      as an exact nullspace over the rationals with fractions.Fraction and scale by
+      the least common multiple of the denominators; assert the solution space is
+      one-dimensional and redraw when it is not, since a reaction with two
+      independent balances has no unique answer. Difficulty is the number of
+      species and distinct elements. Draw the coefficients so they spread over a
+      range instead of landing on all-ones, and check that the balanced equation
+      really conserves every element before emitting the example.
+    owned_path: reasoning_core/tasks/generated/wave4/s45_equation_balancing
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s45_equation_balancing
+
+  - id: S46
+    hypothesis: S46
+    idea: Add multi-round voting rules over explicit ballots.
+    changes: Ask for the elimination order under instant-runoff, or the full Borda score of each candidate.
+    instruction: >-
+      Implement voting_rules. Give a set of ranked ballots with their multiplicities
+      in prose and ask either for the instant-runoff elimination order as a
+      comma-separated list of candidates, or for the Borda scores of all candidates
+      in a stated order. Both answers are lists, which is deliberate: a single
+      winner would be one of a handful of names and the task would be guessable.
+      Spell out the tie-break rule -- eliminate the alphabetically first among
+      those tied on the fewest first-place votes -- and apply it exactly.
+      Difficulty is the number of candidates and ballots. Draw the ballots so the
+      instant-runoff winner is often not the plurality leader, since that is the
+      reasoning the task is meant to require.
+    owned_path: reasoning_core/tasks/generated/wave4/s46_voting_rules
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s46_voting_rules
+
+  - id: S47
+    hypothesis: S47
+    idea: Add dimensional analysis over stated physical quantities.
+    changes: Ask for the dimensions of a derived quantity, or which of several equations is dimensionally inconsistent.
+    instruction: >-
+      Implement dimensional_analysis. Give the dimensions of several named base and
+      derived quantities in prose, then ask for the dimensions of an expression
+      built from them -- products, quotients and integer powers -- written in a
+      stated canonical form such as M^1 L^2 T^-2, or ask which one of several
+      candidate equations is dimensionally inconsistent. Represent a dimension as a
+      vector of exponents over M, L, T, I and add or subtract them; that is exact
+      and instant. Difficulty is the number of factors and the size of the
+      exponents. The exponent vector answer is what keeps the space wide, so vary
+      the exponents rather than reusing a few textbook quantities, and state the
+      canonical form precisely, including how to write a zero exponent.
+    owned_path: reasoning_core/tasks/generated/wave4/s47_dimensional_analysis
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s47_dimensional_analysis
+
+  - id: S48
+    hypothesis: S48
+    idea: Add layered tariff and discount arithmetic with exact rational answers.
+    changes: Ask for the amount payable after a chain of bracketed rates, discounts and rebates.
+    instruction: >-
+      Implement layered_tariffs. Write a prose scenario in which an amount passes
+      through several stages -- a progressive bracket schedule, a percentage
+      discount that applies only above a threshold, a fixed rebate, a currency
+      conversion at a stated rate -- and ask for the final amount as an exact
+      reduced fraction, or as a decimal rounded in a way the prompt states exactly.
+      Keep every intermediate value a fractions.Fraction so the gold answer is
+      exact and no floating point error can creep in. Difficulty is the number of
+      stages and brackets. Vary the amounts widely so the answers do not cluster,
+      and make the bracket boundaries bite -- an amount that never crosses a
+      boundary turns the task into one multiplication.
+    owned_path: reasoning_core/tasks/generated/wave4/s48_layered_tariffs
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s48_layered_tariffs
+
+  - id: S49
+    hypothesis: S49
+    idea: Add sequence assembly from overlapping fragments.
+    changes: Ask for the sequence that a set of k-mers or fragments reconstructs.
+    instruction: >-
+      Implement sequence_assembly. Give a multiset of k-length fragments of an
+      unknown string over a small alphabet and ask for the string they came from,
+      or for "ambiguous" when more than one string explains them. Reconstruct with
+      an Eulerian path over the de Bruijn graph on (k-1)-mers, which is linear in
+      the number of fragments; deciding uniqueness is a check on the graph, so do
+      not enumerate candidate strings. Difficulty is the string length, the
+      alphabet size and the overlap k. The answer is a string, so the space is
+      wide. Assert before emitting that the fragments of your generated string are
+      exactly the multiset you show, and make roughly a sixth of the examples
+      genuinely ambiguous rather than manufacturing ambiguity by repetition alone.
+    owned_path: reasoning_core/tasks/generated/wave4/s49_sequence_assembly
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave4/s49_sequence_assembly
