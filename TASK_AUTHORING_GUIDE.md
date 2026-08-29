@@ -35,6 +35,8 @@ Every task should provide:
   - `generate_entry(self) -> Entry`
   - `render_prompt(self, metadata) -> str`
   - `score_answer(self, answer, entry) -> float | Reward` (or rely on default exact match)
+    Scored through `reasoning_core.score_answer`, `self` is a mock that raises on any
+    attribute access: use module-level helpers, never `self.<anything>`.
 
 Tasks may also implement `distractor_candidates(entry)` to yield realistic reasoning mistakes in
 the task's canonical answer format; `Task` handles fallback generation, correctness filtering,

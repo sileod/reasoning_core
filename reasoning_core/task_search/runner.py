@@ -257,6 +257,10 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
         "  between examples.",
         "- `validate()` re-scores the gold answer, so `score_answer` must return 1.0",
         "  on it and must match the answer format your prompt asks for.",
+        "- `score_answer` runs with a mock `self` that raises on any attribute access,",
+        "  so it must not touch `self` at all: no `self._parse_interval(answer)`, no",
+        "  `self.config`. Put shared parsing in a module-level function and call it",
+        "  directly. S11 in wave1 lost an otherwise-passing task to one helper call.",
         "- generation must survive every level: enforce construction invariants by",
         "  resampling in a loop, never with an `assert` that only holds at level 0.",
     ))
