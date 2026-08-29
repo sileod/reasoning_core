@@ -320,6 +320,17 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
         "  so a generator averaging more than about 4 seconds an example loses the trial",
         "  whatever else it does. Bound every rejection-sampling loop; the cost is",
         "  heavy-tailed and one pathological instance is enough.",
+        f"- your working directory is the read-only worktree root and only the task",
+        "  directory is writable, so the sample script must resolve its output next to",
+        f"  itself -- `Path(__file__).with_name(\"samples_{trial.trial_id}.md\")` -- and",
+        "  never as a bare relative name. S37 in wave3 lost its trial at step 14 to",
+        "  `OSError: [Errno 30] Read-only file system`, with the generator already written.",
+        "- time-box the generator the first time you run it, before you build anything on",
+        "  top of it. Two wave3 trials spent more than half their wall clock inside a",
+        "  generate call that never returned; one lost to a level-6 timeout and one to the",
+        "  harness dying under it. A level that cannot produce an example in a few seconds",
+        "  means the algorithm is wrong for that level: count with a DP over states rather",
+        "  than enumerating what you are counting.",
         "",
         "Do not end your turn before the self-check has printed a line for every one of",
         "the eleven gates and none of them says FAIL. Three of fifteen trials in the last",
@@ -1638,11 +1649,30 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             "results": sorted(results, key=lambda item: item["trial_id"]),
         })
 
+    def run_trial_retrying(*arguments):
+        """Run one trial, rerunning it once if the harness itself was killed.
+
+        A negative exit code is a signal, not a verdict: the worker never reached the
+        self-check, so filing it as a failed trial measures the infrastructure instead
+        of the model. It is rare -- 2 of the first 164 trials -- and a rerun is far
+        cheaper than a lost idea. The killed attempt is kept beside the rerun as
+        `<trial_id>.killed` so its trajectory stays readable.
+        """
+        result = _run_trial(*arguments)
+        if (result.get("status") != "harness_failed"
+                or (result.get("harness_exit_code") or 0) >= 0):
+            return result
+        trial_root = arguments[3] / arguments[1].trial_id
+        trial_root.rename(trial_root.with_name(trial_root.name + ".killed"))
+        retried = _run_trial(*arguments)
+        retried["retried_after_signal"] = result.get("harness_exit_code")
+        return retried
+
     write_summary()
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
         futures = {
             pool.submit(
-                _run_trial, plan, trial, repo_root, invocation, base_commit,
+                run_trial_retrying, plan, trial, repo_root, invocation, base_commit,
                 model, harness, agent, variant, harness_executable, harness_version,
                 seed, forward_seed, temperature, top_p, bwrap_path,
                 sandbox_version, max_steps, timeout_seconds,
