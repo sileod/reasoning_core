@@ -11,10 +11,37 @@ them.
 
 Each gate prints PASS, FAIL with the reason, or SKIP when a prerequisite failed.
 Exit code is the number of failed gates.
+
+The whole run has to fit in the 300 seconds the agent harness allows a single bash
+call, so gates run cheapest-first behind a shared deadline, every line is flushed as
+it is produced, and a gate that would overrun is skipped rather than allowed to eat
+the budget and have the entire report killed with nothing printed.
 """
-import argparse, ast, hashlib, json, os, pathlib, shlex, subprocess, sys
+import argparse, ast, hashlib, json, os, pathlib, shlex, subprocess, sys, time
 
 SECTIONS = ("level 0", "level 2", "level 5", "answer")
+# opencode kills a bash call at 300s (runner.py's _mini_config) and the harness gives
+# each validation command the same. Stop early enough to print the summary.
+DEADLINE = time.monotonic() + 240
+CONTRACT_EXAMPLES = 64
+_PROBE_N = 8
+_PROBE = r"""
+import importlib, json, random, sys, time
+classes, seed, n = json.loads(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
+costs = []
+for offset, (module_name, class_name) in enumerate(classes):
+    task = getattr(importlib.import_module(module_name), class_name)()
+    random.seed(seed + offset)
+    for _ in range(n):
+        started = time.monotonic()
+        task.generate_example()
+        costs.append(time.monotonic() - started)
+print(sum(costs) / len(costs), max(costs))
+"""
+
+
+def remaining():
+    return DEADLINE - time.monotonic()
 
 
 def contract_audit_source():
@@ -25,11 +52,21 @@ def contract_audit_source():
         if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "_CONTRACT_AUDIT"))
 
 
-def sh(command, env=None):
-    """Run one shell command the way _run_validation does, from the worktree root."""
+def sh(command, env=None, limit=None):
+    """Run one shell command the way _run_validation does, from the worktree root.
+
+    Bounded by whatever is left of the shared deadline, so no single slow generator can
+    consume the budget and leave the report unprinted.
+    """
     environment = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", **(env or {}))
-    done = subprocess.run(["/bin/bash", "-c", command], capture_output=True,
-                          text=True, env=environment)
+    budget = min(limit or remaining(), remaining())
+    if budget <= 1:
+        return 124, "out of time before this command started"
+    try:
+        done = subprocess.run(["/bin/bash", "-c", command], capture_output=True,
+                              text=True, env=environment, timeout=budget)
+    except subprocess.TimeoutExpired:
+        return 124, "killed after %d s" % budget
     return done.returncode, (done.stdout + done.stderr)
 
 
@@ -44,9 +81,9 @@ class Report:
 
     def gate(self, name, ok, detail="", fatal=False):
         if ok is None:
-            print(f"{name:<14} SKIP  {detail}")
+            print(f"{name:<14} SKIP  {detail}", flush=True)
             return False
-        print(f"{name:<14} {'PASS' if ok else 'FAIL'}  {detail}".rstrip())
+        print(f"{name:<14} {'PASS' if ok else 'FAIL'}  {detail}".rstrip(), flush=True)
         if not ok:
             self.failed += 1
             self.stop = self.stop or fatal
@@ -111,15 +148,47 @@ def main(argv=None):
     if report.stop:
         return report.failed
 
+    started = time.monotonic()
     code, out = sh(
         "python -c \"import importlib,random,sys,json;"
         "cs=json.loads(sys.argv[1]);"
         "[[t.config.set_level(L) or t.validate(n_samples=3) for L in (0,2,5)]"
         " for t in [getattr(importlib.import_module(m),c)() for m,c in cs]];"
-        f"print('SMOKE_OK')\" '{json.dumps(classes)}'")
-    if not report.gate("smoke", code == 0, "levels 0, 2, 5 validate" if code == 0
-                       else "validate() failed\n" + tail(out), fatal=True):
+        f"print('SMOKE_OK')\" '{json.dumps(classes)}'", limit=120)
+    elapsed = time.monotonic() - started
+    if not report.gate("smoke", code == 0, "levels 0, 2, 5 validate in %.0fs" % elapsed
+                       if code == 0 else "validate() failed\n" + tail(out), fatal=True):
         return report.failed
+
+    # The harness allows a validation command 300 seconds and its contract audit has to
+    # generate 64 examples at the default config, so a generator averaging more than
+    # ~4.5s an example loses the trial on a clock nothing reports -- M10 in wave
+    # 20260829T072855Z did, with an exit-124 run.json it never got to see. Time eight
+    # examples the way the contract audit makes them, and quote the worst as well as the
+    # mean: the cost is heavy-tailed, so an average read off cheap instances is not a
+    # prediction. M10 averaged 7.1s over eight with one at 33s.
+    code, out = sh("python -c %s %s %d %d" % (
+        shlex.quote(_PROBE), shlex.quote(json.dumps(classes)),
+        int(hashlib.sha256(trial.encode()).hexdigest()[:6], 16), _PROBE_N),
+        limit=min(90, remaining()))
+    if code != 0:
+        report.gate("speed", False, "eight examples did not finish in 90s, so the 64 the"
+                    " contract audit generates have no chance of finishing in 300")
+    else:
+        mean, worst = (float(x) for x in out.split()[-2:])
+        projected = mean * CONTRACT_EXAMPLES
+        report.gate("speed", projected < 240,
+                    "%.2fs an example on average, worst %.2fs, so %s for the %d the"
+                    " contract audit generates and the harness kills it at 300"
+                    % (mean, worst, "%.0fs" % projected if projected >= 1
+                       else "well under a second", CONTRACT_EXAMPLES)
+                    + ("" if mean * CONTRACT_EXAMPLES < 240 else
+                       ". Make generate_example cheaper at the DEFAULT config, which is"
+                       " what the audit uses: bound the retries in a rejection-sampling"
+                       " loop, shrink the search it runs, or cache what does not depend"
+                       " on the instance. A task this slow fails the harness even when"
+                       " every other gate passes"))
+
 
     code, out = sh(f"PYTHONPATH=. python {generator}")
     ran = report.gate("samples", code == 0,
@@ -138,7 +207,11 @@ def main(argv=None):
         code, out = sh(f"PYTHONPATH=. python {generator}", {"PYTHONHASHSEED": salt})
         digests.append(hashlib.sha256(samples.read_bytes()).hexdigest()[:8] if code == 0 else "ERR")
     same_salt = digests[0] != digests[1] or digests[2] != digests[3]
-    report.gate("reproducible", len(set(digests)) == 1, " ".join(digests) + (
+    if "ERR" in digests and remaining() <= 1:
+        report.gate("reproducible", None, "out of time: the generator is too slow to run"
+                    " five times inside one command, so fix speed first")
+    else:
+        report.gate("reproducible", len(set(digests)) == 1, " ".join(digests) + (
         "" if len(set(digests)) == 1 else
         ("  -- two runs at the SAME salt disagree, so either the generator keeps state"
          " between calls or it iterates a dict/set keyed on objects, whose hash is their"
@@ -149,12 +222,13 @@ def main(argv=None):
          " object-keyed dict can also produce this pattern by chance, so if every"
          " set you render is already sorted, look for one keyed on objects.")))
 
-    code, out = sh("python -m pytest -p no:cacheprovider --import-mode=importlib " + owned)
+    code, out = sh("python -m pytest -p no:cacheprovider --import-mode=importlib " + owned,
+                   limit=90)
     report.gate("pytest", code == 0, "" if code == 0 else tail(out, 20))
 
     code, out = sh("python -c %s %s %d" % (
         shlex.quote(contract_audit_source()), shlex.quote(json.dumps(classes)),
-        int(hashlib.sha256(trial.encode()).hexdigest()[:6], 16)))
+        int(hashlib.sha256(trial.encode()).hexdigest()[:6], 16)), limit=min(120, remaining()))
     report.gate("contract", code == 0,
                 "gold scores 1.0 and junk does not, over 64 examples" if code == 0
                 else tail(out, 8))
@@ -162,7 +236,7 @@ def main(argv=None):
     code, out = sh("python -m reasoning_core.task_search.prior_audit --path "
                    f"{owned} --n {args.n} --max-const 0.4 --budget-seconds 45")
     report.gate("gameability", code == 0, "" if code == 0 else tail(out, 10))
-    print(f"\n{report.failed} gate(s) failing.")
+    print(f"\n{report.failed} gate(s) failing.", flush=True)
     return report.failed
 
 
