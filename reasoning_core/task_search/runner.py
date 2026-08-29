@@ -676,6 +676,27 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
     return result
 
 
+def _selfcheck_drift(repo_root, base_ref):
+    """Is the self-check the worker will run the same one the gates now enforce?
+
+    Workers run inside a worktree checked out at base_ref, so the self-check they see is
+    frozen at that commit while the gates judging them are whatever the coordinator
+    imported. Let those drift apart and the harness starts telling workers they passed
+    something it is about to fail them on -- and the worker has no way to find out.
+    """
+    relative = "reasoning_core/task_search/selfcheck.py"
+    live = (Path(repo_root) / relative).read_bytes()
+    try:
+        pinned = subprocess.check_output(["git", "show", f"{base_ref}:{relative}"],
+                                         cwd=repo_root)
+    except subprocess.CalledProcessError:
+        return f"{base_ref} has no {relative}: workers cannot self-check at all"
+    if pinned != live:
+        return (f"the self-check at {base_ref} differs from the working tree; workers"
+                " are judged by gates they cannot see. Move base_ref forward.")
+    return ""
+
+
 def _owned_digest(worktree, owned_path, exclude=()):
     """sha256 per file under the owned path, plus one hash over the lot.
 
@@ -1362,6 +1383,9 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
     selected = _select_trials(plan, trial_ids, queue_names)
     base_commit = subprocess.check_output(
         ["git", "rev-parse", plan.base_ref], cwd=repo_root, text=True).strip()
+    drift = _selfcheck_drift(repo_root, base_commit)
+    if drift:
+        print(f"WARNING: {drift}", file=sys.stderr)
     if adapter == "harness-link" and not provider:
         raise ValueError("--provider is required with --adapter harness-link")
     if harness not in {"opencode", "mini"}:
@@ -1514,6 +1538,9 @@ def main(argv=None):
     plan = load_plan(args.plan)
     if args.command == "check":
         print(f"{plan.name}: {len(plan.trials)} trials from {plan.base_ref}")
+        drift = _selfcheck_drift(_repo_root(plan.path.parent), plan.base_ref)
+        if drift:
+            print(f"WARNING: {drift}")
         for name, members in plan.queues.items():
             print(f"queue\t{name}\t{','.join(members)}")
         for trial in plan.trials:

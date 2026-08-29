@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 
 import pytest
@@ -30,6 +31,7 @@ from reasoning_core.task_search.runner import (
     _task_classes,
     _task_metadata,
     _owned_digest,
+    _selfcheck_drift,
     SAMPLE_SECTIONS,
     _undiscoverable,
     generation_metadata,
@@ -574,6 +576,32 @@ def test_self_check_reports_the_sections_the_gate_actually_requires():
     coordinator then fails it on is the failure this whole harness exists to avoid.
     """
     assert selfcheck.SECTIONS == SAMPLE_SECTIONS
+
+
+def test_selfcheck_drift_catches_a_base_ref_left_behind(tmp_path):
+    """Workers run the self-check frozen at base_ref; the gates are whatever is live.
+
+    Nothing else in the harness compares those two, so a gate tightened without moving
+    base_ref forward would go out silently -- and the worker it fails would have been
+    told, by the harness itself, that it had passed.
+    """
+    relative = "reasoning_core/task_search/selfcheck.py"
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True)
+    git = lambda *args: subprocess.run(("git",) + args, cwd=tmp_path, check=True,
+                                       capture_output=True)
+    git("init", "-q")
+    git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    (tmp_path / "unrelated").write_text("x\n")
+    path.write_text("SECTIONS = ()\n")
+    git("add", "unrelated"), git("commit", "-qm", "before the self-check existed")
+    assert "cannot self-check" in _selfcheck_drift(tmp_path, "HEAD")
+
+    git("add", relative), git("commit", "-qm", "pin it")
+    assert _selfcheck_drift(tmp_path, "HEAD") == ""
+
+    path.write_text("SECTIONS = ('level 9',)\n")
+    assert "Move base_ref forward" in _selfcheck_drift(tmp_path, "HEAD")
 
 
 def test_undiscoverable_flags_what_the_audit_imports_but_discovery_skips():
