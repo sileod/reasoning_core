@@ -676,6 +676,36 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
     return result
 
 
+def _plan_problems(plan, repo_root):
+    """The checks `check` cannot make by reading the YAML alone.
+
+    load_plan validates properties of the text. These need the checkout, and every one
+    of them used to surface only at launch, after the worktrees had been made -- a plan
+    could pass `check` cleanly and still have nowhere to run.
+    """
+    repo_root = Path(repo_root)
+    problems = []
+    def at_base(relative):
+        return subprocess.run(["git", "cat-file", "-e", f"{plan.base_ref}:{relative}"],
+                              cwd=repo_root, capture_output=True).returncode == 0
+    if subprocess.run(["git", "rev-parse", "--verify", f"{plan.base_ref}^{{commit}}"],
+                      cwd=repo_root, capture_output=True).returncode != 0:
+        return [f"base_ref does not resolve to a commit: {plan.base_ref}"]
+    for relative in plan.context_files:
+        # render_prompt reads these from the live checkout, not from base_ref.
+        if not (repo_root / relative).is_file():
+            problems.append(f"context file missing from the checkout: {relative}")
+    for trial in plan.trials:
+        # _task_classes turns an owned module into an import path by taking it relative
+        # to reasoning_core/tasks. Anywhere else and the contract audit imports nothing.
+        if not trial.owned_path.startswith("reasoning_core/tasks/"):
+            problems.append(f"{trial.trial_id}: owned_path is outside"
+                            f" reasoning_core/tasks: {trial.owned_path}")
+        if trial.parent and not at_base(trial.parent):
+            problems.append(f"{trial.trial_id}: parent not at {plan.base_ref}: {trial.parent}")
+    return problems
+
+
 def _selfcheck_drift(repo_root, base_ref):
     """Is the self-check the worker will run the same one the gates now enforce?
 
@@ -1383,6 +1413,9 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
     selected = _select_trials(plan, trial_ids, queue_names)
     base_commit = subprocess.check_output(
         ["git", "rev-parse", plan.base_ref], cwd=repo_root, text=True).strip()
+    problems = _plan_problems(plan, repo_root)
+    if problems:
+        raise ValueError("plan cannot run:\n  " + "\n  ".join(problems))
     drift = _selfcheck_drift(repo_root, base_commit)
     if drift:
         print(f"WARNING: {drift}", file=sys.stderr)
@@ -1538,7 +1571,10 @@ def main(argv=None):
     plan = load_plan(args.plan)
     if args.command == "check":
         print(f"{plan.name}: {len(plan.trials)} trials from {plan.base_ref}")
-        drift = _selfcheck_drift(_repo_root(plan.path.parent), plan.base_ref)
+        repo_root = _repo_root(plan.path.parent)
+        for problem in _plan_problems(plan, repo_root):
+            print(f"PROBLEM: {problem}")
+        drift = _selfcheck_drift(repo_root, plan.base_ref)
         if drift:
             print(f"WARNING: {drift}")
         for name, members in plan.queues.items():

@@ -1,3 +1,4 @@
+import dataclasses
 import json
 from pathlib import Path
 import subprocess
@@ -31,6 +32,7 @@ from reasoning_core.task_search.runner import (
     _task_classes,
     _task_metadata,
     _owned_digest,
+    _plan_problems,
     _selfcheck_drift,
     SAMPLE_SECTIONS,
     _undiscoverable,
@@ -576,6 +578,30 @@ def test_self_check_reports_the_sections_the_gate_actually_requires():
     coordinator then fails it on is the failure this whole harness exists to avoid.
     """
     assert selfcheck.SECTIONS == SAMPLE_SECTIONS
+
+
+def test_plan_problems_are_the_ones_check_used_to_miss():
+    """A plan could pass `check` and still have nowhere to run.
+
+    Each of these surfaced only at launch, after the worktrees were made: an owned path
+    the contract audit cannot turn into an import, a context file render_prompt would
+    fail to read, and a base_ref that names nothing.
+    """
+    plan = load_plan(PLAN)
+    assert _plan_problems(plan, ROOT) == []
+
+    misplaced = dataclasses.replace(
+        plan,
+        context_files=("no/such/guide.md",),
+        trials=(dataclasses.replace(plan.trials[0], owned_path="scratch/n1"),),
+    )
+    problems = _plan_problems(misplaced, ROOT)
+    assert any("context file missing" in problem for problem in problems)
+    assert any("outside reasoning_core/tasks" in problem for problem in problems)
+
+    unresolvable = dataclasses.replace(plan, base_ref="no-such-ref")
+    assert _plan_problems(unresolvable, ROOT) == [
+        "base_ref does not resolve to a commit: no-such-ref"]
 
 
 def test_selfcheck_drift_catches_a_base_ref_left_behind(tmp_path):
