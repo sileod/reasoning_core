@@ -163,7 +163,7 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "which needs no `__init__.py`. Do not commit, push, or move the assignment.",
         "Read files with the read, glob and grep tools: `cat`, `head`, `sed` and `wc`",
         "are denied. bash allows only python, git status/diff, ls, pwd, cd, mkdir and",
-        "the validation commands below; every `&&` segment is checked separately, so a",
+        "the self-check below; every `&&` segment is checked separately, so a",
         "trailing `echo` or `2>/dev/null` gets the whole call denied. A denied call",
         "costs a step and re-sending it costs another -- change tool instead. The owned",
         "path is created by your first write, so never `ls` or `mkdir` to check it.",
@@ -175,45 +175,25 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "1. Start writing immediately -- one call to read the parent if you have one,",
         "   then a single call that writes the whole module under the owned path: a `Config`",
         "   subclass, a `Task` subclass whose name does not contain `Task`, and the",
-        "   exact TASK_META. Then smoke-test every level the samples need, in one step",
-        "   (substitute your names):",
-        f"   `PYTHONDONTWRITEBYTECODE=1 python -c \"from {_module_prefix(trial)}"
-        ".<your_module> import <YourClass> as T; [(t:=T(), t.config.set_level(L),"
-        " t.validate()) for L in (0,2,5)]\"`.",
-        f"2. As soon as that smoke test passes, write in one call both a",
-        "   `test_<your_module>.py` next to the module -- pytest collects only files named",
-        "   `test_*.py` containing `test_*` functions, and collects nothing at all if you",
-        "   leave it for later, which is the single most common way trials are losing",
-        f"   right now -- and `generate_samples_{trial.trial_id}.py`,",
-        f"   seeded with{_seed_phrase(task_meta)} so it is byte-reproducible, and run",
-        f"   `{_sample_command(trial)}`. Most failures so far are trials that polished the",
-        "   task until the budget ran out and never reached this step; a trial with no",
-        f"   `samples_{trial.trial_id}.md` fails outright however good the task is, so get",
-        "   the file on disk early and improve the task afterwards.",
-        f"3. Read `samples_{trial.trial_id}.md` (it must still be the newest version): it",
-        "   needs two complete prompt/answer examples at each of levels 0, 2 and 5, and",
-        "   those `Level 0` / `Level 2` / `Level 5` / `Answer` headings are checked",
-        "   literally. Regenerate and re-read it after any later edit to the task.",
-        "4. Spend whatever steps remain widening the tests you already have, inside the",
-        "   owned path.",
-        f"5. Finish by running `{_sample_command(trial)}` one last time. The harness runs",
-        "   it three more times and compares all three, so the generator must write the",
-        "   same bytes in every process. Keep no state between calls, and note that",
-        "   Python salts string hashing per process, so",
-        "   iterate `sorted(...)` over every set or dict whose order reaches the prompt or",
-        "   the answer -- unsorted set order is what most trials are currently losing on,",
-        "   and it does not show up when you run the generator twice in one process.",
-        "   Check it the way the harness does, in three subprocesses:",
-        f"   `python -c \"import hashlib,pathlib,subprocess,sys;"
-        f" p=pathlib.Path('{trial.owned_path}/samples_{trial.trial_id}.md');"
-        f" h=[(subprocess.run([sys.executable,"
-        f" '{trial.owned_path}/generate_samples_{trial.trial_id}.py'],"
-        " env={'PYTHONHASHSEED':str(s),'PYTHONPATH':'.'}),"
-        " hashlib.sha256(p.read_bytes()).hexdigest())[1] for s in (0,0,1)];"
-        " print('REPRODUCIBLE' if len(set(h))==1 else 'DIFFERS', h)\"`.",
+        "   exact TASK_META below, pasted rather than retyped.",
+        f"2. In one more call write both a `test_<your_module>.py` next to the module --",
+        "   pytest collects only files named `test_*.py` containing `test_*` functions --",
+        f"   and `generate_samples_{trial.trial_id}.py`, seeded with{_seed_phrase(task_meta)}",
+        "   so it is byte-reproducible.",
+        "3. Then run the self-check. It is the whole harness in one command, it takes",
+        "   about half a minute, and it is the only verification command you need:",
+        f"   `{_selfcheck_command(trial)}`",
+        "   It reports nine gates -- implementation, task_meta, smoke, samples, sections,",
+        "   reproducible, pytest, contract, gameability -- and PASS on all nine is exactly",
+        "   what the harness scores as a success, so fix whatever it names and run it",
+        "   again. Do not verify any other way: a hand-written python -c costs the same",
+        "   step and checks less. Run it early, while there is budget left to act on it;",
+        "   trials are being lost to gates their author never saw.",
+        f"4. Spend whatever steps remain widening the tests, re-running the self-check",
+        "   after each change. Leave the last word to a run with nine PASSes.",
         "",
         "Failure modes measured on one-shot attempts at this prompt, all caught by the",
-        "step-1 smoke test:",
+        "self-check:",
         "- `Task` has no `self.rng`; seed the `random` module instead.",
         "- metadata must be JSON-serializable: cast numpy scalars with `int`/`float`.",
         f"- third-party imports must already be installed; {_available_libs()} are.",
@@ -223,7 +203,7 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "  irreproducible; call the module-level `random` functions instead, and do not",
         "  seed inside the task -- only the sample script seeds. A helper you call from",
         "  the parent module may carry its own generator that `random.seed` never",
-        "  reaches, which is why step 5 checks the bytes rather than the source.",
+        "  reaches, which is why the self-check compares bytes, not source.",
         "- `gramforge.generate` calls `random.seed(seed)` on entry and its `seed`",
         "  defaults to `None`, so every call silently reseeds the global RNG from the",
         "  OS. If you build on a grammar, pass `seed=random.randrange(2**32)`: drawn",
@@ -244,19 +224,23 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
             "",
         ))
     sections.extend((
-        "Run the following validation commands before finishing:",
+        "Gates worth knowing before you write, because they are the ones trials lose on:",
         "",
-        "```text",
-        *trial.validation,
-        _prior_audit_command(trial),
-        "```",
+        "- `gameability` scores the single most frequent of 30 answers against all of",
+        "  them and fails the trial if that constant guess wins more than 0.4. Widen the",
+        "  answer distribution in the generator to pass it; never weaken score_answer.",
+        "- `reproducible` runs the sample generator in three fresh processes under two",
+        "  string-hash salts and compares the bytes. Python salts string hashing per",
+        "  process, so iterate `sorted(...)` over every set or dict whose order reaches",
+        "  the prompt or the answer, and keep no state between calls. Neither fault shows",
+        "  up when you run the generator twice in one process.",
+        f"- `sections` needs `samples_{trial.trial_id}.md` to carry two complete",
+        "  prompt/answer examples at each of levels 0, 2 and 5; the `Level 0` / `Level 2`",
+        "  / `Level 5` / `Answer` headings are checked literally.",
+        "- `contract` generates 64 examples and requires score_answer to return 1.0 on",
+        "  every gold answer and less than 1.0 on empty and junk strings.",
         "",
-        "That last one is the gameability gate: it scores the single most frequent of",
-        "30 answers against all of them and fails the trial if that constant guess wins",
-        "more than 0.4. Widen the answer distribution in the generator to pass it;",
-        "never weaken score_answer.",
-        "",
-        "Finish with a concise summary of changes and validation results.",
+        "Finish with a concise summary of changes and self-check results.",
         "",
     ))
     return "\n".join(sections)
@@ -332,6 +316,18 @@ def _sample_command(trial):
     return _sample_command_for(trial.owned_path, trial.trial_id)
 
 
+def _selfcheck_command_for(owned_path, trial_id):
+    # One call that runs every gate, including the three -- TASK_META, the contract
+    # audit, the sample headings -- that otherwise surface only in run.json, after the
+    # trial is already lost. Measured at 26 seconds for all nine.
+    return ("PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python -m"
+            f" reasoning_core.task_search.selfcheck {owned_path} {trial_id}")
+
+
+def _selfcheck_command(trial):
+    return _selfcheck_command_for(trial.owned_path, trial.trial_id)
+
+
 def _prior_audit_command(trial):
     # A task a single fixed answer wins is not measuring reasoning, however well
     # it validates; measured on the first six wave0 tasks, two of them lost.
@@ -357,6 +353,7 @@ def opencode_permissions(trial):
     }
     # Trailing "*" so added flags and pipes still match the allowed command.
     for command in (list(trial.validation) + [_sample_command(trial),
+                                              _selfcheck_command(trial),
                                               _prior_audit_command(trial)]):
         bash[command] = "allow"
         bash[command + "*"] = "allow"
@@ -768,6 +765,8 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
     for name, value in runtime_dirs.items():
         wrapped.extend(("--setenv", name, str(value)))
     wrapped.extend(("--setenv", "PYTHONDONTWRITEBYTECODE", "1"))
+    wrapped.extend(("--setenv", "TASK_SEARCH_SPEC",
+                    str(runtime_root / "trial_spec.json")))
     wrapped.extend(command)
     return wrapped
 
@@ -929,6 +928,11 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     prompt_path.write_text(prompt)
     runtime_root = trial_root / "runtime"
     runtime_root.mkdir()
+    # Out of the worktree: anything inside it would count as a changed path and the
+    # trial would lose on scope_violation.
+    _write_json(runtime_root / "trial_spec.json",
+                {"trial_id": trial.trial_id, "owned_path": trial.owned_path,
+                 "task_meta": task_meta})
     started = datetime.now(timezone.utc).isoformat()
     if harness == "opencode":
         config_path = trial_root / "opencode.json"

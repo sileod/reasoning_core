@@ -5,6 +5,11 @@ import tempfile
 import pytest
 
 from reasoning_core.task_search.runner import (
+    _sample_command_for,
+    opencode_permissions,
+    Trial,
+    SearchPlan,
+    _selfcheck_command_for,
     _adapter_command,
     _harness_version,
     _mini_command,
@@ -357,10 +362,9 @@ def test_sample_event_order_is_observational_not_a_hard_gate(tmp_path):
     (root / "generate_samples_N1.py").write_text("# generator\n")
     sample = root / "samples_N1.md"
     sample.write_text("# Level 0\nAnswer\n# Level 2\nAnswer\n# Level 5\nAnswer\n")
-    command = (
-        "PYTHONDONTWRITEBYTECODE=1 python "
-        f"{owned}/generate_samples_N1.py"
-    )
+    # Built, not spelled out: the recorded command has to match the one the harness
+    # runs, and it has gained a PYTHONPATH since this test was written.
+    command = _sample_command_for(owned, "N1")
     events = tmp_path / "events.jsonl"
     events.write_text("\n".join([
         json.dumps({
@@ -479,3 +483,30 @@ def test_plan_rejects_overlapping_owned_paths(tmp_path):
 
     with pytest.raises(ValueError, match="owned paths overlap"):
         load_plan(plan)
+
+
+def test_self_check_is_the_only_verification_command_the_prompt_asks_for(tmp_path):
+    """The prompt hands out one verification command and the sandbox allows exactly it.
+
+    Trials were spending half a 28-step budget on five separate verification commands,
+    and the gates that were not among them -- TASK_META, the contract audit -- only
+    surfaced in run.json once the trial was already lost.
+    """
+    trial = Trial(
+        trial_id="N1", instruction="Implement it.",
+        owned_path="reasoning_core/tasks/generated/wave/example",
+        validation=("PYTHONDONTWRITEBYTECODE=1 python -m pytest reasoning_core/tasks",),
+        hypothesis="N1")
+    command = _selfcheck_command_for(trial.owned_path, trial.trial_id)
+    assert command in opencode_permissions(trial)["bash"]
+    assert opencode_permissions(trial)["bash"][command] == "allow"
+
+    plan = SearchPlan(name="wave", base_ref="HEAD", context_files=(), trials=(trial,),
+                      queues={}, path=tmp_path / "plan.yaml")
+    plan.path.write_text("version: 1\n")
+    prompt = render_prompt(plan, trial, Path("."))
+    assert command in prompt
+    # The recipes it replaced are gone: no hand-rolled reproducibility check, no
+    # separately quoted prior_audit invocation.
+    assert "PYTHONHASHSEED" not in prompt
+    assert "prior_audit" not in prompt
