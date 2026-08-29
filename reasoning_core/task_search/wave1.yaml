@@ -49,7 +49,7 @@ queues:
     - S13
 
 defaults:
-  base_ref: c0e97d06290f4594b64012c2ad85ebd4eee49b27
+  base_ref: dab9b1ecb6965bc7d87beee02fab173428ed05ab
 
 context_files:
   - AGENTS.md
