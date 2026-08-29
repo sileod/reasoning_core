@@ -14,10 +14,13 @@ constraint_satisfaction
 controlled_code_execution
 coreference
 count_elements
+dag_arithmetics
 defeasible_conflict_depth
 defeasible_nli
 dynamic_programming
+elimination_depth_chain
 equation_system
+finite_automaton_execution
 fixpoint_iteration
 function_manipulation
 game_best_move
@@ -40,10 +43,12 @@ most_probable_outcome
 multistep_abduction
 multistep_evidence_retrieval
 multistep_nli
+near_tie_map
 parsing_derivation
 pattern_induction
 planar_geometry_relations
 planning
+process_state
 program_synthesis
 protected_span_transformation
 qualitative_causal_reasoning
@@ -64,6 +69,7 @@ syntax_error_detection
 table_equivalence
 table_qa
 table_statistics
+tree_reconstruction
 typed_relation_extraction
 unification_entailment
 variable_elimination
