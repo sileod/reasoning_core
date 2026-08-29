@@ -16,6 +16,7 @@ from reasoning_core.task_search.runner import (
     _sample_command_for,
     _step_usage,
     _sample_sanity,
+    _review_source,
     opencode_permissions,
     Trial,
     SearchPlan,
@@ -561,6 +562,30 @@ def test_live_trajectory_reads_budget_from_invocation_summary(tmp_path):
     assert row["budget"] == 28
 
 
+def test_trajectory_marks_a_truncated_selfcheck_incomplete(tmp_path):
+    trial = tmp_path / "run" / "S35"
+    trial.mkdir(parents=True)
+    event = {"type": "tool_use", "part": {"tool": "bash", "state": {
+        "status": "completed",
+        "input": {"command": "python -m reasoning_core.task_search.selfcheck owned S35"},
+        "output": "implementation PASS\nspeed PASS\n<shell_metadata>timed out</shell_metadata>",
+    }}}
+    (trial / "events.jsonl").write_text(json.dumps(event) + "\n")
+
+    row = trajectory.read(trial)
+
+    assert row["checks"][-1]["incomplete"] == "FAIL"
+
+
+def test_selfcheck_distinguishes_probe_crashes_from_slowness():
+    crashed = selfcheck.speed_failure(1, "Traceback\nAssertionError: broken")
+    timed_out = selfcheck.speed_failure(124, "killed")
+
+    assert "probe crashed" in crashed
+    assert "AssertionError: broken" in crashed
+    assert "did not finish" in timed_out
+
+
 def test_owned_digest_sees_a_file_rewritten_after_the_contract_audit(tmp_path):
     """The freeze gate: model-authored tests run with the owned directory writable."""
     owned = tmp_path / "reasoning_core" / "tasks" / "generated" / "n1"
@@ -831,7 +856,45 @@ def test_sample_sanity_reads_the_verdict_and_reason(tmp_path, monkeypatch):
     monkeypatch.setenv("TASK_SEARCH_FAKE_KEY", "x")
     reply = _json.dumps({"choices": [{"message": {"content":
         "VERDICT: INVALID\nWHY: expected time is negative."}}]})
+    requests = []
+    def urlopen(request, **kwargs):
+        requests.append(_json.loads(request.data))
+        return io.BytesIO(reply.encode())
+    monkeypatch.setattr("reasoning_core.task_search.runner.urllib.request.urlopen", urlopen)
+    assert _sample_sanity(samples, instruction="counts stay non-negative",
+                          source="answer = -44 / 5") == {
+        "verdict": "INVALID", "why": "expected time is negative."}
+    review_text = requests[0]["messages"][1]["content"]
+    assert "counts stay non-negative" in review_text
+    assert "answer = -44 / 5" in review_text
+
+
+def test_sample_sanity_fails_open_on_empty_model_content(tmp_path, monkeypatch):
+    import io
+    samples = tmp_path / "samples_S1.md"
+    samples.write_text("Answer: 1\n")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_KEY_ENV", "TASK_SEARCH_FAKE_KEY")
+    monkeypatch.setenv("TASK_SEARCH_FAKE_KEY", "x")
+    reply = json.dumps({"choices": [{"message": {"content": None}}]})
     monkeypatch.setattr("reasoning_core.task_search.runner.urllib.request.urlopen",
                         lambda *a, **k: io.BytesIO(reply.encode()))
+
     assert _sample_sanity(samples) == {
-        "verdict": "INVALID", "why": "expected time is negative."}
+        "verdict": None, "why": "reviewer returned no text"}
+
+
+def test_review_source_excludes_tests_and_sample_generators(tmp_path):
+    owned = "reasoning_core/tasks/generated/wave/example"
+    root = tmp_path / owned
+    root.mkdir(parents=True)
+    (root / "task.py").write_text("ANSWER = -1\n")
+    (root / "_draft.py").write_text("BROKEN = True\n")
+    (root / "test_task.py").write_text("assert True\n")
+    (root / "generate_samples_X.py").write_text("print('samples')\n")
+
+    source = _review_source(tmp_path, owned)
+
+    assert "ANSWER = -1" in source
+    assert "BROKEN = True" not in source
+    assert "assert True" not in source
+    assert "print('samples')" not in source

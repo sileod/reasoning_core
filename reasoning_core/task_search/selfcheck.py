@@ -102,6 +102,14 @@ def pytest_command(owned):
             "--import-mode=importlib " + owned)
 
 
+def speed_failure(code, output):
+    """Explain whether the probe timed out or crashed before it could time anything."""
+    if code == 124:
+        return ("eight examples did not finish in 90s, so the 64 the contract audit "
+                "generates have no chance of finishing in 300")
+    return "the timing probe crashed; fix this error before judging speed\n" + tail(output, 8)
+
+
 class Report:
     def __init__(self):
         self.failed, self.stop = 0, False
@@ -199,8 +207,7 @@ def main(argv=None):
         int(hashlib.sha256(trial.encode()).hexdigest()[:6], 16), _PROBE_N),
         limit=min(90, remaining()))
     if code != 0:
-        report.gate("speed", False, "eight examples did not finish in 90s, so the 64 the"
-                    " contract audit generates have no chance of finishing in 300")
+        report.gate("speed", False, speed_failure(code, out))
     else:
         mean, worst = (float(x) for x in out.split()[-2:])
         projected = mean * CONTRACT_EXAMPLES

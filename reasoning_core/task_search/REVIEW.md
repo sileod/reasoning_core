@@ -164,13 +164,21 @@ answer against the generator that produced it, so all any of them can see is
 self-consistency — which is cheap to satisfy while being impossible. S17 passed all
 eleven gates with the best profile in its wave (distinct 1.00, constant guess 0.03)
 and reported expected absorption times of `-44/5`: its transition rows summed above
-one and it never checked. `_sample_sanity` closes this with one reviewer call per
-trial over the samples file — could a correct solver produce this gold answer from
-this prompt? — filed as `answers_impossible`. On the 16 trials it was calibrated
-against it flagged S17 and cleared the other 15. It fails open on a missing key or
-an unreachable endpoint, so a reviewer outage cannot reject a good task; the cost is
-that a wave run without `ALBERT_API_KEY` in the coordinator's environment silently
-has no semantic gate at all.
+one and it never checked. `_sample_sanity` addresses this with one reviewer call per
+trial — could a correct solver produce this gold answer from this prompt? — filed as
+`answers_impossible`. Its first samples-only version cleared all six candidates in a
+wave3 replay, while manual review rejected five and found the sixth needed cleanup:
+missing multiset multiplicities, mismatched mixed-radix prose, negative population
+counts, shallow lookup disguised as conditional probability, and self-intersecting
+polygons. The same call now also receives the assignment and bounded candidate source.
+On exact replay it caught the missing multiplicities and omitted geometry mode, but
+still cleared the mismatched mixed-radix prose and negative population counts. Other
+available small reviewers either cleared everything or hallucinated contradictions in
+valid samples. This gate improves recall; it does not make automated success a quality
+verdict, and shallow-but-valid reasoning remains a human judgment. It fails open on a
+missing key, empty response or unreachable endpoint, so a reviewer outage cannot reject
+a good task; the cost is that a wave run without `ALBERT_API_KEY` in the coordinator's
+environment silently has no semantic gate at all.
 
 The step budget is the other half. The cheapest action available to a worker that
 already has code is `selfcheck → patch the failing gate → selfcheck`, so steps buy

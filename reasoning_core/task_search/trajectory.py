@@ -40,7 +40,14 @@ def read(trial_dir):
         if not ok and DENIED in str(state.get("error", "")):
             denied.append(command or event["part"]["tool"])
         if ok and "task_search.selfcheck" in command:
-            checks.append(dict(GATE.findall(str(state.get("output") or ""))))
+            output = str(state.get("output") or "")
+            gates = dict(GATE.findall(output))
+            # A harness timeout can leave a completed tool event containing only the
+            # early PASS lines. S35 looked all-green live even though its self-check
+            # had been killed before samples, pytest, contract and gameability ran.
+            if not re.search(r"^\d+ gate\(s\) failing\.\s*$", output, re.M):
+                gates["incomplete"] = "FAIL"
+            checks.append(gates)
     return {
         "id": trial_dir.name,
         "status": run.get("status", "no run.json"),
