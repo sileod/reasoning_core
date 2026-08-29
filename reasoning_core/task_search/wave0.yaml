@@ -110,8 +110,30 @@ queues:
     - M19
     - M20
 
+  # Every retry_b trial replayed against the self-check prompt: paired with retry_b
+  # on the same trials, so the difference between the two waves is the self-check.
+  retry_c:
+    - M1
+    - M10
+    - M11
+    - M12
+    - M13
+    - M14
+    - M18
+    - M19
+    - M20
+    - M4
+    - M7
+    - M9
+    - N1
+    - N12
+    - N3
+    - N5
+    - N6
+    - N9
+
 defaults:
-  base_ref: 274d119ce59d3f73ca80c0e224d11335d809f6e8
+  base_ref: c0e97d06290f4594b64012c2ad85ebd4eee49b27
 
 context_files:
   - AGENTS.md
