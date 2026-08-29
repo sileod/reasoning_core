@@ -196,15 +196,21 @@ def render_prompt(plan, trial, repo_root, task_meta=None):
         "   literally. Regenerate and re-read it after any later edit to the task.",
         "4. Spend whatever steps remain widening the tests you already have, inside the",
         "   owned path.",
-        f"5. Finish by running `{_sample_command(trial)}` one last time. The harness",
-        "   re-runs it and compares the file byte for byte, so a samples file written",
-        "   before your last edit fails the trial even when the task itself is perfect.",
-        "   This one call checks both staleness and hidden randomness at once:",
-        f"   `python -c \"import hashlib,runpy,pathlib;"
+        f"5. Finish by running `{_sample_command(trial)}` one last time. The harness runs",
+        "   it three more times and compares all three, so the generator must write the",
+        "   same bytes in every process. Keep no state between calls, and note that",
+        "   Python salts string hashing per process, so",
+        "   iterate `sorted(...)` over every set or dict whose order reaches the prompt or",
+        "   the answer -- unsorted set order is what most trials are currently losing on,",
+        "   and it does not show up when you run the generator twice in one process.",
+        "   Check it the way the harness does, in three subprocesses:",
+        f"   `python -c \"import hashlib,pathlib,subprocess,sys;"
         f" p=pathlib.Path('{trial.owned_path}/samples_{trial.trial_id}.md');"
-        f" h=[(runpy.run_path('{trial.owned_path}/generate_samples_{trial.trial_id}.py',"
-        " run_name='__main__'), hashlib.sha256(p.read_bytes()).hexdigest())[1]"
-        " for _ in range(2)]; print('REPRODUCIBLE' if h[0]==h[1] else 'DIFFERS', h)\"`.",
+        f" h=[(subprocess.run([sys.executable,"
+        f" '{trial.owned_path}/generate_samples_{trial.trial_id}.py'],"
+        " env={'PYTHONHASHSEED':str(s),'PYTHONPATH':'.'}),"
+        " hashlib.sha256(p.read_bytes()).hexdigest())[1] for s in (0,0,1)];"
+        " print('REPRODUCIBLE' if len(set(h))==1 else 'DIFFERS', h)\"`.",
         "",
         "Failure modes measured on one-shot attempts at this prompt, all caught by the",
         "step-1 smoke test:",
@@ -1043,14 +1049,41 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         hashlib.sha256(sample_path.read_bytes()).hexdigest()
         if sample_path.is_file() else None
     )
+    # Run the generator three times: twice under one string-hash salt, once under
+    # another. Two runs at the same salt disagreeing means the generator is stateful;
+    # only the third disagreeing means the prompt renders an unsorted set, which Python
+    # orders differently in every process. A samples file that was merely stale is
+    # recorded, not gated -- the run above has already refreshed it.
+    recheck, recheck_digests = [], []
+    for salt in ("0", "0", "1"):
+        if not gates_open:
+            break
+        recheck += _run_validation(
+            worktree, (f"PYTHONHASHSEED={salt} {_sample_command(trial)}",),
+            trial_root / f"sample_recheck_{len(recheck_digests)}.log",
+            owned_path=trial.owned_path,
+            runtime_root=validation_runtime,
+            bwrap_bin=bwrap_bin,
+            resource_limits=resource_limits,
+            timeout_seconds=validation_timeout_seconds,
+            credential_env_names=credential_env_names)
+        recheck_digests.append(
+            hashlib.sha256(sample_path.read_bytes()).hexdigest()
+            if sample_path.is_file() else None)
     sample_validation = {
         "sha256_before": sample_sha256_before,
         "sha256_after": sample_sha256_after,
-        "reproducible": (
-            sample_sha256_before is not None
-            and sample_sha256_before == sample_sha256_after
-        ),
-        "checked": bool(validation) and validation[0]["exit_code"] == 0,
+        "sha256_recheck": recheck_digests,
+        "stale": (sample_sha256_before is not None
+                  and sample_sha256_before != sample_sha256_after),
+        "reproducible": (len(recheck_digests) == 3
+                         and recheck_digests[0] is not None
+                         and len(set(recheck_digests)) == 1),
+        "irreproducible_as": (
+            None if len(recheck_digests) < 3 or len(set(recheck_digests)) == 1
+            else "stateful" if recheck_digests[0] != recheck_digests[1]
+            else "hash_order"),
+        "checked": bool(recheck) and all(r["exit_code"] == 0 for r in recheck),
     }
     validation_ok = (
         bool(validation)
