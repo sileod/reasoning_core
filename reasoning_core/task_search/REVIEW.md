@@ -36,25 +36,37 @@ no shared state beyond a trial record.
 **1. The gates are duplicated on purpose.** `runner.py` owns the authoritative
 gates and `selfcheck.py` re-implements them for the agent to run on itself. The
 agent otherwise cannot see why it failed — it exits, and only then does the
-coordinator judge it. Every gate the coordinator applies now has a self-check
-counterpart, and the prompt tells the agent not to end its turn until all
-eleven print PASS. **This duplication can drift**, and that is the first thing
-worth criticising: `_CONTRACT_AUDIT` (a raw-string constant in `runner.py`) and
-selfcheck's `contract` gate must stay in agreement, and nothing enforces it.
+coordinator judge it. The contract audit itself cannot drift: `selfcheck`
+`ast`-extracts `_CONTRACT_AUDIT` out of `runner.py` and runs that exact string.
+The *pipelines* around it still differ, and that is a defect rather than a
+design decision — `selfcheck` has discovery and 0/2/5 smoke gates the
+coordinator did not have, so the prompt's claim that eleven PASSes are what the
+harness scores was an overclaim. The coordinator now has a `discoverable` gate
+too; the smoke gate is still selfcheck-only. The right end state is one
+`gates.py` returning structured results that both callers use.
 
-**2. The gate order is a precedence chain, not a set.** `runner.py:1121`
-assigns the first failing status:
-`timed_out → harness_failed → scope_violation → no_implementation →
-metadata_mismatch → sample_review_failed → contract_failed →
-sample_not_reproducible → validation_failed → success`. A later status implies
-every earlier gate passed, which is what makes the statuses comparable across
-waves. It also means a status names the *first* thing wrong, never the cause —
-several waves were misread because of this.
+**2. The gate order is a precedence chain, not a set.** `runner.py` assigns the
+first failing status: `timed_out → harness_failed → scope_violation →
+no_implementation → metadata_mismatch → sample_review_failed → contract_failed →
+undiscoverable → candidate_mutated → sample_not_reproducible → validation_failed
+→ success`. A later status implies every earlier gate passed, which is what
+makes the statuses comparable across waves. It also means a status names the
+*first* thing wrong, never the cause — several waves were misread because of
+this.
 
-**3. The prompt is rendered per trial, inside `_run_trial`.** Editing the
-prompt while a wave is running gives different trials different prompts and
-destroys the comparison. Prompt changes are held until a wave closes. If you
-see a `PARKED` note or an unusually stale-looking prompt string, that is why.
+**3. The prompt is rendered per trial, inside `_run_trial`.** Editing the prompt
+while a wave is running gives different trials different prompts and destroys
+the comparison. The template lives in `runner.py`, which a running coordinator
+has already imported, so editing that is safe mid-wave; the `context_files`
+named in the plan are not, because `render_prompt` reads them from the live
+checkout at `repo_root / relative` rather than from `base_commit`. Editing a
+guide during a wave changes later workers. Resolving every prompt once before
+the executor starts would fix this properly.
+
+The `render` subcommand does **not** print the prompt a worker receives: it
+calls `render_prompt(..., task_meta=None)`, while execution builds a model-,
+seed- and budget-dependent `TASK_META` and passes it in. It is a template
+preview; the prompt a worker actually got is `prompt.md` in its trial directory.
 
 ## What has actually been measured
 
@@ -90,21 +102,70 @@ see a `PARKED` note or an unusually stale-looking prompt string, that is why.
 ## Weak points I already know about
 
 - `runner.py` is a single 1400-line module (above).
-- The gate duplication has no consistency test (above).
+- The two gate pipelines still differ around the smoke gate (above).
+- `_sample_review` checks only that the four substrings `level 0`, `level 2`,
+  `level 5` and `answer` appear *somewhere* in the samples file, while the prompt
+  asks for two complete prompt/answer pairs at each level. The markers are now
+  re-checked after the deterministic replay — previously they were read off
+  whatever the worker left behind, so a stale file with the right markers passed
+  and the replay could then overwrite it with anything — but nothing counts
+  examples or checks they are non-empty.
+- The gameability gate structurally excludes balanced binary tasks, and that is
+  deliberate: `prior_audit` scores the most common answer against every sample,
+  so a two-label task necessarily lands at or above 0.5 against a 0.4 threshold.
+  A task whose reward is half free is not measuring reasoning. The real defect is
+  that `wave0.yaml` contains trials specifying boolean answers while the global
+  prompt tells workers to convert yes/no into witnesses — the plan contradicts
+  the gate. Fix the plan, not the threshold.
+- `report.py` is legacy: its default glob is `runs/ts_*/WAVE0/...` while runs now
+  default to a sibling `.reasoning_core-task-search/...`, and it parses OpenCode
+  events only, not Mini trajectories.
+- `check` validates the plan syntactically — relative paths, overlap, IDs,
+  queues — but does not resolve the base commit, verify context files exist at
+  it, or confirm `owned_path` is under `reasoning_core/tasks`, which
+  `_task_classes` later assumes. A plan can pass `check` and fail at launch.
 - **The sandbox is write-confinement, not confidentiality.** Bubblewrap makes
   everything read-only except the trial's own directory, and the coordinator
   independently rejects changes outside it. But the agent can *read* ordinary
-  host paths, and the shell allowlist is the only thing keeping it away from
-  them. That allowlist is matched on the **whole command string**, so it is
-  brittle in a way agents trip over — appending `| tail -20` or `2>&1` to an
-  allowed command makes it denied — and it must never grow a general
-  content-reading command. Widening it to fix agent friction would be the wrong
-  fix. A real confidentiality boundary would be a container or VM.
+  host paths, and the shell allowlist is all that keeps it away from them — and
+  that allowlist is not tight: every entry carries a trailing `*` (added in
+  fb0357a, because exact-string matching was eating ~30% of the step budget) and
+  `python -c *` is allowed outright, which is general-purpose. The `read` deny on
+  `*.env` is a tool-level rule, not a filesystem one. That is consistent with the
+  stated threat model — the model is not adversarial and Bubblewrap is the write
+  boundary — but it means the shell policy protects nothing on its own. A real
+  confidentiality boundary would be a container or VM.
 - Worktrees are never pruned, on purpose, so an unattended wave grows the runs
   root steadily. Someone has to clean up.
 - The plan is YAML with no schema; `check` validates it, but by hand.
 - `sample_not_reproducible` is a good gate that reports badly: every validation
   command still exits 0 when it fires, so the log looks clean.
+
+## The largest gap: nothing here checks whether the task is any good
+
+Every gate is mechanical. Discovery, metadata, runtime, determinism, pytest, the
+scoring contract, the constant-answer prior — a task can pass all of them and
+still be a bad task. Nothing asks whether the difficulty axis is meaningful,
+whether level 5 requires deeper reasoning than level 0, whether the task
+duplicates one that already exists, or whether a mutation changed only the
+variable its hypothesis names. `prior_audit` is the single semantic gate and it
+tests exactly one failure mode.
+
+This interacts badly with the step budget. The cheapest action available to a
+worker that already has code is `selfcheck → patch the failing gate → selfcheck`,
+so more steps buy convergence on the verifier rather than a better task, which is
+consistent with the measurement above: cutting the budget from 56 steps to 28
+raised the success rate. The plan compounds it — each trial arrives with `idea`,
+`changes` and an `instruction` already fixed, so the worker is implementing an
+assignment, not searching over formulations, and the prompt tells it to start
+writing immediately and not explore.
+
+Read the success rates accordingly. They measure *"implements a specified task
+without tripping a mechanical gate"*, which is what the machinery is actually
+built for, and not *"finds a good task"*. Separating ideation from
+implementation — several short independent proposal workers with no write access,
+a critic that ranks them, and only the winner entering this pipeline — is the
+change most likely to matter, and it is not built.
 
 ## Running it without a model
 
@@ -113,8 +174,8 @@ python -m reasoning_core.task_search check  reasoning_core/task_search/wave0.yam
 python -m reasoning_core.task_search render reasoning_core/task_search/wave0.yaml N1
 ```
 
-`render` prints the exact prompt a trial receives, which is the most useful
-single artifact for reviewing the prompt-side decisions.
+`render` prints the prompt *template* — see the note above. The exact prompt a
+worker received is `prompt.md` in its trial directory.
 
 ## What rode along with this branch
 

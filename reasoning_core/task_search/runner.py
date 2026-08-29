@@ -40,6 +40,9 @@ class SearchPlan:
     trials: tuple
     queues: dict
     path: Path
+    # Hashed at load, not at record time: editing the plan mid-wave would otherwise
+    # stamp later trials with a hash of a file that is not the one they ran under.
+    sha256: str = ""
 
 
 def _relative_path(value, field):
@@ -52,7 +55,8 @@ def _relative_path(value, field):
 def load_plan(path):
     """Load and validate a task-search YAML plan."""
     path = Path(path).resolve()
-    data = yaml.safe_load(path.read_text())
+    plan_bytes = path.read_bytes()
+    data = yaml.safe_load(plan_bytes.decode("utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
         raise ValueError("task-search plans require version: 1")
     name = str(data.get("name", "")).strip()
@@ -117,7 +121,8 @@ def load_plan(path):
             raise ValueError(
                 f"{queue}: unknown trial IDs: {', '.join(sorted(unknown))}")
         queues[str(queue)] = tuple(members)
-    return SearchPlan(name, base_ref, contexts, tuple(trials), queues, path)
+    return SearchPlan(name, base_ref, contexts, tuple(trials), queues, path,
+                      hashlib.sha256(plan_bytes).hexdigest())
 
 
 def _repo_root(start):
@@ -621,6 +626,43 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
     return result
 
 
+def _owned_digest(worktree, owned_path, exclude=()):
+    """sha256 per file under the owned path, plus one hash over the lot.
+
+    The gates that certify a candidate -- TASK_META and the contract audit -- run
+    before the model-authored sample generator and pytest suite, and those run with
+    the owned directory writable, because the generator has to write into it. Without
+    a freeze check a test that rewrote task.py after the audit passed would still be
+    accepted, and the run record would carry no hash of what was accepted.
+    """
+    root = Path(worktree) / owned_path
+    files = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or "__pycache__" in path.parts:
+            continue
+        relative = path.relative_to(root).as_posix()
+        if relative not in exclude:
+            files[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {"files": files, "tree_sha256": hashlib.sha256(
+        json.dumps(files, sort_keys=True).encode()).hexdigest()}
+
+
+def _undiscoverable(classes):
+    """Modules the contract audit imports happily that reasoning_core would never list.
+
+    _discover_tasks skips a file whose name starts with "_", anything under a dotted or
+    underscored directory, and anything under "deprecated". _task_classes below does
+    not, so without this a task can pass every gate and still never reach DATASETS.
+    """
+    hidden = []
+    for module, _ in classes:
+        parts = module.split(".")[2:]
+        if (parts[-1].startswith("_") or "deprecated" in parts
+                or any(part.startswith("_") for part in parts[:-1])):
+            hidden.append(module)
+    return sorted(set(hidden))
+
+
 def _task_classes(worktree, owned_path):
     """Return import paths for direct Task subclasses in the owned path."""
     worktree = Path(worktree)
@@ -861,7 +903,12 @@ print(f"CONTRACT_AUDIT_OK {len(classes)} task class(es)")
 def _run_contract_audit(worktree, owned_path, seed, log_path, *, runtime_root,
                         bwrap_bin, resource_limits, timeout_seconds,
                         credential_env_names=()):
-    classes = _task_classes(worktree, owned_path)
+    try:
+        classes = _task_classes(worktree, owned_path)
+    except (SyntaxError, ValueError) as error:
+        # Candidate code that does not parse is a bad candidate, not a runner bug.
+        log_path.write_text(f"{type(error).__name__}: {error}\n")
+        return {"classes": [], "exit_code": 2, "parse_error": str(error)}
     if not classes:
         return {"classes": [], "exit_code": 2}
     environment = _sanitized_environment(credential_env_names)
@@ -1035,7 +1082,14 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
             harness_exit_code = 124
     initial_changed_paths = _changed_paths(worktree)
     initial_outside = _outside_owned(initial_changed_paths, trial.owned_path)
-    discovered_meta = _task_metadata(worktree, trial.owned_path) if not initial_outside else []
+    metadata_error = None
+    try:
+        discovered_meta = _task_metadata(worktree, trial.owned_path) if not initial_outside else []
+    except (SyntaxError, ValueError) as error:
+        # A syntax error or a non-literal TASK_META = dict(...) used to escape all the
+        # way to run_plan and be recorded as orchestration_error with no run.json at
+        # all, which reads as a runner bug rather than as the candidate failure it is.
+        discovered_meta, metadata_error = [], f"{type(error).__name__}: {error}"
     metadata_ok = len(discovered_meta) == 1 and discovered_meta[0][1] == task_meta
     sample_review = _sample_review(
         worktree, trial.owned_path, trial.trial_id, events_path)
@@ -1051,6 +1105,11 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
                           timeout_seconds=validation_timeout_seconds,
                           credential_env_names=credential_env_names))
     contract_ok = contract_audit["exit_code"] == 0
+    hidden_modules = _undiscoverable(contract_audit["classes"])
+    sample_name = f"samples_{trial.trial_id}.md"
+    # Everything the contract audit just certified, hashed. The sample generator is
+    # allowed to rewrite its own output and nothing else.
+    frozen = _owned_digest(worktree, trial.owned_path, exclude=(sample_name,))
     sample_path = worktree / trial.owned_path / f"samples_{trial.trial_id}.md"
     sample_sha256_before = (
         hashlib.sha256(sample_path.read_bytes()).hexdigest()
@@ -1095,6 +1154,20 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         recheck_digests.append(
             hashlib.sha256(sample_path.read_bytes()).hexdigest()
             if sample_path.is_file() else None)
+    after_validation = _owned_digest(worktree, trial.owned_path, exclude=(sample_name,))
+    mutated_paths = sorted(
+        set(frozen["files"]) ^ set(after_validation["files"])
+        | {name for name, digest in frozen["files"].items()
+           if after_validation["files"].get(name, digest) != digest})
+    # The section markers are re-read here, not where _sample_review looked: that check
+    # ran on whatever file the worker left behind, and the deterministic replay above
+    # has since overwritten it. A stale file with the right markers used to pass.
+    replayed_sections = False
+    if sample_path.is_file():
+        replayed = sample_path.read_text().lower()
+        replayed_sections = all(marker in replayed for marker in
+                                ("level 0", "level 2", "level 5", "answer"))
+    sample_review["required_sections_after_replay"] = replayed_sections
     sample_validation = {
         "sha256_before": sample_sha256_before,
         "sha256_after": sample_sha256_after,
@@ -1115,7 +1188,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         bool(validation)
         and all(item["exit_code"] == 0 for item in validation)
         and sample_validation["reproducible"]
+        and replayed_sections
     )
+    candidate_frozen = not mutated_paths
     changed_paths = _changed_paths(worktree)
     outside = _outside_owned(changed_paths, trial.owned_path)
     if timed_out:
@@ -1133,6 +1208,10 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         status = "sample_review_failed"
     elif not contract_ok:
         status = "contract_failed"
+    elif hidden_modules:
+        status = "undiscoverable"
+    elif gates_open and not candidate_frozen:
+        status = "candidate_mutated"
     elif (sample_validation["checked"]
           and not sample_validation["reproducible"]):
         status = "sample_not_reproducible"
@@ -1146,7 +1225,7 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "trial_id": trial.trial_id,
         "hypothesis": trial.hypothesis,
         "base_commit": base_commit,
-        "plan_sha256": hashlib.sha256(plan.path.read_bytes()).hexdigest(),
+        "plan_sha256": plan.sha256,
         "prompt_sha256": _sha256(prompt),
         "generation": generation,
         "parent_source_id": parent_source_id,
@@ -1163,6 +1242,14 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "outside_owned_path": outside,
         "task_metadata": discovered_meta,
         "task_metadata_matches": metadata_ok,
+        "task_metadata_error": metadata_error,
+        # The accepted candidate, hashed, so the result has a referent that outlives
+        # the mutable worktree.
+        "candidate": {"tree_sha256": after_validation["tree_sha256"],
+                      "files": after_validation["files"],
+                      "frozen": candidate_frozen,
+                      "mutated_paths": mutated_paths,
+                      "undiscoverable_modules": hidden_modules},
         "sample_review": sample_review,
         "sample_validation": sample_validation,
         "contract_audit": contract_audit,

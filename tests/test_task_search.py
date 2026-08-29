@@ -26,6 +26,9 @@ from reasoning_core.task_search.runner import (
     _sanitized_environment,
     _select_trials,
     _task_classes,
+    _task_metadata,
+    _owned_digest,
+    _undiscoverable,
     generation_metadata,
     load_plan,
     opencode_config,
@@ -510,3 +513,49 @@ def test_self_check_is_the_only_verification_command_the_prompt_asks_for(tmp_pat
     # separately quoted prior_audit invocation.
     assert "PYTHONHASHSEED" not in prompt
     assert "prior_audit" not in prompt
+
+
+def test_owned_digest_sees_a_file_rewritten_after_the_contract_audit(tmp_path):
+    """The freeze gate: model-authored tests run with the owned directory writable."""
+    owned = tmp_path / "reasoning_core" / "tasks" / "generated" / "n1"
+    owned.mkdir(parents=True)
+    (owned / "task.py").write_text("GOLD = 1\n")
+    (owned / "samples_N1.md").write_text("level 0\n")
+    relative = "reasoning_core/tasks/generated/n1"
+    frozen = _owned_digest(tmp_path, relative, exclude=("samples_N1.md",))
+
+    # The generator rewriting its own output is allowed and must not trip the gate.
+    (owned / "samples_N1.md").write_text("level 0 level 2 level 5 answer\n")
+    assert _owned_digest(tmp_path, relative, exclude=("samples_N1.md",)) == frozen
+
+    (owned / "task.py").write_text("GOLD = 2\n")
+    after = _owned_digest(tmp_path, relative, exclude=("samples_N1.md",))
+    assert after["files"]["task.py"] != frozen["files"]["task.py"]
+    assert after["tree_sha256"] != frozen["tree_sha256"]
+
+
+def test_undiscoverable_flags_what_the_audit_imports_but_discovery_skips():
+    hidden = _undiscoverable([
+        ("reasoning_core.tasks.generated.wave0.n04_x.task", "T"),
+        ("reasoning_core.tasks.generated.wave0._hidden.task", "T"),
+        ("reasoning_core.tasks.generated.wave0.n04_x._task", "T"),
+        ("reasoning_core.tasks.deprecated.old.task", "T"),
+    ])
+    assert hidden == [
+        "reasoning_core.tasks.deprecated.old.task",
+        "reasoning_core.tasks.generated.wave0._hidden.task",
+        "reasoning_core.tasks.generated.wave0.n04_x._task",
+    ]
+
+
+@pytest.mark.parametrize("source, error", [
+    ("TASK_META = {\n", SyntaxError),
+    ("TASK_META = dict(idea='x')\n", ValueError),
+])
+def test_unparseable_candidate_metadata_raises_something_catchable(tmp_path, source, error):
+    """It used to reach run_plan and be recorded as orchestration_error, a runner bug."""
+    owned = tmp_path / "reasoning_core" / "tasks" / "generated" / "n1"
+    owned.mkdir(parents=True)
+    (owned / "task.py").write_text(source)
+    with pytest.raises(error):
+        _task_metadata(tmp_path, "reasoning_core/tasks/generated/n1")

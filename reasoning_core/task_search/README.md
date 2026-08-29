@@ -148,6 +148,16 @@ failures or blank/whitespace/gibberish answers that incorrectly score as fully
 correct. This contract audit and the trial-authored pytest suite both run inside
 the same write sandbox as the worker.
 
+Because that sandbox is writable — the sample generator has to write into it —
+the coordinator hashes every file under the owned path once the contract audit
+has certified it, and re-hashes after the model-authored generator, pytest suite
+and prior audit have run. A candidate whose own validation code rewrote it is
+rejected as `candidate_mutated`, and the accepted tree hash and per-file hashes
+are recorded in `run.json` under `candidate`, so a result keeps a referent after
+its worktree is removed. `undiscoverable` rejects a task the audit can import but
+`reasoning_core._discover_tasks` would skip: a leading underscore on the module,
+or any underscored parent directory.
+
 Each worker must create `generate_samples_<trial-id>.py`, run it, and then read
 the resulting `samples_<trial-id>.md`. The file
 contains at least two actual prompt/answer pairs at levels 0, 2, and 5. The
@@ -210,7 +220,8 @@ Each trial directory holds `prompt.md`, a harness config and log,
 `validation.log`, `contract_audit.log`, `run.json`, and `worktree/`. Statuses are
 assigned by first failing gate, in this order: `timed_out`, `harness_failed`,
 `scope_violation`, `no_implementation`, `metadata_mismatch`, `sample_review_failed`,
-`contract_failed`, `sample_not_reproducible`, `validation_failed`, `success`.
+`contract_failed`, `undiscoverable`, `candidate_mutated`,
+`sample_not_reproducible`, `validation_failed`, `success`.
 A later status therefore implies every earlier gate passed. A trial that raised
 inside the coordinator itself is recorded as `orchestration_error` in
 `summary.json` only, with
