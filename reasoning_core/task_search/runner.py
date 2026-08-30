@@ -1858,6 +1858,12 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             archived = trial_root.with_name(
                 f"{trial_root.name}.attempt{len(history)}-{reason}")
             trial_root.rename(archived)
+            # The detached worktree moved with its trial directory. Repair Git's
+            # administrative pointer before recreating the canonical trial path;
+            # otherwise `git worktree add` reports a missing-but-registered path.
+            subprocess.run(
+                ["git", "worktree", "repair", str(archived / "worktree")],
+                cwd=arguments[2], check=True, stdout=subprocess.DEVNULL)
             if not is_signal and retry_backoff_seconds:
                 delay = min(60, retry_backoff_seconds * (2 ** (provider_retries - 1)))
                 time.sleep(delay)
