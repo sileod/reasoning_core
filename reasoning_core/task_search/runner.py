@@ -834,6 +834,31 @@ def _sample_review(worktree, owned_path, trial_id, events_path):
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if event.get("event") == "step_update":
+            update = event.get("step_update", {})
+            if update.get("step_type") != "tool" or update.get("state") != "DONE":
+                continue
+            info = update.get("tool_info", {})
+            arguments = info.get("parameters", {})
+            tool = update.get("tool_name")
+            command = arguments.get("CommandLine", "")
+            command_matches = any(
+                segment.strip().startswith(expected_command)
+                for segment in command.split("&&")
+            )
+            if tool == "run_command" and command_matches:
+                result["command_succeeded"] = True
+                last_write = index
+            file_path = str(arguments.get("TargetFile") or
+                            arguments.get("AbsolutePath") or "")
+            if not file_path.endswith(target):
+                continue
+            if tool in {"write_to_file", "replace_file_content",
+                        "multi_replace_file_content"}:
+                last_write = index
+            elif tool == "view_file":
+                last_read = index
+            continue
         if event.get("type") != "tool_use":
             continue
         part = event.get("part", {})

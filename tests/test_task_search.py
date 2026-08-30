@@ -463,6 +463,35 @@ def test_sample_event_order_is_observational_not_a_hard_gate(tmp_path):
     assert review["ok"] is True
 
 
+def test_sample_review_observes_agy_tools(tmp_path):
+    owned = "reasoning_core/tasks/generated/wave/example"
+    root = tmp_path / owned
+    root.mkdir(parents=True)
+    (root / "generate_samples_N1.py").write_text("# generator\n")
+    sample = root / "samples_N1.md"
+    sample.write_text(
+        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
+        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
+        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
+    )
+    events = tmp_path / "events.jsonl"
+    events.write_text("\n".join([
+        json.dumps({"event": "step_update", "step_update": {
+            "step_type": "tool", "state": "DONE", "tool_name": "run_command",
+            "tool_info": {"parameters": {
+                "CommandLine": _sample_command_for(owned, "N1")}}}}),
+        json.dumps({"event": "step_update", "step_update": {
+            "step_type": "tool", "state": "DONE", "tool_name": "view_file",
+            "tool_info": {"parameters": {"AbsolutePath": str(sample)}}}}),
+    ]))
+
+    review = _sample_review(tmp_path, owned, "N1", events)
+
+    assert review["command_succeeded"] is True
+    assert review["read_after_last_edit"] is True
+    assert review["ok"] is True
+
+
 def test_independent_validation_times_out(tmp_path):
     with tempfile.TemporaryDirectory(prefix=".task-search-test-", dir=ROOT) as root:
         root = Path(root)

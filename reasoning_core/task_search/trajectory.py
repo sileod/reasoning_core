@@ -49,7 +49,8 @@ def read(trial_dir):
                 calls.append((update.get("tool_name", "tool"), ok, command,
                               len(output)))
                 if (not ok and re.search(
-                        r"permission|denied|not allowed", output, re.I)):
+                        r"permission denied|soft-denied|not allowed|requires approval",
+                        output, re.I)):
                     denied.append(command or update.get("tool_name", "tool"))
                 if ok and "task_search.selfcheck" in command:
                     gates = dict(GATE.findall(output))
