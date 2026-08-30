@@ -161,6 +161,14 @@ rather than bit-for-bit deterministic.
 Workers are bounded to 56 agent steps and 30 minutes by default; both limits are
 recorded and configurable with `--max-steps` and `--timeout-seconds`.
 
+Explicitly retryable provider failures (for example an OpenCode API event with
+HTTP 429 and `isRetryable: true`) are retried twice by default with 30- then
+60-second backoff. Each failed attempt is retained beside the final trial as
+`<trial>.attemptN-<reason>`, and `retry_history` records why it was repeated.
+Signals still receive one immediate infrastructure retry. Gate failures and
+slow trials that made progress are never retried automatically. Configure this
+with `--transient-retries` and `--retry-backoff-seconds`.
+
 `--pace` sets how hard the worker is told to hurry, independently of that budget:
 `hurry` (the default) tells it not to explore and to start writing immediately,
 `steady` allows a few orientation calls, and `deliberate` asks it to propose two

@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 
 import yaml
@@ -1680,6 +1681,37 @@ def _select_trials(plan, trial_ids=(), queue_names=()):
     return [trial for trial in plan.trials if trial.trial_id in selected_ids]
 
 
+_TRANSIENT_HTTP_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
+
+
+def _retryable_harness_failure(result):
+    """Return a stable retry reason for infrastructure failures, never gate failures."""
+    if result.get("status") != "harness_failed":
+        return None
+    exit_code = result.get("harness_exit_code") or 0
+    if exit_code < 0:
+        return f"signal_{-exit_code}"
+    log_path = result.get("harness_log")
+    if not log_path:
+        return None
+    try:
+        lines = Path(log_path).read_text().splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") != "error":
+            continue
+        data = event.get("error", {}).get("data", {})
+        status = data.get("statusCode")
+        if data.get("isRetryable") is True or status in _TRANSIENT_HTTP_STATUS:
+            return f"provider_{status or 'transient'}"
+    return None
+
+
 def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worker",
              variant=None, seed=0, forward_seed=True, temperature=None, top_p=None,
              harness="opencode", opencode_bin="opencode", mini_bin="mini",
@@ -1690,10 +1722,13 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
              resource_limit_mode="auto", systemd_run_bin="systemd-run",
              memory_max="8G", tasks_max=512, cpu_quota="400%",
              validation_timeout_seconds=300, credential_env_names=(),
-             pace=DEFAULT_PACE):
+             pace=DEFAULT_PACE, transient_retries=2,
+             retry_backoff_seconds=30):
     """Run selected trials concurrently in isolated Git worktrees."""
     if pace not in PACE:
         raise ValueError(f"unknown pace: {pace!r}; choose from {', '.join(sorted(PACE))}")
+    if transient_retries < 0 or retry_backoff_seconds < 0:
+        raise ValueError("retry count and backoff must be non-negative")
     plan = load_plan(plan_path)
     repo_root = Path(repo_root).resolve() if repo_root else _repo_root(plan.path.parent)
     selected = _select_trials(plan, trial_ids, queue_names)
@@ -1787,6 +1822,8 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             "timeout_seconds": timeout_seconds,
             "validation_timeout_seconds": validation_timeout_seconds,
             "pace": pace,
+            "transient_retries": transient_retries,
+            "retry_backoff_seconds": retry_backoff_seconds,
             "sandbox": {"name": "bubblewrap", "version": sandbox_version},
             "resource_limits": _public_resource_limits(resource_limits),
             "scrubbed_credential_env_names": sorted(credential_env_names),
@@ -1794,23 +1831,36 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         })
 
     def run_trial_retrying(*arguments):
-        """Run one trial, rerunning it once if the harness itself was killed.
-
-        A negative exit code is a signal, not a verdict: the worker never reached the
-        self-check, so filing it as a failed trial measures the infrastructure instead
-        of the model. It is rare -- 2 of the first 164 trials -- and a rerun is far
-        cheaper than a lost idea. The killed attempt is kept beside the rerun as
-        `<trial_id>.killed` so its trajectory stays readable.
-        """
-        result = _run_trial(*arguments)
-        if (result.get("status") != "harness_failed"
-                or (result.get("harness_exit_code") or 0) >= 0):
-            return result
-        trial_root = arguments[3] / arguments[1].trial_id
-        trial_root.rename(trial_root.with_name(trial_root.name + ".killed"))
-        retried = _run_trial(*arguments)
-        retried["retried_after_signal"] = result.get("harness_exit_code")
-        return retried
+        """Retry only explicit provider transients and killed harness processes."""
+        history = []
+        provider_retries = signal_retries = 0
+        while True:
+            result = _run_trial(*arguments)
+            reason = _retryable_harness_failure(result)
+            is_signal = bool(reason and reason.startswith("signal_"))
+            retry = (reason is not None and
+                     ((is_signal and signal_retries < 1) or
+                      (not is_signal and provider_retries < transient_retries)))
+            if not retry:
+                if history:
+                    result["retry_history"] = history
+                return result
+            if is_signal:
+                signal_retries += 1
+            else:
+                provider_retries += 1
+            history.append({
+                "reason": reason,
+                "status": result.get("status"),
+                "harness_exit_code": result.get("harness_exit_code"),
+            })
+            trial_root = arguments[3] / arguments[1].trial_id
+            archived = trial_root.with_name(
+                f"{trial_root.name}.attempt{len(history)}-{reason}")
+            trial_root.rename(archived)
+            if not is_signal and retry_backoff_seconds:
+                delay = min(60, retry_backoff_seconds * (2 ** (provider_retries - 1)))
+                time.sleep(delay)
 
     write_summary()
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
@@ -1884,6 +1934,8 @@ def _parser():
     run.add_argument("--pace", choices=sorted(PACE), default=DEFAULT_PACE,
                      help="how hard the worker is told to hurry; recorded in generation metadata so waves stay comparable")
     run.add_argument("--timeout-seconds", type=int, default=1800)
+    run.add_argument("--transient-retries", type=int, default=2)
+    run.add_argument("--retry-backoff-seconds", type=int, default=30)
     run.add_argument("--validation-timeout-seconds", type=int, default=300)
     run.add_argument("--opencode-bin", default="opencode")
     run.add_argument("--mini-bin", default="mini")
@@ -1942,6 +1994,8 @@ def main(argv=None):
             top_p=args.top_p,
             max_steps=args.max_steps,
             timeout_seconds=args.timeout_seconds,
+            transient_retries=args.transient_retries,
+            retry_backoff_seconds=args.retry_backoff_seconds,
             harness=args.harness,
             opencode_bin=args.opencode_bin,
             mini_bin=args.mini_bin,

@@ -29,6 +29,7 @@ from reasoning_core.task_search.runner import (
     _outside_owned,
     _opencode_command,
     _resource_command,
+    _retryable_harness_failure,
     _resolve_harness_executable,
     _resolve_opencode_executable,
     _run_validation,
@@ -335,6 +336,27 @@ def test_systemd_resource_wrapper_records_hard_limits():
     assert "TasksMax=512" in command
     assert "CPUQuota=400%" in command
     assert command[-2:] == ["bwrap", "true"]
+
+
+def test_retry_classifier_accepts_explicit_provider_transients_only(tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.write_text(json.dumps({
+        "type": "error", "error": {"name": "APIError", "data": {
+            "statusCode": 429, "isRetryable": True}}}) + "\n")
+    transient = {
+        "status": "harness_failed", "harness_exit_code": 1,
+        "harness_log": str(events),
+    }
+
+    assert _retryable_harness_failure(transient) == "provider_429"
+    assert _retryable_harness_failure({
+        **transient, "status": "validation_failed"}) is None
+    events.write_text(json.dumps({
+        "type": "error", "error": {"name": "ConfigurationError", "data": {
+            "statusCode": 400, "isRetryable": False}}}) + "\n")
+    assert _retryable_harness_failure(transient) is None
+    assert _retryable_harness_failure({
+        "status": "harness_failed", "harness_exit_code": -15}) == "signal_15"
 
 
 def test_scope_check_rejects_sibling_paths():
