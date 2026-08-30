@@ -137,6 +137,33 @@ def test_bubblewrap_makes_only_owned_path_and_runtime_writable(tmp_path):
         assert (worktree / "sibling.txt").read_text() == "original\n"
 
 
+def test_bubblewrap_can_overlay_one_harness_runtime_file():
+    with tempfile.TemporaryDirectory(prefix=".task-search-test-", dir=ROOT) as root:
+        root = Path(root)
+        worktree = root / "worktree"
+        owned = worktree / "owned"
+        runtime = root / "runtime"
+        target = root / "harness-home" / "bin" / "helper"
+        source = runtime / "helper"
+        owned.mkdir(parents=True)
+        target.parent.mkdir(parents=True)
+        runtime.mkdir()
+        target.write_text("host original\n")
+        source.write_text("runtime original\n")
+        command = _sandbox_command(
+            ["/bin/bash", "-c", f"printf worker > {target}"],
+            worktree=worktree,
+            owned_path="owned",
+            runtime_root=runtime,
+            writable_overlays=((source, target),),
+        )
+
+        subprocess.run(command, check=True)
+
+        assert source.read_text() == "worker"
+        assert target.read_text() == "host original\n"
+
+
 def test_generation_metadata_records_requested_but_unforwarded_seed():
     metadata = generation_metadata(
         "albert/deepseek-v4-flash",

@@ -1081,7 +1081,7 @@ def _sanitized_environment(credential_env_names=()):
 
 
 def _sandbox_command(command, *, worktree, owned_path, runtime_root,
-                     bwrap_bin="bwrap"):
+                     bwrap_bin="bwrap", writable_overlays=()):
     """Wrap a worker so only its owned repository directory is writable."""
     executable = shutil.which(bwrap_bin)
     if executable is None:
@@ -1132,6 +1132,14 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
         "--bind", str(runtime_root), str(runtime_root),
         "--chdir", str(worktree),
     ]
+    for source, target in writable_overlays:
+        source = Path(source).resolve()
+        target = Path(target).resolve()
+        if runtime_root != source and runtime_root not in source.parents:
+            raise ValueError(f"writable overlay is outside runtime root: {source}")
+        if not source.exists() or not target.exists():
+            raise ValueError(f"writable overlay endpoint does not exist: {source} -> {target}")
+        wrapped.extend(("--bind", str(source), str(target)))
     for name, value in runtime_dirs.items():
         wrapped.extend(("--setenv", name, str(value)))
     wrapped.extend(("--setenv", "PYTHONDONTWRITEBYTECODE", "1"))
@@ -1139,6 +1147,21 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
                     str(runtime_root / "trial_spec.json")))
     wrapped.extend(command)
     return wrapped
+
+
+def _agy_writable_overlays(runtime_root):
+    """Give AGY's shell bridge one disposable file without opening its home.
+
+    AGY rewrites ``bin/agentapi`` before every terminal call. The authenticated
+    config, settings, conversations, and the rest of its installation stay on the
+    read-only root; only this exact file is overlaid from the trial runtime.
+    """
+    target = Path.home() / ".gemini" / "antigravity-cli" / "bin" / "agentapi"
+    if not target.is_file():
+        raise RuntimeError(f"AGY terminal helper is missing: {target}")
+    source = Path(runtime_root) / "agy-agentapi"
+    source.touch(mode=0o700)
+    return ((source, target),)
 
 
 def _run_validation(worktree, commands, log_path, *, owned_path, runtime_root,
@@ -1279,9 +1302,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     generation = generation_metadata(
         model, harness_version, generation_agent, variant,
         requested_seed=requested_seed,
-        seed_forwarded=forward_seed,
-        temperature=temperature,
-        top_p=top_p,
+        seed_forwarded=(forward_seed and harness != "agy"),
+        temperature=(None if harness == "agy" else temperature),
+        top_p=(None if harness == "agy" else top_p),
         sandbox_version=sandbox_version,
         max_steps=effective_max_steps,
         timeout_seconds=timeout_seconds,
@@ -1386,6 +1409,8 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         owned_path=trial.owned_path,
         runtime_root=runtime_root,
         bwrap_bin=bwrap_bin,
+        writable_overlays=(_agy_writable_overlays(runtime_root)
+                           if harness == "agy" else ()),
     )
     command = _resource_command(command, resource_limits)
     environment = dict(os.environ)
@@ -1725,8 +1750,8 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
                          provider or model.split("/", 1)[0]),
             "adapter": {"name": adapter, "version": adapter_version},
             "seed": seed,
-            "seed_forwarded": forward_seed,
-            "max_steps": max_steps,
+            "seed_forwarded": forward_seed and harness != "agy",
+            "max_steps": None if harness == "agy" else max_steps,
             "timeout_seconds": timeout_seconds,
             "validation_timeout_seconds": validation_timeout_seconds,
             "pace": pace,
