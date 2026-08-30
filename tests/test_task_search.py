@@ -22,6 +22,7 @@ from reasoning_core.task_search.runner import (
     SearchPlan,
     _selfcheck_command_for,
     _adapter_command,
+    _agy_command,
     _harness_version,
     _mini_command,
     _mini_config,
@@ -238,6 +239,26 @@ def test_mini_command_and_config_are_bounded(tmp_path):
     assert config["model"]["model_kwargs"]["seed"] == 123
     assert config["model"]["model_kwargs"]["temperature"] == 0.2
     assert config["model"]["cost_tracking"] == "ignore_errors"
+
+
+def test_agy_uses_hlink_native_auth_and_an_ephemeral_worktree_project(tmp_path):
+    command = _agy_command(
+        "hlink", worktree=tmp_path / "worktree",
+        model="gemini-3.7-flash-low", timeout_seconds=91,
+        log_path=tmp_path / "runtime" / "agy.log")
+
+    assert command[:2] == ["hlink", "agy"]
+    assert command[command.index("-p") + 1] == "-"
+    assert "--new-project" in command
+    assert command[command.index("--add-dir") + 1] == str(tmp_path / "worktree")
+    assert command[command.index("--print-timeout") + 1] == "91s"
+    assert "--dangerously-skip-permissions" not in command
+    assert "-y" in command
+
+
+def test_agy_rejects_provider_adapter_because_it_uses_native_login():
+    with pytest.raises(ValueError, match="native authenticated provider"):
+        _resolve_harness_executable("agy", "harness-link", "agy")
 
 
 def test_direct_mini_is_rejected_until_provider_config_is_supported():
@@ -839,6 +860,21 @@ def test_step_usage_flags_a_worker_that_ran_out_of_budget(tmp_path):
     assert _step_usage(events, 28) == {"used": 28, "max": 28, "exhausted": True}
     assert _step_usage(events, 60)["exhausted"] is False
     assert _step_usage(tmp_path / "absent.jsonl", 28) is None
+
+
+def test_step_usage_understands_agy_stream_json(tmp_path):
+    events = tmp_path / "events.jsonl"
+    events.write_text("\n".join([
+        json.dumps({"event": "step_update", "step_update": {
+            "step_type": "agent_response", "state": "DONE"}}),
+        json.dumps({"event": "step_update", "step_update": {
+            "step_type": "tool", "state": "DONE"}}),
+        json.dumps({"event": "step_update", "step_update": {
+            "step_type": "agent_response", "state": "DONE"}}),
+    ]))
+
+    assert _step_usage(events, None) == {
+        "used": 2, "max": None, "exhausted": False}
 
 
 def test_sample_sanity_fails_open_without_a_reviewer(tmp_path, monkeypatch):

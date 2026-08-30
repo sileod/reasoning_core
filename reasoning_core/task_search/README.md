@@ -96,6 +96,24 @@ model, seed, step limit, and timeout, changing only `--harness`. Each invocation
 gets a separate timestamped directory. OpenCode writes JSON events; Mini writes
 `harness.log` plus `runtime/trajectory.json`.
 
+Antigravity is available through the newer unified Harness Link frontend. It
+uses the Google account already authenticated by `agy`; Harness Link provider
+overrides such as Albert do not apply to AGY:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sileod/harness-link/main/install.sh | sh
+agy models  # verifies the existing login
+python -m reasoning_core.task_search run reasoning_core/task_search/wave0.yaml \
+  --harness agy --adapter direct --model gemini-3.7-flash-low \
+  --jobs 1 --seed 20260828 --trial N1
+```
+
+The runner calls `hlink agy`, creates a fresh AGY project rooted at the detached
+worktree, streams JSON events, and records both the `agy` and `hlink` versions.
+AGY does not expose a step ceiling, seed, temperature, or top-p through this
+surface, so the recorded step maximum is null and the outer wall-time remains
+the hard generation limit. All independent gates are unchanged.
+
 For a conservative unattended sequential run, first complete the `pilot`
 queue, then launch the weekend queue with one worker:
 
@@ -260,6 +278,14 @@ Bubblewrap is required and checked before any worker is launched. OpenCode's own
 path-glob edit permissions are deliberately not used as the security boundary;
 their behavior varies across OpenCode releases. The exact OpenCode and
 Bubblewrap versions are recorded in task metadata and run records.
+
+For AGY, `hlink -y` only translates to AGY's native unattended approval flag;
+it is not treated as containment. The same outer Bubblewrap namespace keeps the
+checkout read-only except for the trial-owned directory, and the coordinator's
+scope audit remains authoritative. `--new-project --add-dir` is necessary AGY
+workspace plumbing, not a security exception. AGY currently has no per-run
+switch equivalent to OpenCode's web/subagent denials, so those model-level tools
+are not policy-equivalent even though their filesystem writes remain confined.
 
 The coordinator does not commit, merge, or promote results. Review successful
 worktrees first; promotion remains an explicit human action.

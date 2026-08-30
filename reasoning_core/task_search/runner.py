@@ -531,6 +531,22 @@ def _mini_command(mini_bin, *, prompt, config_path, trajectory_path):
     ]
 
 
+def _agy_command(hlink_bin, *, worktree, model, timeout_seconds, log_path):
+    """Build an AGY invocation through Harness Link's normalized frontend.
+
+    ``--new-project`` is not cosmetic: without it AGY's default CLI project points
+    file tools at its user-level scratch directory instead of the detached worktree.
+    Bubblewrap, not AGY's native sandbox, remains the shared write boundary.
+    """
+    return [
+        hlink_bin, "agy", "-C", str(worktree), "-p", "-", "-m", model, "-y",
+        "--", "--mode", "accept-edits", "--new-project", "--add-dir",
+        str(worktree), "--output-format", "stream-json", "--log-file",
+        str(log_path), "--print-timeout", f"{timeout_seconds}s",
+        "--disable-slash-commands",
+    ]
+
+
 def _mini_config(worktree, *, max_steps, timeout_seconds, requested_seed=None,
                  forward_seed=False, temperature=None, top_p=None):
     model_kwargs = {"drop_params": True}
@@ -578,6 +594,10 @@ def _resolve_harness_executable(harness, adapter, harness_bin):
     # executable in the wrapped command. Probe exactly the binary it will use.
     if harness == "mini" and adapter == "direct":
         raise ValueError("the mini harness currently requires --adapter harness-link")
+    if harness == "agy" and adapter != "direct":
+        raise ValueError(
+            "AGY uses its native authenticated provider; --adapter harness-link "
+            "provider overrides are not supported")
     requested = harness if adapter == "harness-link" else harness_bin
     executable = shutil.which(requested)
     if executable is None:
@@ -602,6 +622,9 @@ def _harness_version(harness, executable):
             str(python), "-c",
             "import importlib.metadata as m; print(m.version('mini-swe-agent'))",
         ], text=True).strip()
+    if harness == "agy":
+        return subprocess.check_output(
+            [executable, "--version"], text=True).strip()
     raise ValueError(f"unsupported harness: {harness}")
 
 
@@ -762,6 +785,19 @@ def _step_usage(events_path, max_steps):
     except FileNotFoundError:
         return None
     used = sum(1 for line in lines if '"step_start"' in line)
+    if not used:
+        # AGY stream-json has a different, stable envelope. One completed agent
+        # response is the closest cross-harness analogue to an OpenCode step.
+        for line in lines:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            update = event.get("step_update", {})
+            if (event.get("event") == "step_update"
+                    and update.get("step_type") == "agent_response"
+                    and update.get("state") == "DONE"):
+                used += 1
     return {"used": used, "max": max_steps,
             "exhausted": bool(max_steps) and used >= max_steps}
 
@@ -1217,6 +1253,7 @@ def _run_contract_audit(worktree, owned_path, seed, log_path, *, runtime_root,
 
 def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
                model, harness, agent, variant, harness_bin, harness_version,
+               hlink_bin, hlink_version,
                base_seed, forward_seed, temperature, top_p, bwrap_bin,
                sandbox_version, max_steps, timeout_seconds, adapter, provider,
                adapter_bin, adapter_version, resource_limits,
@@ -1233,7 +1270,12 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
     )
     (worktree / trial.owned_path).mkdir(parents=True, exist_ok=True)
     requested_seed = int(_sha256(f"{base_seed}:{trial.trial_id}")[:8], 16)
-    generation_agent = agent if harness == "opencode" else "mini-default"
+    generation_agent = {
+        "opencode": agent,
+        "mini": "mini-default",
+        "agy": "agy-default",
+    }[harness]
+    effective_max_steps = None if harness == "agy" else max_steps
     generation = generation_metadata(
         model, harness_version, generation_agent, variant,
         requested_seed=requested_seed,
@@ -1241,9 +1283,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         temperature=temperature,
         top_p=top_p,
         sandbox_version=sandbox_version,
-        max_steps=max_steps,
+        max_steps=effective_max_steps,
         timeout_seconds=timeout_seconds,
-        provider_name=provider,
+        provider_name=("antigravity" if harness == "agy" else provider),
         adapter_name=adapter,
         adapter_version=adapter_version,
         harness_name=harness,
@@ -1317,6 +1359,17 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
             trajectory_path=trajectory_path,
         )
         events_path = trial_root / "harness.log"
+    elif harness == "agy":
+        config_path = None
+        trajectory_path = None
+        events_path = trial_root / "events.jsonl"
+        command = _agy_command(
+            hlink_bin,
+            worktree=worktree,
+            model=model,
+            timeout_seconds=timeout_seconds,
+            log_path=runtime_root / "agy.log",
+        )
     else:
         raise ValueError(f"unsupported harness: {harness}")
     command = _adapter_command(
@@ -1340,14 +1393,17 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         environment["OPENCODE_CONFIG_CONTENT"] = config_path.read_text()
         environment["OPENCODE_DISABLE_EXTERNAL_SKILLS"] = "true"
         environment["OPENCODE_DISABLE_CLAUDE_CODE_SKILLS"] = "true"
-    else:
+    elif harness == "mini":
         environment["MSWEA_CONFIGURED"] = "true"
     timed_out = False
-    with events_path.open("w") as stdout, (trial_root / "stderr.log").open("w") as stderr:
+    with (events_path.open("w") as stdout,
+          (trial_root / "stderr.log").open("w") as stderr,
+          (prompt_path.open() if harness == "agy" else open(os.devnull)) as stdin):
         try:
             completed = subprocess.run(
                 command,
                 env=environment,
+                stdin=stdin,
                 stdout=stdout,
                 stderr=stderr,
                 timeout=timeout_seconds,
@@ -1520,7 +1576,9 @@ def _run_trial(plan, trial, repo_root, invocation_root, base_commit,
         "harness_exit_code": harness_exit_code,
         "harness_log": str(events_path),
         "sample_sanity": sample_sanity,
-        "steps": _step_usage(events_path, max_steps),
+        "steps": _step_usage(events_path, effective_max_steps),
+        "launcher": ({"name": "hlink", "version": hlink_version}
+                     if harness == "agy" else None),
         "trajectory": str(trajectory_path) if trajectory_path else None,
         "timed_out": timed_out,
         "sandbox": {"name": "bubblewrap", "version": sandbox_version},
@@ -1568,6 +1626,7 @@ def _select_trials(plan, trial_ids=(), queue_names=()):
 def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worker",
              variant=None, seed=0, forward_seed=True, temperature=None, top_p=None,
              harness="opencode", opencode_bin="opencode", mini_bin="mini",
+             agy_bin="agy", hlink_bin="hlink",
              bwrap_bin="bwrap", runs_root=None,
              repo_root=None, max_steps=56, timeout_seconds=1800,
              queue_names=(), adapter="direct", provider=None, adapter_bin=None,
@@ -1591,8 +1650,14 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         print(f"WARNING: {drift}", file=sys.stderr)
     if adapter == "harness-link" and not provider:
         raise ValueError("--provider is required with --adapter harness-link")
-    if harness not in {"opencode", "mini"}:
+    if harness not in {"opencode", "mini", "agy"}:
         raise ValueError(f"unsupported harness: {harness}")
+    if harness == "agy" and adapter != "direct":
+        raise ValueError(
+            "AGY uses its native authenticated provider; choose --adapter direct")
+    if harness == "agy" and provider:
+        raise ValueError(
+            "AGY uses its native authenticated provider; omit --provider")
     if adapter == "harness-link":
         resolved_adapter = shutil.which(adapter_bin or provider)
         if resolved_adapter is None:
@@ -1604,10 +1669,29 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
         adapter_version = None
     else:
         raise ValueError(f"unsupported adapter: {adapter}")
-    requested_harness_bin = opencode_bin if harness == "opencode" else mini_bin
+    requested_harness_bin = {
+        "opencode": opencode_bin,
+        "mini": mini_bin,
+        "agy": agy_bin,
+    }[harness]
     harness_executable = _resolve_harness_executable(
         harness, adapter, requested_harness_bin)
     harness_version = _harness_version(harness, harness_executable)
+    resolved_hlink = None
+    hlink_version = None
+    if harness == "agy":
+        resolved_hlink = shutil.which(hlink_bin)
+        if resolved_hlink is None:
+            raise RuntimeError(
+                f"Harness Link frontend not found: {hlink_bin!r}; install a version "
+                "that provides `hlink agy`")
+        hlink_version = subprocess.check_output(
+            [resolved_hlink, "--version"], text=True).strip()
+        hlink_help = subprocess.check_output(
+            [resolved_hlink, "--help"], text=True, stderr=subprocess.STDOUT)
+        if "agy" not in hlink_help:
+            raise RuntimeError(
+                "installed Harness Link is too old: its hlink frontend has no AGY support")
     bwrap_path = shutil.which(bwrap_bin)
     if bwrap_path is None:
         raise RuntimeError(
@@ -1635,7 +1719,10 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             "base_commit": base_commit,
             "model": model,
             "harness": {"name": harness, "version": harness_version},
-            "provider": provider or model.split("/", 1)[0],
+            "launcher": ({"name": "hlink", "version": hlink_version}
+                         if harness == "agy" else None),
+            "provider": ("antigravity" if harness == "agy" else
+                         provider or model.split("/", 1)[0]),
             "adapter": {"name": adapter, "version": adapter_version},
             "seed": seed,
             "seed_forwarded": forward_seed,
@@ -1674,6 +1761,7 @@ def run_plan(plan_path, *, model, jobs=1, trial_ids=(), agent="task-search-worke
             pool.submit(
                 run_trial_retrying, plan, trial, repo_root, invocation, base_commit,
                 model, harness, agent, variant, harness_executable, harness_version,
+                resolved_hlink, hlink_version,
                 seed, forward_seed, temperature, top_p, bwrap_path,
                 sandbox_version, max_steps, timeout_seconds,
                 adapter, provider, adapter_bin, adapter_version, resource_limits,
@@ -1711,7 +1799,8 @@ def _parser():
     run = subparsers.add_parser("run", help="launch folder-scoped coding workers")
     run.add_argument("plan")
     run.add_argument("--model", required=True)
-    run.add_argument("--harness", choices=("opencode", "mini"), default="opencode")
+    run.add_argument(
+        "--harness", choices=("opencode", "mini", "agy"), default="opencode")
     run.add_argument(
         "--adapter", choices=("direct", "harness-link"), default="direct")
     run.add_argument("--provider", help="provider command, e.g. albert or nim")
@@ -1741,6 +1830,8 @@ def _parser():
     run.add_argument("--validation-timeout-seconds", type=int, default=300)
     run.add_argument("--opencode-bin", default="opencode")
     run.add_argument("--mini-bin", default="mini")
+    run.add_argument("--agy-bin", default="agy")
+    run.add_argument("--hlink-bin", default="hlink")
     run.add_argument("--bwrap-bin", default="bwrap")
     run.add_argument(
         "--resource-limits", choices=("auto", "required", "none"),
@@ -1797,6 +1888,8 @@ def main(argv=None):
             harness=args.harness,
             opencode_bin=args.opencode_bin,
             mini_bin=args.mini_bin,
+            agy_bin=args.agy_bin,
+            hlink_bin=args.hlink_bin,
             bwrap_bin=args.bwrap_bin,
             runs_root=args.runs_root,
             adapter=args.adapter,
