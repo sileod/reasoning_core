@@ -1150,18 +1150,25 @@ def _sandbox_command(command, *, worktree, owned_path, runtime_root,
 
 
 def _agy_writable_overlays(runtime_root):
-    """Give AGY's shell bridge one disposable file without opening its home.
+    """Give AGY disposable tool state without opening its authenticated home.
 
     AGY rewrites ``bin/agentapi`` before every terminal call. The authenticated
     config, settings, conversations, and the rest of its installation stay on the
-    read-only root; only this exact file is overlaid from the trial runtime.
+    read-only root. Its background-task logs similarly live under ``brain``; map
+    that artifact tree to the trial runtime so a worker can inspect a long command.
     """
-    target = Path.home() / ".gemini" / "antigravity-cli" / "bin" / "agentapi"
-    if not target.is_file():
-        raise RuntimeError(f"AGY terminal helper is missing: {target}")
-    source = Path(runtime_root) / "agy-agentapi"
-    source.touch(mode=0o700)
-    return ((source, target),)
+    home = Path.home() / ".gemini" / "antigravity-cli"
+    helper_target = home / "bin" / "agentapi"
+    brain_target = home / "brain"
+    if not helper_target.is_file():
+        raise RuntimeError(f"AGY terminal helper is missing: {helper_target}")
+    if not brain_target.is_dir():
+        raise RuntimeError(f"AGY artifact directory is missing: {brain_target}")
+    helper_source = Path(runtime_root) / "agy-agentapi"
+    brain_source = Path(runtime_root) / "agy-brain"
+    helper_source.touch(mode=0o700)
+    brain_source.mkdir(exist_ok=True)
+    return ((helper_source, helper_target), (brain_source, brain_target))
 
 
 def _run_validation(worktree, commands, log_path, *, owned_path, runtime_root,

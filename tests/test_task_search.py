@@ -625,6 +625,29 @@ def test_trajectory_marks_a_truncated_selfcheck_incomplete(tmp_path):
     assert row["checks"][-1]["incomplete"] == "FAIL"
 
 
+def test_trajectory_reads_agy_stream_json(tmp_path):
+    trial = tmp_path / "run" / "S41"
+    trial.mkdir(parents=True)
+    events = [
+        {"event": "step_update", "step_update": {
+            "step_type": "agent_response", "state": "DONE"}},
+        {"event": "step_update", "step_update": {
+            "step_type": "tool", "state": "DONE", "tool_name": "run_command",
+            "tool_info": {"parameters": {"CommandLine":
+                "python -m reasoning_core.task_search.selfcheck owned S41"},
+                "output": "implementation PASS\n0 gate(s) failing.\n"}}},
+        {"event": "result", "result": {"status": "SUCCESS"}},
+    ]
+    (trial / "events.jsonl").write_text(
+        "\n".join(json.dumps(event) for event in events))
+
+    row = trajectory.read(trial)
+
+    assert row["steps"] == 1
+    assert row["stopped"] == "SUCCESS"
+    assert row["checks"] == [{"implementation": "PASS"}]
+
+
 def test_selfcheck_distinguishes_probe_crashes_from_slowness():
     crashed = selfcheck.speed_failure(1, "Traceback\nAssertionError: broken")
     timed_out = selfcheck.speed_failure(124, "killed")

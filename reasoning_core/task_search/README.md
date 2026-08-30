@@ -286,6 +286,9 @@ scope audit remains authoritative. `--new-project --add-dir` is necessary AGY
 workspace plumbing, not a security exception. AGY currently has no per-run
 switch equivalent to OpenCode's web/subagent denials, so those model-level tools
 are not policy-equivalent even though their filesystem writes remain confined.
+The shell helper file and background-task artifact directory that AGY normally
+writes under its home are overlaid from the private trial runtime; credentials,
+settings, conversations, and the real installation remain read-only.
 
 The coordinator does not commit, merge, or promote results. Review successful
 worktrees first; promotion remains an explicit human action.

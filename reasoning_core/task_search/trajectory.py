@@ -27,8 +27,40 @@ def read(trial_dir):
         if (trial_dir / "run.json").is_file() else {}
     summary = json.loads((trial_dir.parent / "summary.json").read_text()) \
         if (trial_dir.parent / "summary.json").is_file() else {}
-    calls, denied, checks, texts = [], [], [], []
+    calls, denied, checks, texts, agy_steps = [], [], [], [], 0
+    agy_stopped, agy_errors = None, []
     for event in events:
+        if "event" in event:
+            update = event.get("step_update", {})
+            if (event.get("event") == "step_update"
+                    and update.get("step_type") == "agent_response"):
+                if update.get("text_delta"):
+                    texts.append(update["text_delta"])
+                if update.get("state") == "DONE":
+                    agy_steps += 1
+            if (event.get("event") == "step_update"
+                    and update.get("step_type") == "tool"
+                    and update.get("state") in {"DONE", "ERROR"}):
+                info = update.get("tool_info", {})
+                arguments = info.get("parameters", {})
+                command = arguments.get("CommandLine", "")
+                ok = update.get("state") == "DONE"
+                output = str(info.get("output") or info.get("error") or "")
+                calls.append((update.get("tool_name", "tool"), ok, command,
+                              len(output)))
+                if (not ok and re.search(
+                        r"permission|denied|not allowed", output, re.I)):
+                    denied.append(command or update.get("tool_name", "tool"))
+                if ok and "task_search.selfcheck" in command:
+                    gates = dict(GATE.findall(output))
+                    if not re.search(r"^\d+ gate\(s\) failing\.\s*$", output, re.M):
+                        gates["incomplete"] = "FAIL"
+                    checks.append(gates)
+            if event.get("event") == "result":
+                agy_stopped = event.get("result", {}).get("status")
+                if agy_stopped not in {None, "SUCCESS"}:
+                    agy_errors.append(agy_stopped)
+            continue
         if event["type"] == "text":
             texts.append(event["part"]["text"])
         if event["type"] != "tool_use":
@@ -51,7 +83,8 @@ def read(trial_dir):
     return {
         "id": trial_dir.name,
         "status": run.get("status", "no run.json"),
-        "steps": sum(1 for e in events if e["type"] == "step_start"),
+        "steps": (agy_steps if agy_steps else
+                  sum(1 for e in events if e.get("type") == "step_start")),
         # run.json appears only after every coordinator gate completes. During the
         # model phase the invocation summary is the durable source of this value.
         "budget": ((run.get("generation") or {}).get("settings", {}).get("max_steps")
@@ -59,9 +92,11 @@ def read(trial_dir):
         "calls": calls,
         "denied": denied,
         "checks": checks,
-        "errors": [e["error"]["name"] for e in events if e["type"] == "error"],
-        "stopped": events[-1]["part"].get("reason") if events and
-        events[-1]["type"] == "step_finish" else None,
+        "errors": (agy_errors or [e["error"]["name"] for e in events
+                                   if e.get("type") == "error"]),
+        "stopped": (agy_stopped if agy_stopped is not None else
+                    events[-1]["part"].get("reason") if events and
+                    events[-1].get("type") == "step_finish" else None),
         "summary": texts[-1].strip().splitlines()[0][:120] if texts else "",
     }
 
@@ -98,7 +133,7 @@ def totals(rows):
     return "\n".join((
         f"trials {len(rows)}  " + "  ".join(f"{k}={v}" for k, v in status.most_common()),
         f"success {sum(1 for r in rows if r['status'] == 'success')}/{len(rows)}"
-        f"   scratch {_rate(rows, 'N')}   mutation {_rate(rows, 'M')}",
+        f"   scratch {_rate(rows, ('N', 'S'))}   mutation {_rate(rows, 'M')}",
         f"calls {calls}, denied {denied} ({100 * denied / max(calls, 1):.1f}%),"
         f" tool output {context // 1024}KB back into context",
         f"ran out of steps: {' '.join(at_budget) or 'none'}",
