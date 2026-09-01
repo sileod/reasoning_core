@@ -1,0 +1,214 @@
+version: 1
+name: WAVE6
+
+# wave5 went 7/8 from scratch. The one loss, S50, had a correct instruction -- it
+# named the DP, the direction to walk it and the position convention -- and the
+# worker still built a prefix table, walked it forward and renumbered positions
+# after each delete. A better description was not the missing piece, so wave6 adds
+# a structural rule instead: when the answer is a constructive object (a script, a
+# route, a schedule, a repaired string), the generator must APPLY its own gold
+# answer and assert it reproduces the target before returning the entry. Every idea
+# below is chosen so that check is one short function.
+#
+# Carried forward from wave4/wave5: the answer is a string, list, fraction or
+# unbounded integer; the instruction names the polynomial algorithm rather than
+# leaving the generator to enumerate; prose a person would write over a symbolic
+# dump; and an explicit format for multi-part answers, because the reviewer judges
+# answerability from the samples file alone.
+
+queues:
+  pilot:
+    - S58
+    - S61
+  scratch_p0:
+    - S58
+    - S59
+    - S60
+    - S61
+  scratch_p1:
+    - S62
+    - S63
+    - S64
+    - S65
+  scratch_all:
+    - S58
+    - S59
+    - S60
+    - S61
+    - S62
+    - S63
+    - S64
+    - S65
+
+defaults:
+  base_ref: 408c643
+
+context_files:
+  - AGENTS.md
+  - TASK_AUTHORING_GUIDE.md
+  - reasoning_core/task_search/CONTEXT.md
+
+trials:
+  - id: S58
+    hypothesis: S58
+    idea: Reconstruct the edit script between two short strings (wave5 S50, retried).
+    changes: Ask for the operations that turn one string into another, not the distance.
+    instruction: >-
+      Implement shortest_edit_script. Give two short strings and ask for a shortest
+      sequence of single-character operations turning the first into the second,
+      written as a comma-separated list like "del 3, sub 5 x, ins 7 q". Every
+      position is one-based in the ORIGINAL first string and positions never shift,
+      however many operations precede them: an earlier delete does not renumber a
+      later one. Fill the standard edit-distance table forward, then recover the
+      script by walking BACKWARD from the bottom-right corner to (0,0) and reversing
+      what you collect; a forward walk from (0,0) over a prefix table has no valid
+      successor and is the specific bug that sank the first attempt. Several
+      shortest scripts exist, so state the tie-break in the prompt -- deletion, then
+      substitution, then insertion, smallest position first -- and have score_answer
+      accept only that canonical one. Write an apply(first_string, script) helper,
+      call it inside generate_entry, and assert it returns the second string before
+      you return the entry. Difficulty is string length and alphabet size.
+    owned_path: reasoning_core/tasks/generated/wave6/s58_shortest_edit_script
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s58_shortest_edit_script
+
+  - id: S59
+    hypothesis: S59
+    idea: Minimum set of points stabbing every interval.
+    changes: New task; the answer is a list whose length varies with the instance.
+    instruction: >-
+      Implement interval_stabbing. Describe a handful of closed integer intervals in
+      prose -- inspection windows, shifts, booked rooms -- and ask for the smallest
+      set of integer points such that every interval contains at least one of them,
+      given as a comma-separated increasing list. Compute it with the standard
+      greedy: sort by right endpoint and take that endpoint whenever the current
+      interval is unstabbed. The optimum set is unique under that greedy for the
+      instances you generate, but say in the prompt that ties break toward the
+      smallest point so the answer is pinned. Inside generate_entry, assert every
+      interval contains one of your chosen points, and assert no smaller set works
+      by checking the greedy's count against a brute-force minimum on small
+      instances. Difficulty is the interval count and how much they overlap.
+    owned_path: reasoning_core/tasks/generated/wave6/s59_interval_stabbing
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s59_interval_stabbing
+
+  - id: S60
+    hypothesis: S60
+    idea: Layer a dependency graph into the batches a scheduler would run.
+    changes: New task; the answer is a list of groups, not a single order.
+    instruction: >-
+      Implement dependency_batches. Give a set of named jobs and their prerequisites
+      as prose sentences a person would write, and ask which jobs run in each round
+      when every job runs as early as its prerequisites allow and unlimited jobs run
+      in parallel. Answer as semicolon-separated rounds with comma-separated names
+      inside, alphabetical within a round, like "a, c; b; d, e". Compute it with
+      Kahn's algorithm taking the whole zero-in-degree frontier each round. This
+      layering is unique, so no tie-break is needed beyond the alphabetical ordering
+      inside a round -- say that in the prompt. Inside generate_entry, assert every
+      prerequisite lands in a strictly earlier round than its dependent, and that
+      the rounds partition the job set. Difficulty is the job count and the depth of
+      the longest chain. Reject cycles when you generate.
+    owned_path: reasoning_core/tasks/generated/wave6/s60_dependency_batches
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s60_dependency_batches
+
+  - id: S61
+    hypothesis: S61
+    idea: Continued-fraction expansion of a rational number.
+    changes: New task; the answer is a list of integers that reconstructs the input.
+    instruction: >-
+      Implement continued_fraction. Give a fraction and ask for its continued
+      fraction expansion as a comma-separated list of integers, the whole part
+      first, like "3, 7, 15, 1". Compute it with the Euclidean algorithm. The
+      expansion is unique once you forbid a trailing 1, so say in the prompt that
+      the last term is never 1 (fold it into the one before) and enforce that in the
+      generator. Inside generate_entry, rebuild the fraction from your own term list
+      back to front with Fraction arithmetic and assert it equals the input exactly.
+      Difficulty is the size of numerator and denominator, which controls how many
+      terms come out. Negative and improper fractions are fine and make the whole
+      part interesting.
+    owned_path: reasoning_core/tasks/generated/wave6/s61_continued_fraction
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s61_continued_fraction
+
+  - id: S62
+    hypothesis: S62
+    idea: Weighted interval scheduling -- which jobs to accept, not the total.
+    changes: New task; the answer names the chosen jobs so the total cannot be guessed.
+    instruction: >-
+      Implement weighted_job_selection. Describe jobs with a start time, an end time
+      and a payment, in prose, and ask which jobs to accept to earn the most without
+      ever working two at once. Answer as a comma-separated list of job names in
+      start-time order. Compute it with the standard weighted-interval DP: sort by
+      end time, binary-search the last compatible job, take the max of include and
+      exclude. Generate payments so the optimum is strictly better than every other
+      feasible set -- reject any instance with a tie -- and say in the prompt that
+      exactly one selection is best. Inside generate_entry, assert your selection is
+      pairwise non-overlapping and that its total beats every other feasible subset
+      by brute force at the sizes you generate. Difficulty is the job count and how
+      much the intervals overlap.
+    owned_path: reasoning_core/tasks/generated/wave6/s62_weighted_job_selection
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s62_weighted_job_selection
+
+  - id: S63
+    hypothesis: S63
+    idea: Repair an unbalanced bracket string with the fewest insertions.
+    changes: New task; the answer is the repaired string, so its length varies.
+    instruction: >-
+      Implement bracket_repair. Give a string of brackets of two or three kinds and
+      ask for the shortest balanced string obtained by inserting brackets only --
+      never deleting or reordering -- with the original characters left in their
+      original order. Answer as the repaired string. Compute it with a single stack
+      pass: an unmatched closer needs its opener inserted immediately before it, and
+      whatever remains on the stack at the end needs closers appended in reverse.
+      That construction is canonical, so say in the prompt that each missing bracket
+      is inserted at the earliest position that fixes it. Inside generate_entry,
+      assert the repaired string is balanced, assert deleting the inserted
+      characters returns the original, and assert no shorter repair exists by
+      brute-force insertion at the short lengths you generate. Difficulty is the
+      string length and the number of bracket kinds.
+    owned_path: reasoning_core/tasks/generated/wave6/s63_bracket_repair
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s63_bracket_repair
+
+  - id: S64
+    hypothesis: S64
+    idea: Fewest coins for an amount in a currency where greedy is wrong.
+    changes: New task; the answer is the coin multiset, and greedy fails on it.
+    instruction: >-
+      Implement coin_selection. Give an odd list of coin denominations and an amount
+      in prose -- a till, a vending machine, a token booth -- and ask for the fewest
+      coins that make the amount exactly, answered as a comma-separated list of coin
+      values in decreasing order, repeating a value as often as it is used, like
+      "25, 4, 4, 1". Compute it with the unbounded-coin-change DP, never greedily.
+      Choose denominations so that the greedy answer is NOT optimal for the amount
+      you ask about -- verify that inside the generator and reject instances where
+      greedy already wins, because that is what makes the task worth anything. When
+      several multisets tie at the fewest coins, say in the prompt that the
+      lexicographically largest one wins and enforce it. Inside generate_entry,
+      assert your coins sum to the amount and that the DP count matches their
+      length. Difficulty is the amount and the number of denominations.
+    owned_path: reasoning_core/tasks/generated/wave6/s64_coin_selection
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s64_coin_selection
+
+  - id: S65
+    hypothesis: S65
+    idea: Which jobs finish on time when late ones must be dropped.
+    changes: New task; the answer is the on-time set, verified by simulation.
+    instruction: >-
+      Implement deadline_dropping. Describe jobs with a duration and a deadline in
+      prose, all available now and run one at a time, and ask for the largest set
+      that can all finish by their deadlines. Answer as a comma-separated list of
+      job names in deadline order. Compute it with Moore's algorithm: sort by
+      deadline, add jobs one at a time, and whenever the running total passes the
+      current deadline drop the longest job accepted so far. Generate durations so
+      the largest set is unique -- reject ties -- and say in the prompt that exactly
+      one set of that size works. Inside generate_entry, simulate your own answer in
+      deadline order and assert every job in it finishes at or before its deadline,
+      and assert by brute force at the sizes you generate that no larger set does.
+      Difficulty is the job count and how tight the deadlines are.
+    owned_path: reasoning_core/tasks/generated/wave6/s65_deadline_dropping
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave6/s65_deadline_dropping
