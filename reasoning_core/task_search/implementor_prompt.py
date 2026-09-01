@@ -141,14 +141,16 @@ def render_implementor_prompt(
             "  directly. S11 in wave1 lost an otherwise-passing task to one helper call.",
             "- generation must survive every level: enforce construction invariants by",
             "  resampling in a loop, never with an `assert` that only holds at level 0.",
-            "- no gate checks that your answer is mathematically possible; they only check",
-            "  that it is stable and hard to guess. If the quantity you ask for has a",
+            "- your self-check does not verify that your answer is mathematically possible;",
+            "  it only checks that it is stable and hard to guess. A coordinator gate you",
+            "  cannot run reads your samples after you stop and fails the trial outright",
+            "  if the answers cannot be right. If the quantity you ask for has a",
             "  domain -- a count is a non-negative integer, a probability lies in [0, 1],",
             "  an expected time is positive, rows of a transition matrix sum to 1 -- assert",
             "  that domain in `generate_entry` and reject the draw when it fails. S17 in",
             "  wave2 passed every gate reporting an expected absorption time of -44/5,",
             "  from rows that summed above 1. Read your own samples file before you stop:",
-            "  an answer no solver could produce is the one failure the harness cannot see.",
+            "  an answer no solver could produce is the one failure you cannot see coming.",
         )
     )
     if task_meta is not None:

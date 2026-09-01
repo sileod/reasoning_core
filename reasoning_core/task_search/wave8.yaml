@@ -2,7 +2,7 @@ version: 1
 name: wave8
 proposal_wave: wave0
 defaults:
-  base_ref: 48a8d42600e24ee75acd20e9b3404bf1e531a5c8
+  base_ref: 5fba17fcef9a025407f75730509c0c943e3b59af
 context_files:
 - AGENTS.md
 - TASK_AUTHORING_GUIDE.md
