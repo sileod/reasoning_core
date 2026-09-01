@@ -26,6 +26,16 @@ queues:
     - S47
     - S48
     - S49
+  # the three wave4 losses the harness caused: S42 dropped a gold answer and S45
+  # printed headings with no prompt, both of which the samples gate now measures,
+  # and S44 was correct all along -- the reviewer summed three cells for A1:B1 and
+  # an INVALID now needs a second vote. S48's accusation may well be real; it goes
+  # back through the same gate to find out.
+  retry:
+    - S42
+    - S44
+    - S45
+    - S48
   scratch_all:
     - S38
     - S39
@@ -41,7 +51,7 @@ queues:
     - S49
 
 defaults:
-  base_ref: f2966ff
+  base_ref: 408c643
 
 context_files:
   - AGENTS.md

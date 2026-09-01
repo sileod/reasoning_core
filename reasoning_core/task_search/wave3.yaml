@@ -27,6 +27,12 @@ queues:
     - S36
     - S37
 
+  # S26, S35 and S36 came back on that rerun. S37 did not: the reviewer said the
+  # polygon generator emits non-convex polygons while promising convex ones, which
+  # is a defect in the candidate rather than in a gate, so it goes back alone.
+  retry2:
+    - S37
+
   pilot:
     - S26
     - S31
@@ -59,7 +65,7 @@ queues:
     - S37
 
 defaults:
-  base_ref: 21f602a
+  base_ref: 408c643
 
 context_files:
   - AGENTS.md

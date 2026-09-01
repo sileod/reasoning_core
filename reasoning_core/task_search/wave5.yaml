@@ -1,0 +1,195 @@
+version: 1
+name: WAVE5
+
+# Eight from-scratch ideas. wave4 went 8/12 and the four losses were the samples
+# file or the reviewer, not the idea, so the selection rules stand: the answer is a
+# string, a list, a fraction or an unbounded integer, and the instruction names the
+# polynomial algorithm the generator should use rather than leaving it to enumerate.
+# Two additions from wave4's reading: prefer prose a person would actually write over
+# a symbolic dump, and say how a multi-part answer is formatted, because the reviewer
+# judges answerability from the samples file alone.
+
+queues:
+  pilot:
+    - S51
+    - S56
+  scratch_p0:
+    - S50
+    - S51
+    - S52
+    - S53
+  scratch_p1:
+    - S54
+    - S55
+    - S56
+    - S57
+  scratch_all:
+    - S50
+    - S51
+    - S52
+    - S53
+    - S54
+    - S55
+    - S56
+    - S57
+
+defaults:
+  base_ref: 408c643
+
+context_files:
+  - AGENTS.md
+  - TASK_AUTHORING_GUIDE.md
+  - reasoning_core/task_search/CONTEXT.md
+
+trials:
+  - id: S50
+    hypothesis: S50
+    idea: Add reconstruction of the edit script between two short strings.
+    changes: Ask for the operations that turn one string into another, not the distance.
+    instruction: >-
+      Implement shortest_edit_script. Give two short strings and ask for a shortest
+      sequence of single-character operations turning the first into the second,
+      written as a comma-separated list like "del 3, sub 5 x, ins 7 q" over
+      one-based positions in the original string. Compute it with the standard
+      edit-distance DP and recover the script by walking the table back from the
+      corner; do not search over scripts. Several shortest scripts usually exist, so
+      state the tie-break in the prompt -- prefer deletion, then substitution, then
+      insertion, and the smallest position first -- and make score_answer accept
+      only that canonical one. Difficulty is the string length and the alphabet
+      size. The answer is a list whose length grows with the instance, so it cannot
+      be guessed from the prompt's numbers.
+    owned_path: reasoning_core/tasks/generated/wave5/s50_shortest_edit_script
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s50_shortest_edit_script
+
+  - id: S51
+    hypothesis: S51
+    idea: Add simultaneous congruences with moduli that are not coprime.
+    changes: Ask for the smallest non-negative solution, or for a proof that none exists.
+    instruction: >-
+      Implement congruence_system. State three to six congruences in prose -- "a
+      number that leaves remainder 4 when divided by 18" -- with moduli that share
+      factors, and ask for the smallest non-negative integer satisfying all of them,
+      answering "none" when the system is inconsistent. Solve by merging the
+      congruences pairwise with the extended Euclidean algorithm, which also decides
+      consistency; never scan the integers. Difficulty is the number of congruences
+      and the size of the moduli, and the answer should reach six digits at the top
+      level so it cannot be guessed. Make roughly a quarter of the systems
+      inconsistent, and make the inconsistency depend on two congruences that are
+      not adjacent in the list.
+    owned_path: reasoning_core/tasks/generated/wave5/s51_congruence_system
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s51_congruence_system
+
+  - id: S52
+    hypothesis: S52
+    idea: Add canonical naming of a rooted tree, so two descriptions can be compared.
+    changes: Ask for a tree's canonical form, or whether two trees are the same shape.
+    instruction: >-
+      Implement tree_canonical_form. Describe a rooted tree by its parent list in
+      prose and ask for its canonical form as a balanced-parenthesis string, built
+      bottom up by sorting each node's children by their own canonical strings --
+      the AHU encoding, which is linear-time with sorting and needs no isomorphism
+      search. Say in the prompt exactly how a leaf and an internal node are written
+      so the string is unique. Difficulty is the node count and the depth. At the
+      harder levels give two trees and ask whether they are the same shape, answered
+      by comparing the two canonical strings, but keep the canonical-string answer
+      as the majority of examples: it is a long string, which is what keeps the task
+      unguessable.
+    owned_path: reasoning_core/tasks/generated/wave5/s52_tree_canonical_form
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s52_tree_canonical_form
+
+  - id: S53
+    hypothesis: S53
+    idea: Add market clearing over a small order book.
+    changes: Ask for the price and volume at which buy and sell orders clear.
+    instruction: >-
+      Implement market_clearing. Give a list of buy orders and sell orders as prose
+      -- each a whole-number price and a quantity -- and ask for the clearing price
+      and the traded volume, formatted as "price, volume". Compute it by sorting
+      buys descending and sells ascending, taking prefix sums of quantity, and
+      finding the price that maximises traded volume; state the tie-break in the
+      prompt for when several prices tie -- the lowest such price -- and handle the
+      case where no trade is possible with the answer "no trade". Difficulty is the
+      number of orders and the price spread. Keep prices and quantities integers,
+      let volume grow into the thousands, and make roughly a sixth of the books
+      fail to cross.
+    owned_path: reasoning_core/tasks/generated/wave5/s53_market_clearing
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s53_market_clearing
+
+  - id: S54
+    hypothesis: S54
+    idea: Add exact polynomial gcd over the rationals.
+    changes: Ask for the monic greatest common divisor of two polynomials.
+    instruction: >-
+      Implement polynomial_gcd. Give two polynomials with integer coefficients,
+      written the way a person writes them -- "2x^3 - 5x + 3" -- and ask for their
+      monic greatest common divisor in the same notation, answering "1" when they
+      are coprime. Compute it with the Euclidean algorithm over fractions.Fraction,
+      never by factoring, and normalise the result to a monic polynomial with
+      fractions reduced. Difficulty is the degree and the coefficient size. Build
+      the pair from a planted common factor times independent cofactors so a
+      non-trivial gcd is the common case, keep about a fifth coprime, and say in the
+      prompt exactly how to write a term with a fractional coefficient so the answer
+      string is unique.
+    owned_path: reasoning_core/tasks/generated/wave5/s54_polynomial_gcd
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s54_polynomial_gcd
+
+  - id: S55
+    hypothesis: S55
+    idea: Add reasoning over calendar recurrence rules.
+    changes: Ask for the date of the nth occurrence of a recurring event.
+    instruction: >-
+      Implement calendar_recurrence. State a recurrence in ordinary prose -- "the
+      third Tuesday of every second month, starting in March 2021", "every 45 days
+      from 12 June 2019, skipping any occurrence that falls on a weekend" -- and ask
+      for the date of the nth occurrence, formatted as YYYY-MM-DD. Generate and
+      check occurrences with datetime.date arithmetic; do not hand-roll leap-year
+      rules. Difficulty is the occurrence index and how many clauses the rule has.
+      Push n high enough that the answer lands years from the start, so it cannot be
+      read off the prompt, and include rules whose clauses interact -- a skip rule
+      that moves an occurrence into the next month, a month-end rule in February.
+    owned_path: reasoning_core/tasks/generated/wave5/s55_calendar_recurrence
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s55_calendar_recurrence
+
+  - id: S56
+    hypothesis: S56
+    idea: Add critical-path analysis over a small project plan.
+    changes: Ask for the project duration and the activities that cannot slip.
+    instruction: >-
+      Implement critical_path. Give a project as a list of activities in prose --
+      each with a duration and the activities it waits for -- and ask either for the
+      earliest finish time of the whole project or for the critical activities as a
+      comma-separated list in alphabetical order. Compute earliest and latest start
+      times in two passes over a topological order and call an activity critical
+      when its slack is zero; this is linear and needs no path enumeration. Say in
+      the prompt which of the two questions is being asked. Difficulty is the number
+      of activities and the density of the dependencies. Let durations run to three
+      digits so the finish time is not a small number, and keep more than one
+      critical activity in most instances.
+    owned_path: reasoning_core/tasks/generated/wave5/s56_critical_path
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s56_critical_path
+
+  - id: S57
+    hypothesis: S57
+    idea: Add cheapest-route reasoning where the answer is the route, not its cost.
+    changes: Ask which sequence of legs a shipment takes under a stated tie-break.
+    instruction: >-
+      Implement shipping_route. Give a network of named places and the cost of each
+      direct leg in prose, and ask for the cheapest route between two places as an
+      arrow-separated list of place names, answering "unreachable" when there is no
+      route. Compute it with Dijkstra over a heap and recover the route from
+      predecessors. Ties are the trap: state in the prompt that among equally cheap
+      routes the one with fewer legs wins and then the alphabetically smaller
+      sequence, and implement exactly that comparison in the relaxation step so the
+      gold route is unique. Difficulty is the number of places and the leg-cost
+      spread. Name the places like real towns rather than A, B, C, and make the
+      cheapest route usually longer in legs than the direct one.
+    owned_path: reasoning_core/tasks/generated/wave5/s57_shipping_route
+    validation:
+      - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave5/s57_shipping_route
