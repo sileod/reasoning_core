@@ -1299,13 +1299,37 @@ import json
 import random
 import sys
 
+import reasoning_core.template
+
+# Most of the contract lives inside Task.validate -- the JSON round trip, the junk
+# answer probes, the level knob. A task that replaces it rather than extending it
+# voids all of that and still passes this audit, because the audit asks the task to
+# check itself. So spy on the base method and require the call to reach it. Extending
+# via super().validate(...) reaches it; returning early does not.
+_base_validate = reasoning_core.template.Task.validate
+_reached = []
+
+
+def _spy_validate(self, *args, **kwargs):
+    _reached.append(type(self).__name__)
+    return _base_validate(self, *args, **kwargs)
+
+
 classes = json.loads(sys.argv[1])
 seed = int(sys.argv[2])
 for offset, (module_name, class_name) in enumerate(classes):
     task_class = getattr(importlib.import_module(module_name), class_name)
+    # After the import, so a module that reassigns Task.validate loses the spy and
+    # fails the assertion below rather than slipping past it.
+    reasoning_core.template.Task.validate = _spy_validate
     task = task_class()
     random.seed(seed + offset)
+    del _reached[:]
     task.validate(n_samples=10)
+    assert _reached, (
+        module_name, class_name,
+        "validate() never reached Task.validate: a task may extend it by calling"
+        " super().validate(...), it may not replace it")
     for sample in range(64):
         entry = task.generate_example()
         assert task.score_answer(entry.answer, entry) == 1, (
