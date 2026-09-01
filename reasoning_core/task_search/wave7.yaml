@@ -1,0 +1,1552 @@
+# wave7: the 80 from-scratch candidates in WAVE1.md.
+# Standing structural rules live once in WAVE7_RULES.md (a context file), not
+# repeated in 80 instructions.
+version: 1
+name: wave7
+queues:
+  pilot:
+  - T003
+  - T012
+  - T038
+  - T054
+  - T060
+  - T073
+  p0:
+  - T001
+  - T002
+  - T003
+  - T004
+  - T005
+  - T006
+  - T007
+  - T008
+  p1:
+  - T009
+  - T010
+  - T011
+  - T012
+  - T013
+  - T014
+  - T015
+  - T016
+  p2:
+  - T017
+  - T018
+  - T019
+  - T020
+  - T021
+  - T022
+  - T023
+  - T024
+  p3:
+  - T025
+  - T026
+  - T027
+  - T028
+  - T029
+  - T030
+  - T031
+  - T032
+  p4:
+  - T033
+  - T034
+  - T035
+  - T036
+  - T037
+  - T038
+  - T039
+  - T040
+  p5:
+  - T041
+  - T042
+  - T043
+  - T044
+  - T045
+  - T046
+  - T047
+  - T048
+  p6:
+  - T049
+  - T050
+  - T051
+  - T052
+  - T053
+  - T054
+  - T055
+  - T056
+  p7:
+  - T057
+  - T058
+  - T059
+  - T060
+  - T061
+  - T062
+  - T063
+  - T064
+  p8:
+  - T065
+  - T066
+  - T067
+  - T068
+  - T069
+  - T070
+  - T071
+  - T072
+  p9:
+  - T073
+  - T074
+  - T075
+  - T076
+  - T077
+  - T078
+  - T079
+  - T080
+  all:
+  - T001
+  - T002
+  - T003
+  - T004
+  - T005
+  - T006
+  - T007
+  - T008
+  - T009
+  - T010
+  - T011
+  - T012
+  - T013
+  - T014
+  - T015
+  - T016
+  - T017
+  - T018
+  - T019
+  - T020
+  - T021
+  - T022
+  - T023
+  - T024
+  - T025
+  - T026
+  - T027
+  - T028
+  - T029
+  - T030
+  - T031
+  - T032
+  - T033
+  - T034
+  - T035
+  - T036
+  - T037
+  - T038
+  - T039
+  - T040
+  - T041
+  - T042
+  - T043
+  - T044
+  - T045
+  - T046
+  - T047
+  - T048
+  - T049
+  - T050
+  - T051
+  - T052
+  - T053
+  - T054
+  - T055
+  - T056
+  - T057
+  - T058
+  - T059
+  - T060
+  - T061
+  - T062
+  - T063
+  - T064
+  - T065
+  - T066
+  - T067
+  - T068
+  - T069
+  - T070
+  - T071
+  - T072
+  - T073
+  - T074
+  - T075
+  - T076
+  - T077
+  - T078
+  - T079
+  - T080
+defaults:
+  base_ref: 042223c
+context_files:
+- AGENTS.md
+- TASK_AUTHORING_GUIDE.md
+- reasoning_core/task_search/CONTEXT.md
+- reasoning_core/task_search/WAVE7_RULES.md
+trials:
+- id: T001
+  hypothesis: W1-001
+  idea: strongly_connected_component (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/strongly_connected_component
+  instruction: |-
+    Author a new task from scratch: strongly_connected_component.
+
+    Given a directed graph and node, output the sorted members of its strongly connected component.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/strongly_connected_component
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/strongly_connected_component
+- id: T002
+  hypothesis: W1-002
+  idea: articulation_vertices (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/articulation_vertices
+  instruction: |-
+    Author a new task from scratch: articulation_vertices.
+
+    Given an undirected graph, output all articulation vertices in sorted order.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/articulation_vertices
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/articulation_vertices
+- id: T003
+  hypothesis: W1-003
+  idea: bridge_edges (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/bridge_edges
+  instruction: |-
+    Author a new task from scratch: bridge_edges.
+
+    Given an undirected graph, output all bridge edges canonically.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/bridge_edges
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/bridge_edges
+- id: T004
+  hypothesis: W1-004
+  idea: core_number (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/core_number
+  instruction: |-
+    Author a new task from scratch: core_number.
+
+    Given an undirected graph and node, output that node's k-core number.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/core_number
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/core_number
+- id: T005
+  hypothesis: W1-005
+  idea: eulerian_status (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/eulerian_status
+  instruction: |-
+    Author a new task from scratch: eulerian_status.
+
+    Classify a graph as none, open Euler trail, or Euler circuit; give the canonical start if applicable.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/eulerian_status
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/eulerian_status
+- id: T006
+  hypothesis: W1-006
+  idea: topological_generation (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/topological_generation
+  instruction: |-
+    Author a new task from scratch: topological_generation.
+
+    Given a DAG and node, output its round under repeated zero-indegree removal.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/topological_generation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/topological_generation
+- id: T007
+  hypothesis: W1-007
+  idea: graph_planarity (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/graph_planarity
+  instruction: |-
+    Author a new task from scratch: graph_planarity.
+
+    Given an undirected graph, answer whether it is planar.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/graph_planarity
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/graph_planarity
+- id: T008
+  hypothesis: W1-008
+  idea: graph_chordality (graph, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/graph_chordality
+  instruction: |-
+    Author a new task from scratch: graph_chordality.
+
+    Given an undirected graph, answer whether every cycle of length at least four has a chord.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a graph setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/graph_chordality
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/graph_chordality
+- id: T009
+  hypothesis: W1-009
+  idea: heap_key_update (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/heap_key_update
+  instruction: |-
+    Author a new task from scratch: heap_key_update.
+
+    Apply one key increase or decrease in a binary heap and output the key's final index.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/heap_key_update
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/heap_key_update
+- id: T010
+  hypothesis: W1-010
+  idea: open_addressing_slot (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/open_addressing_slot
+  instruction: |-
+    Author a new task from scratch: open_addressing_slot.
+
+    Insert keys under a stated open-addressing probe rule and output the queried key's slot.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/open_addressing_slot
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/open_addressing_slot
+- id: T011
+  hypothesis: W1-011
+  idea: bloom_filter_membership (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/bloom_filter_membership
+  instruction: |-
+    Author a new task from scratch: bloom_filter_membership.
+
+    Apply explicit hashes to a Bloom filter and classify a query as definitely absent or possibly present.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/bloom_filter_membership
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/bloom_filter_membership
+- id: T012
+  hypothesis: W1-012
+  idea: trie_unique_prefix (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/trie_unique_prefix
+  instruction: |-
+    Author a new task from scratch: trie_unique_prefix.
+
+    Given strings, output the shortest prefix uniquely identifying the target.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/trie_unique_prefix
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/trie_unique_prefix
+- id: T013
+  hypothesis: W1-013
+  idea: fenwick_prefix_nodes (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/fenwick_prefix_nodes
+  instruction: |-
+    Author a new task from scratch: fenwick_prefix_nodes.
+
+    Given an index, output the Fenwick-tree indices visited by its prefix query.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/fenwick_prefix_nodes
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/fenwick_prefix_nodes
+- id: T014
+  hypothesis: W1-014
+  idea: union_find_representative (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/union_find_representative
+  instruction: |-
+    Author a new task from scratch: union_find_representative.
+
+    Execute canonical union-by-rank operations and output a queried element's representative.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/union_find_representative
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/union_find_representative
+- id: T015
+  hypothesis: W1-015
+  idea: btree_promoted_key (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/btree_promoted_key
+  instruction: |-
+    Author a new task from scratch: btree_promoted_key.
+
+    Given a small B-tree and one insertion, output the first promoted key or None.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/btree_promoted_key
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/btree_promoted_key
+- id: T016
+  hypothesis: W1-016
+  idea: binary_search_probes (algorithm, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/binary_search_probes
+  instruction: |-
+    Author a new task from scratch: binary_search_probes.
+
+    Given a sorted array and target, output the indices probed by deterministic binary search.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a algorithm setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/binary_search_probes
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/binary_search_probes
+- id: T017
+  hypothesis: W1-017
+  idea: skip_list_search_path (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/skip_list_search_path
+  instruction: |-
+    Author a new task from scratch: skip_list_search_path.
+
+    Given explicit skip-list levels and a target, output visited keys in search order.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/skip_list_search_path
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/skip_list_search_path
+- id: T018
+  hypothesis: W1-018
+  idea: red_black_black_height (data_structure, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/red_black_black_height
+  instruction: |-
+    Author a new task from scratch: red_black_black_height.
+
+    Given a valid red-black tree and node, output its black-height.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a data structure setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/red_black_black_height
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/red_black_black_height
+- id: T019
+  hypothesis: W1-019
+  idea: finite_group_inverse (algebra, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/finite_group_inverse
+  instruction: |-
+    Author a new task from scratch: finite_group_inverse.
+
+    Given a Cayley table and element, output its inverse.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a algebra setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/finite_group_inverse
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/finite_group_inverse
+- id: T020
+  hypothesis: W1-020
+  idea: finite_group_element_order (algebra, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/finite_group_element_order
+  instruction: |-
+    Author a new task from scratch: finite_group_element_order.
+
+    Given a Cayley table and element, output the element's order.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a algebra setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/finite_group_element_order
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/finite_group_element_order
+- id: T021
+  hypothesis: W1-021
+  idea: generated_subgroup_membership (algebra, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/generated_subgroup_membership
+  instruction: |-
+    Author a new task from scratch: generated_subgroup_membership.
+
+    Given a finite group, generators, and element, answer whether it lies in the generated subgroup.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a algebra setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/generated_subgroup_membership
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/generated_subgroup_membership
+- id: T022
+  hypothesis: W1-022
+  idea: left_coset_identification (algebra, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/left_coset_identification
+  instruction: |-
+    Author a new task from scratch: left_coset_identification.
+
+    Given a subgroup and element, output the canonical sorted left coset.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a algebra setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/left_coset_identification
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/left_coset_identification
+- id: T023
+  hypothesis: W1-023
+  idea: group_homomorphism_check (algebra, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/group_homomorphism_check
+  instruction: |-
+    Author a new task from scratch: group_homomorphism_check.
+
+    Given two finite group tables and a mapping, answer whether the mapping is a homomorphism.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a algebra setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/group_homomorphism_check
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/group_homomorphism_check
+- id: T024
+  hypothesis: W1-024
+  idea: finite_relation_properties (relations, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/finite_relation_properties
+  instruction: |-
+    Author a new task from scratch: finite_relation_properties.
+
+    Given a finite relation, output which of reflexive, symmetric, antisymmetric, and transitive hold.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a relations setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/finite_relation_properties
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/finite_relation_properties
+- id: T025
+  hypothesis: W1-025
+  idea: poset_cover_query (relations, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/poset_cover_query
+  instruction: |-
+    Author a new task from scratch: poset_cover_query.
+
+    Given a finite partial order, output the elements covering a queried element.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a relations setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/poset_cover_query
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/poset_cover_query
+- id: T026
+  hypothesis: W1-026
+  idea: lattice_join_meet (relations, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/lattice_join_meet
+  instruction: |-
+    Author a new task from scratch: lattice_join_meet.
+
+    Given a finite lattice and two elements, output their join and meet.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a relations setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/lattice_join_meet
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/lattice_join_meet
+- id: T027
+  hypothesis: W1-027
+  idea: fd_attribute_closure (database, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/fd_attribute_closure
+  instruction: |-
+    Author a new task from scratch: fd_attribute_closure.
+
+    Given functional dependencies and attributes, output their attribute closure.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/fd_attribute_closure
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/fd_attribute_closure
+- id: T028
+  hypothesis: W1-028
+  idea: candidate_key_minimality (database, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/candidate_key_minimality
+  instruction: |-
+    Author a new task from scratch: candidate_key_minimality.
+
+    Classify an attribute set as non-superkey, nonminimal superkey, or candidate key.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/candidate_key_minimality
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/candidate_key_minimality
+- id: T029
+  hypothesis: W1-029
+  idea: bcnf_violation (database, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/bcnf_violation
+  instruction: |-
+    Author a new task from scratch: bcnf_violation.
+
+    Given a schema and dependencies, output the first canonical BCNF violation or None.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/bcnf_violation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/bcnf_violation
+- id: T030
+  hypothesis: W1-030
+  idea: lossless_binary_decomposition (database, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/lossless_binary_decomposition
+  instruction: |-
+    Author a new task from scratch: lossless_binary_decomposition.
+
+    Given dependencies and a binary schema decomposition, answer whether it is lossless.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/lossless_binary_decomposition
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/lossless_binary_decomposition
+- id: T031
+  hypothesis: W1-031
+  idea: conflict_serializability (database, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/conflict_serializability
+  instruction: |-
+    Author a new task from scratch: conflict_serializability.
+
+    Given a transaction schedule, determine conflict serializability and give the unique serial order if one exists.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/conflict_serializability
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/conflict_serializability
+- id: T032
+  hypothesis: W1-032
+  idea: schedule_recoverability (database, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/schedule_recoverability
+  instruction: |-
+    Author a new task from scratch: schedule_recoverability.
+
+    Classify a schedule as strict, cascadeless, recoverable-only, or unrecoverable.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/schedule_recoverability
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/schedule_recoverability
+- id: T033
+  hypothesis: W1-033
+  idea: mvcc_visibility (database, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/mvcc_visibility
+  instruction: |-
+    Author a new task from scratch: mvcc_visibility.
+
+    Given transaction timestamps and row versions, output the version visible to a queried snapshot.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/mvcc_visibility
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/mvcc_visibility
+- id: T034
+  hypothesis: W1-034
+  idea: two_phase_lock_blocker (database, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/two_phase_lock_blocker
+  instruction: |-
+    Author a new task from scratch: two_phase_lock_blocker.
+
+    Given lock requests under strict 2PL, output the transaction blocking a queried request or None.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a database setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/two_phase_lock_blocker
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/two_phase_lock_blocker
+- id: T035
+  hypothesis: W1-035
+  idea: lamport_clock (distributed, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/lamport_clock
+  instruction: |-
+    Author a new task from scratch: lamport_clock.
+
+    Given local events and message edges, output the Lamport timestamp of a queried event.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/lamport_clock
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/lamport_clock
+- id: T036
+  hypothesis: W1-036
+  idea: vector_clock_order (distributed, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/vector_clock_order
+  instruction: |-
+    Author a new task from scratch: vector_clock_order.
+
+    Given two vector timestamps, classify them as before, after, equal, or concurrent.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/vector_clock_order
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/vector_clock_order
+- id: T037
+  hypothesis: W1-037
+  idea: consistent_distributed_cut (distributed, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/consistent_distributed_cut
+  instruction: |-
+    Author a new task from scratch: consistent_distributed_cut.
+
+    Given process prefixes and message edges, answer whether the selected global cut is consistent.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/consistent_distributed_cut
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/consistent_distributed_cut
+- id: T038
+  hypothesis: W1-038
+  idea: linearizability_check (distributed, exhaustive_small verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/linearizability_check
+  instruction: |-
+    Author a new task from scratch: linearizability_check.
+
+    Given a small concurrent history and sequential specification, answer whether the history is linearizable.
+
+    Compute the answer by exhaustive search at the sizes you generate; that result is the gold. The search must run to completion -- one that hits a cap and gives up must REJECT the instance, never accept it.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/linearizability_check
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/linearizability_check
+- id: T039
+  hypothesis: W1-039
+  idea: wait_for_deadlock (distributed, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/wait_for_deadlock
+  instruction: |-
+    Author a new task from scratch: wait_for_deadlock.
+
+    Given a wait-for graph, output the transactions participating in deadlock cycles.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/wait_for_deadlock
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/wait_for_deadlock
+- id: T040
+  hypothesis: W1-040
+  idea: quorum_intersection (distributed, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/quorum_intersection
+  instruction: |-
+    Author a new task from scratch: quorum_intersection.
+
+    Given replica and quorum sizes, answer whether every read quorum must intersect every write quorum.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/quorum_intersection
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/quorum_intersection
+- id: T041
+  hypothesis: W1-041
+  idea: paxos_chosen_value (distributed, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/paxos_chosen_value
+  instruction: |-
+    Author a new task from scratch: paxos_chosen_value.
+
+    Given acceptor votes for numbered proposals, output the value already chosen or None.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/paxos_chosen_value
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/paxos_chosen_value
+- id: T042
+  hypothesis: W1-042
+  idea: raft_vote_eligibility (distributed, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/raft_vote_eligibility
+  instruction: |-
+    Author a new task from scratch: raft_vote_eligibility.
+
+    Given candidate and voter terms plus log metadata, answer whether the voter may grant the vote.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a distributed setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/raft_vote_eligibility
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/raft_vote_eligibility
+- id: T043
+  hypothesis: W1-043
+  idea: virtual_address_translation (systems, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/virtual_address_translation
+  instruction: |-
+    Author a new task from scratch: virtual_address_translation.
+
+    Given page tables and a virtual address, output the physical address or page fault.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a systems setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/virtual_address_translation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/virtual_address_translation
+- id: T044
+  hypothesis: W1-044
+  idea: set_associative_cache (systems, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/set_associative_cache
+  instruction: |-
+    Author a new task from scratch: set_associative_cache.
+
+    Given cache state and an access, output hit or miss and the affected way.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a systems setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/set_associative_cache
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/set_associative_cache
+- id: T045
+  hypothesis: W1-045
+  idea: clock_page_replacement (systems, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/clock_page_replacement
+  instruction: |-
+    Author a new task from scratch: clock_page_replacement.
+
+    Given Clock replacement state and a page fault, output the frame chosen for eviction.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a systems setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/clock_page_replacement
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/clock_page_replacement
+- id: T046
+  hypothesis: W1-046
+  idea: longest_prefix_route (network, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/longest_prefix_route
+  instruction: |-
+    Author a new task from scratch: longest_prefix_route.
+
+    Given bit-prefix routes and a destination bitstring, output the selected next hop.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a network setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/longest_prefix_route
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/longest_prefix_route
+- id: T047
+  hypothesis: W1-047
+  idea: unix_mode_permission (security, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/unix_mode_permission
+  instruction: |-
+    Author a new task from scratch: unix_mode_permission.
+
+    Given Unix mode metadata and user identity, answer whether a requested access is permitted.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a security setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/unix_mode_permission
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/unix_mode_permission
+- id: T048
+  hypothesis: W1-048
+  idea: posix_acl_permission (security, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/posix_acl_permission
+  instruction: |-
+    Author a new task from scratch: posix_acl_permission.
+
+    Given POSIX ACL entries, mask, ownership, and groups, output the effective permission set.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a security setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/posix_acl_permission
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/posix_acl_permission
+- id: T049
+  hypothesis: W1-049
+  idea: buddy_allocator (systems, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/buddy_allocator
+  instruction: |-
+    Author a new task from scratch: buddy_allocator.
+
+    Apply one allocation or free to a buddy allocator and output the canonical free-block sizes.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a systems setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/buddy_allocator
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/buddy_allocator
+- id: T050
+  hypothesis: W1-050
+  idea: round_robin_completion (systems, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/round_robin_completion
+  instruction: |-
+    Author a new task from scratch: round_robin_completion.
+
+    Given arrivals, burst lengths, and quantum, output process completion order under Round Robin.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a systems setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/round_robin_completion
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/round_robin_completion
+- id: T051
+  hypothesis: W1-051
+  idea: bgp_best_path (network, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/bgp_best_path
+  instruction: |-
+    Author a new task from scratch: bgp_best_path.
+
+    Given BGP route attributes, output the route selected by a stated best-path rule sequence.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a network setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/bgp_best_path
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/bgp_best_path
+- id: T052
+  hypothesis: W1-052
+  idea: firewall_rule_shadowing (security, exhaustive_small verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/firewall_rule_shadowing
+  instruction: |-
+    Author a new task from scratch: firewall_rule_shadowing.
+
+    Given ordered finite-domain firewall rules, output the first fully shadowed rule or None.
+
+    Compute the answer by exhaustive search at the sizes you generate; that result is the gold. The search must run to completion -- one that hits a cap and gives up must REJECT the instance, never accept it.
+
+    Write the prompt as prose someone in a security setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/firewall_rule_shadowing
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/firewall_rule_shadowing
+- id: T053
+  hypothesis: W1-053
+  idea: lexical_scope_resolution (static_semantics, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/lexical_scope_resolution
+  instruction: |-
+    Author a new task from scratch: lexical_scope_resolution.
+
+    Given nested scopes and declarations, output the declaration bound to a queried identifier occurrence.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/lexical_scope_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/lexical_scope_resolution
+- id: T054
+  hypothesis: W1-054
+  idea: c3_linearization (static_semantics, python_mro verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/c3_linearization
+  instruction: |-
+    Author a new task from scratch: c3_linearization.
+
+    Given a multiple-inheritance DAG, output the C3 method-resolution order of a queried class.
+
+    Compute the answer with Python's own MRO (build the classes with type()), and cross-check it against a direct C3 linearization you write yourself.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/c3_linearization
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/c3_linearization
+- id: T055
+  hypothesis: W1-055
+  idea: nominal_subtyping (static_semantics, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/nominal_subtyping
+  instruction: |-
+    Author a new task from scratch: nominal_subtyping.
+
+    Given a nominal type hierarchy, answer whether one type is a subtype of another.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/nominal_subtyping
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/nominal_subtyping
+- id: T056
+  hypothesis: W1-056
+  idea: generic_variance_subtyping (static_semantics, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/generic_variance_subtyping
+  instruction: |-
+    Author a new task from scratch: generic_variance_subtyping.
+
+    Given variance declarations and ground types, answer a parameterized subtype query.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/generic_variance_subtyping
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/generic_variance_subtyping
+- id: T057
+  hypothesis: W1-057
+  idea: overload_resolution (static_semantics, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/overload_resolution
+  instruction: |-
+    Author a new task from scratch: overload_resolution.
+
+    Given overload signatures and argument types, output the unique most-specific applicable overload or Ambiguous.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/overload_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/overload_resolution
+- id: T058
+  hypothesis: W1-058
+  idea: struct_layout_alignment (static_semantics, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/struct_layout_alignment
+  instruction: |-
+    Author a new task from scratch: struct_layout_alignment.
+
+    Given field sizes, alignments, and ABI rules, output a field offset or total struct size.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/struct_layout_alignment
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/struct_layout_alignment
+- id: T059
+  hypothesis: W1-059
+  idea: virtual_method_dispatch (static_semantics, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/virtual_method_dispatch
+  instruction: |-
+    Author a new task from scratch: virtual_method_dispatch.
+
+    Given hierarchy, overrides, and runtime class, output the method definition that is invoked.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/virtual_method_dispatch
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/virtual_method_dispatch
+- id: T060
+  hypothesis: W1-060
+  idea: pattern_match_exhaustiveness (static_semantics, exhaustive_small verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/pattern_match_exhaustiveness
+  instruction: |-
+    Author a new task from scratch: pattern_match_exhaustiveness.
+
+    Given a finite algebraic datatype and pattern clauses, answer whether all constructors are covered.
+
+    Compute the answer by exhaustive search at the sizes you generate; that result is the gold. The search must run to completion -- one that hits a cap and gives up must REJECT the instance, never accept it.
+
+    Write the prompt as prose someone in a static semantics setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/pattern_match_exhaustiveness
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/pattern_match_exhaustiveness
+- id: T061
+  hypothesis: W1-061
+  idea: borda_winner (social_choice, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/borda_winner
+  instruction: |-
+    Author a new task from scratch: borda_winner.
+
+    Given ranked ballots, output the Borda winner with deterministic tie-breaking.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a social choice setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/borda_winner
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/borda_winner
+- id: T062
+  hypothesis: W1-062
+  idea: instant_runoff_winner (social_choice, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/instant_runoff_winner
+  instruction: |-
+    Author a new task from scratch: instant_runoff_winner.
+
+    Given ranked ballots, execute instant-runoff elimination and output the winner.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a social choice setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/instant_runoff_winner
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/instant_runoff_winner
+- id: T063
+  hypothesis: W1-063
+  idea: condorcet_winner (social_choice, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/condorcet_winner
+  instruction: |-
+    Author a new task from scratch: condorcet_winner.
+
+    Given ranked ballots, output the Condorcet winner or None.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a social choice setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/condorcet_winner
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/condorcet_winner
+- id: T064
+  hypothesis: W1-064
+  idea: dhondt_apportionment (social_choice, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/dhondt_apportionment
+  instruction: |-
+    Author a new task from scratch: dhondt_apportionment.
+
+    Given party vote totals and seat count, output the final D'Hondt seat vector.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a social choice setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/dhondt_apportionment
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/dhondt_apportionment
+- id: T065
+  hypothesis: W1-065
+  idea: approval_voting_winner (social_choice, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/approval_voting_winner
+  instruction: |-
+    Author a new task from scratch: approval_voting_winner.
+
+    Given approval ballots, output the winner with deterministic tie-breaking.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a social choice setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/approval_voting_winner
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/approval_voting_winner
+- id: T066
+  hypothesis: W1-066
+  idea: top_trading_cycles (allocation, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/top_trading_cycles
+  instruction: |-
+    Author a new task from scratch: top_trading_cycles.
+
+    Given agents, owned items, and strict preferences, output the item assigned to a queried agent.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a allocation setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/top_trading_cycles
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/top_trading_cycles
+- id: T067
+  hypothesis: W1-067
+  idea: canonical_huffman_code (coding, heapq verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/canonical_huffman_code
+  instruction: |-
+    Author a new task from scratch: canonical_huffman_code.
+
+    Given symbol frequencies, build a tie-broken Huffman tree and output one symbol's canonical codeword.
+
+    Compute the answer with heapq, and cross-check it against a straightforward sorted-list simulation.
+
+    Write the prompt as prose someone in a coding setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/canonical_huffman_code
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/canonical_huffman_code
+- id: T068
+  hypothesis: W1-068
+  idea: crc_remainder (coding, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/crc_remainder
+  instruction: |-
+    Author a new task from scratch: crc_remainder.
+
+    Given a bitstring and generator polynomial, output the CRC remainder.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a coding setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/crc_remainder
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/crc_remainder
+- id: T069
+  hypothesis: W1-069
+  idea: kraft_feasibility (coding, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/kraft_feasibility
+  instruction: |-
+    Author a new task from scratch: kraft_feasibility.
+
+    Given prefix-code word lengths, answer whether they satisfy Kraft's inequality.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a coding setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/kraft_feasibility
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/kraft_feasibility
+- id: T070
+  hypothesis: W1-070
+  idea: prefix_code_decode (coding, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/prefix_code_decode
+  instruction: |-
+    Author a new task from scratch: prefix_code_decode.
+
+    Given a prefix-free codebook and bitstream, output the decoded symbol sequence.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a coding setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/prefix_code_decode
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/prefix_code_decode
+- id: T071
+  hypothesis: W1-071
+  idea: suffix_array_rank (string_algorithm, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/suffix_array_rank
+  instruction: |-
+    Author a new task from scratch: suffix_array_rank.
+
+    Given a string and suffix start index, output that suffix's rank in the suffix array.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a string algorithm setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/suffix_array_rank
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/suffix_array_rank
+- id: T072
+  hypothesis: W1-072
+  idea: kmp_prefix_value (string_algorithm, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/kmp_prefix_value
+  instruction: |-
+    Author a new task from scratch: kmp_prefix_value.
+
+    Given a pattern and position, output the KMP prefix-function value at that position.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a string algorithm setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/kmp_prefix_value
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/kmp_prefix_value
+- id: T073
+  hypothesis: W1-073
+  idea: dimensional_consistency (measurement, sympy_or_vectors verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/dimensional_consistency
+  instruction: |-
+    Author a new task from scratch: dimensional_consistency.
+
+    Given dimensions for variables and an equation, answer whether the equation is dimensionally valid.
+
+    Compute the answer with sympy, and cross-check it inside generate_entry with an independent numeric evaluation.
+
+    Write the prompt as prose someone in a measurement setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/dimensional_consistency
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/dimensional_consistency
+- id: T074
+  hypothesis: W1-074
+  idea: missing_dimension (measurement, sympy_or_vectors verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/missing_dimension
+  instruction: |-
+    Author a new task from scratch: missing_dimension.
+
+    Given a valid formula with one unknown quantity dimension, output its base-dimension exponent vector.
+
+    Compute the answer with sympy, and cross-check it inside generate_entry with an independent numeric evaluation.
+
+    Write the prompt as prose someone in a measurement setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/missing_dimension
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/missing_dimension
+- id: T075
+  hypothesis: W1-075
+  idea: gregorian_weekday (calendar, datetime verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/gregorian_weekday
+  instruction: |-
+    Author a new task from scratch: gregorian_weekday.
+
+    Given a valid Gregorian date, output its weekday.
+
+    Compute the answer with datetime/zoneinfo, and cross-check it against a day-by-day walk.
+
+    Write the prompt as prose someone in a calendar setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/gregorian_weekday
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/gregorian_weekday
+- id: T076
+  hypothesis: W1-076
+  idea: cron_next_fire (calendar, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/cron_next_fire
+  instruction: |-
+    Author a new task from scratch: cron_next_fire.
+
+    Given a restricted numeric cron expression and timestamp, output the next matching timestamp.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a calendar setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/cron_next_fire
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/cron_next_fire
+- id: T077
+  hypothesis: W1-077
+  idea: petri_enabled_transitions (resource_system, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/petri_enabled_transitions
+  instruction: |-
+    Author a new task from scratch: petri_enabled_transitions.
+
+    Given a Petri-net marking and weighted arcs, output all currently enabled transitions.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a resource system setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/petri_enabled_transitions
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/petri_enabled_transitions
+- id: T078
+  hypothesis: W1-078
+  idea: petri_conflict_pair (resource_system, reference verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/petri_conflict_pair
+  instruction: |-
+    Author a new task from scratch: petri_conflict_pair.
+
+    Output the canonical pair of individually enabled transitions that compete for insufficient shared tokens, or None.
+
+    Compute the answer with a short reference implementation of the standard algorithm, and assert the defining property of the result independently inside generate_entry.
+
+    Write the prompt as prose someone in a resource system setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/petri_conflict_pair
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/petri_conflict_pair
+- id: T079
+  hypothesis: W1-079
+  idea: incremental_build_rebuild_set (dependency_system, networkx verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/incremental_build_rebuild_set
+  instruction: |-
+    Author a new task from scratch: incremental_build_rebuild_set.
+
+    Given a build dependency DAG and changed sources, output all targets that must rebuild.
+
+    Compute the answer with networkx (a declared dependency), then cross-check it inside generate_entry against a short independent implementation.
+
+    Write the prompt as prose someone in a dependency system setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/incremental_build_rebuild_set
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/incremental_build_rebuild_set
+- id: T080
+  hypothesis: W1-080
+  idea: semantic_version_precedence (software_protocol, packaging verifier)
+  changes: new task in reasoning_core/tasks/generated/wave7/semantic_version_precedence
+  instruction: |-
+    Author a new task from scratch: semantic_version_precedence.
+
+    Given two SemVer strings, output which has higher precedence or equal.
+
+    Compute the answer with packaging.version/specifiers, and cross-check it against a direct comparison you write yourself.
+
+    Write the prompt as prose someone in a software protocol setting would actually write, not a symbolic dump with a question mark on the end. State the exact answer format in the prompt, with a worked example of the format. Where more than one answer could legitimately be written for the same instance, name the tie-break in the prompt and enforce exactly it in score_answer.
+
+    WAVE7_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave7/semantic_version_precedence
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave7/semantic_version_precedence
