@@ -549,7 +549,7 @@ def test_paired_influence_uses_one_arm_runner_and_resets_weights(monkeypatch):
         def load_state_dict(self, state):
             seen.append(("reset", state["weight"]))
 
-    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None, optimizer_state=None):
         seen.append((spec.arm_id, dataset))
         return None, {
             "nll": 2.0 if spec.arm_id == "baseline" else 1.5,
@@ -581,7 +581,7 @@ def test_influence_evaluates_shared_initial_and_each_arm_endpoint(monkeypatch):
         def load_state_dict(self, state):
             self.weight = state["weight"]
 
-    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None, optimizer_state=None):
         model.weight += dataset
         return None, {"reward": evaluate(model)["reward"]}
 
@@ -609,7 +609,7 @@ def test_influence_can_evaluate_reward_only_on_treatment(monkeypatch):
         def load_state_dict(self, state):
             self.weight = state["weight"]
 
-    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None, optimizer_state=None):
         model.weight += dataset
         metrics = {"nll": float(model.weight)}
         if evaluate:
@@ -729,7 +729,7 @@ def test_influence_passes_versioned_callbacks_to_treatment(monkeypatch):
         def load_state_dict(self, state):
             pass
 
-    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None, callbacks=()):
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None, callbacks=(), optimizer_state=None):
         seen.append((spec.arm_id, callbacks))
         return None, {"nll": 1.0}
 
@@ -765,7 +765,7 @@ def test_paired_influence_clones_a_shallow_torch_state_dict(monkeypatch):
         model.weight.zero_()
     starts = []
 
-    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None):
+    def fake_run_arm(model, tokenizer, dataset, spec, evaluate=None, optimizer_state=None):
         starts.append(model.weight.item())
         with torch.no_grad():
             model.weight.add_(1)
