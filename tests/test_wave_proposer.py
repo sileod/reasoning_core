@@ -6,7 +6,7 @@ import yaml
 
 from reasoning_core.task_search.wave_proposer import (
     CatalogEntry,
-    NvidiaNIM,
+    ChatClient,
     _extract_json,
     build_catalog,
     catalog_record,
@@ -25,36 +25,8 @@ ROOT = Path(__file__).parents[1]
 def proposal(name="fresh_operation"):
     return {
         "name": name,
-        "family": "relations",
-        "semantic_signature": "propagate signed constraints and output the queried parity",
-        "learning": {
-            "cognitive_operation": "compose signed constraints along interacting paths",
-            "trained_behavior": "track parity without copying a surface label",
-            "transfer_targets": ["constraint propagation", "consistency checking"],
-        },
-        "data": {
-            "instance_family": "connected signed relation graphs with a queried pair",
-            "structural_variation": ["cycles", "path overlap", "irrelevant branches"],
-            "difficulty": {"level_0": "one short path", "progression": "more overlapping paths",
-                           "level_5": "several cycles and distractor branches"},
-            "prompt_contract": "all signed edges and the queried pair are explicit",
-            "answer": {"type": "string", "canonicalization": "same or opposite"},
-            "balancing": "sample the queried parity uniformly",
-        },
-        "oracle": {
-            "method": "union-find with parity", "library": None,
-            "independent_check": "enumerate assignments for the small generated graph",
-            "invariants": ["the graph is consistent", "the query is connected"],
-        },
-        "quality": {
-            "why_sft": "each target reinforces multi-hop signed composition",
-            "shortcut_risks": ["guessing the last sign", "using path length alone"],
-            "novelty_claim": "requires parity composition across redundant paths",
-        },
-        "demonstration": {
-            "prompt": "A is same as B. B is opposite C. What is A relative to C?",
-            "answer": "opposite",
-        },
+        "summary": ("Propagate signed relation constraints across cycles and overlapping"
+                    " paths, answering the queried pair's parity."),
     }
 
 
@@ -101,16 +73,24 @@ def test_closest_entries_uses_signature_not_only_name():
     assert closest_entries(proposal(), catalog, limit=1)[0].entry_id == "old:parity"
 
 
-def test_proposal_shape_is_sft_first_and_strict():
+def test_a_proposal_is_a_name_and_a_coverage_summary():
     assert proposal_problems(proposal()) == []
 
-    broken = proposal()
-    broken["data"]["structural_variation"] = ["size only"]
-    broken["data"]["answer"]["type"] = "float"
-    problems = proposal_problems(broken)
+    assert proposal_problems({"name": "Bad Name", "summary": proposal()["summary"]}) == [
+        "name must be canonical snake_case"]
+    assert proposal_problems({"name": "ok_task", "summary": "sorts a list"}) == [
+        "summary must be 40-240 characters"]
+    assert proposal_problems({"name": "ok_task", "summary": "x " * 40}) == [
+        "summary must be one trimmed line"]
 
-    assert any("structural_variation" in problem for problem in problems)
-    assert any("answer.type" in problem for problem in problems)
+
+def test_a_proposal_may_not_smuggle_back_the_old_boilerplate():
+    """Difficulty ladders are a library-wide choice, not a per-proposal one."""
+    noisy = proposal()
+    noisy["data"] = {"difficulty": {"level_0": "one path"}}
+    noisy["demonstration"] = {"prompt": "...", "answer": "..."}
+
+    assert proposal_problems(noisy) == ["unexpected keys: data, demonstration"]
 
 
 def test_proposer_rejects_exact_catalog_collision_then_accepts_critic_novelty():
@@ -210,7 +190,7 @@ def test_check_proposals_reports_a_missing_archive(tmp_path):
         f"proposal wave does not exist: {tmp_path / 'missing.yaml'}"]
 
 
-def test_nim_client_polls_a_pending_kimi_request(monkeypatch):
+def test_client_polls_a_pending_asynchronous_request(monkeypatch):
     class Response:
         def __init__(self, status, payload):
             self.status_code = status
@@ -236,7 +216,7 @@ def test_nim_client_polls_a_pending_kimi_request(monkeypatch):
         return finished
 
     monkeypatch.setattr("requests.get", get)
-    client = NvidiaNIM(api_key="secret", timeout=10)
+    client = ChatClient(api_key="secret", timeout=10)
 
     assert client.json("test", "system", "user") == {"proposals": []}
     assert observed["url"] == "https://integrate.api.nvidia.com/v1/status/abc"

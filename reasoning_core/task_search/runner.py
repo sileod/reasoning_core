@@ -85,11 +85,46 @@ def generation_metadata(
     }
 
 
+# Every env prefix a worker has been observed to type in front of a command the
+# harness itself prescribed. Matching is prefix-anchored, so each spelling is a
+# separate pattern or it is a denial.
+_ENV_PREFIXES = (
+    "",
+    "PYTHONDONTWRITEBYTECODE=1 ",
+    "PYTHONPATH=. ",
+    "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. ",
+)
+
+
+def _spellings(command, owned_path):
+    """The patterns that allow one prescribed command however the worker writes it.
+
+    Two things vary and neither changes what the command does: the env prefix, and the
+    flags after the owned path. Both were costing whole trials -- wave7's T008 declared
+    itself finished with its prior_audit never run, because every spelling of it that the
+    worker tried was denied. Truncating at the owned path keeps the wildcard from
+    widening the command to a different target.
+    """
+    body = command
+    for prefix in sorted(_ENV_PREFIXES, key=len, reverse=True):
+        if prefix and body.startswith(prefix):
+            body = body[len(prefix):]
+            break
+    heads = [body, body + "*"]
+    cut = body.find(owned_path)
+    if cut >= 0:
+        heads.append(body[: cut + len(owned_path)] + "*")
+    return [prefix + head for prefix in _ENV_PREFIXES for head in heads]
+
+
 def opencode_permissions(trial):
     bash = {
         "*": "deny",
         "git status*": "allow",
         "git diff*": "allow",
+        # Read-only history. Denying it wasted turns and it exposes no file content
+        # that the already-allowed read tool does not.
+        "git log*": "allow",
         "python -c *": "allow",
         "PYTHONDONTWRITEBYTECODE=1 python -c *": "allow",
         # The same call the two above already allow, with the env prefix workers
@@ -104,14 +139,13 @@ def opencode_permissions(trial):
         "cd *": "allow",
         "mkdir *": "allow",
     }
-    # Trailing "*" so added flags and pipes still match the allowed command.
     for command in list(trial.validation) + [
         _sample_command(trial),
         _selfcheck_command(trial),
         _prior_audit_command(trial),
     ]:
-        bash[command] = "allow"
-        bash[command + "*"] = "allow"
+        for pattern in _spellings(command, trial.owned_path):
+            bash[pattern] = "allow"
     permissions = {
         "read": {"*": "allow", "*.env": "deny", "*.env.*": "deny"},
         "glob": "allow",

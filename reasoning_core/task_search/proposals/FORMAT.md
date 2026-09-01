@@ -12,14 +12,18 @@ export NVIDIA_API_KEY=...
 python -m reasoning_core.task_search propose sft-wave-1 --count 12
 ```
 
-The default model is NVIDIA NIM's free `moonshotai/kimi-k3` endpoint. The proposer
+The default model is NVIDIA NIM's free `moonshotai/kimi-k3` endpoint, because it is a
+large model on a free tier. Any OpenAI-compatible endpoint works through `--endpoint`,
+`--model` and `--api-key-env`; pass `--reasoning-effort none` for endpoints that reject
+unknown request fields. The proposer
 makes one creative call and one independent critic call per round. It first rejects
 exact name collisions locally, then asks the critic to compare every candidate with a
 catalog assembled from:
 
 - shipped `Task` and `DevTask` classes;
 - the descriptions in `GALLERY.md`;
-- every executable `task_search/wave*.yaml` plan;
+- every executable `task_search/wave*.yaml` plan (retired plans in `.legacy/` are not
+  scanned: an idea that still matters lives on as a task or as a proposal);
 - every prior proposal wave in `proposals/archive/`.
 
 The catalog hash and model-call hashes are stored in the wave. A previous proposal is
@@ -46,7 +50,7 @@ catalog:
   entries: 245
   sources: {gallery: 65, plan: 110, proposal: 20, task: 70}
 generation:
-  provider: nvidia-nim
+  provider: integrate.nvidia     # derived from the endpoint host
   model: moonshotai/kimi-k3
   endpoint: https://integrate.api.nvidia.com/v1/chat/completions
   seed: 0
@@ -57,62 +61,77 @@ proposals: []
 rejected: []
 ```
 
-Each proposal is deliberately SFT-oriented:
+A proposal is a name and a coverage summary, and nothing else:
 
 ```yaml
 - id: P001
   name: canonical_snake_case_name
-  family: graph
-  semantic_signature: execute one precise cognitive operation and name its output
-  learning:
-    cognitive_operation: the operation a student must execute
-    trained_behavior: what predicting the answer should reinforce
-    transfer_targets: [two nearby abilities that should benefit]
-  data:
-    instance_family: how structurally varied instances are sampled
-    structural_variation: [three independent structural axes]
-    difficulty:
-      level_0: the simplest diverse case
-      progression: the structural quantity that grows
-      level_5: the deep case, not merely a longer prompt
-    prompt_contract: all information needed to determine one answer
-    answer:
-      type: integer          # boolean, integer, fraction, string, list, or tuple
-      canonicalization: the exact canonical representation
-    balancing: how answer priors and structural regimes stay broad
-  oracle:
-    method: the trusted solver or concise reference algorithm
-    library: networkx        # null when no external solver is appropriate
-    independent_check: a genuinely different correctness check
-    invariants: [at least two domain or construction invariants]
-  quality:
-    why_sft: why these prompt/answer pairs provide useful gradient signal
-    shortcut_risks: [at least two lazy strategies and how generation defeats them]
-    novelty_claim: the substantive capability absent from the known catalog
-  demonstration:
-    prompt: one short, fully specified example
-    answer: one canonical target
+  summary: >-
+    one packed line: the distinct problem modes, the operations or input families they
+    range over, and what the answer is
   novelty:
     verdict: novel
     nearest_neighbors:
       - id: gallery:graph_pathfinding
         relationship: adjacent
         overlap: both execute graph algorithms, but the state transition differs
-      - id: plan:wave7:T006
-        relationship: different
-        overlap: both use repeated graph updates
       - id: task:graph_operations:GraphSuccessors
         relationship: different
         overlap: both query a graph-local result
+      - id: proposal:wave0:P014
+        relationship: different
+        overlap: both walk a directed structure
     substantive_difference: why this is not a rename or parameter change
     scores: {novelty: 5, sft_value: 4, feasibility: 5, clarity: 4}
     reason: critic summary
 ```
 
-Proposal validation checks shape, canonical answer types, snake-case names, non-empty
-curricula, structural axes, invariants, shortcut analysis, and demonstrations. It does
-not pretend to prove task quality. The novelty critic rejects `duplicate` and `variant`
-ideas; human review should still precede compilation into an executable wave.
+The summary is the same object a shipped task carries in its class `summary`, so a
+proposal, a catalog entry and a finished task all speak one language and a proposal can
+be compared against the library without importing anything.
+
+Everything the schema used to demand -- difficulty ladders, prompt contracts, answer
+types, oracle libraries, worked demonstrations -- is gone on purpose. Difficulty scaling
+is a library-wide convention, not a per-task invention, and the rest are decisions an
+implementor makes better while looking at real generated instances than a proposer makes
+on paper. Emitting them per proposal produced pages that read the same every time and
+froze choices nobody had evidence for. Unknown keys are now a validation error, so a
+proposer that keeps writing them is told rather than silently trimmed.
+
+Validation checks the name is canonical snake case and the summary is one trimmed line of
+40-240 characters that says what is generated and what is answered. It does not pretend to
+prove task quality. The novelty critic rejects `duplicate` and `variant` ideas; human
+review should still precede compilation into an executable plan.
+
+## From proposals to a wave
+
+```bash
+python -m reasoning_core.task_search plan proposals/archive/wave0.yaml \
+  --name wave8 --variants 2
+```
+
+One proposal becomes `--variants` independent trials with the identical instruction. The
+runner derives each trial's seed from `sha256(base_seed:trial_id)`, so the draws differ in
+sampling rather than in brief, and validation says which of them actually worked. That is
+the point of keeping proposals thin: a one-line summary does not determine an
+implementation, so the wave runs several and keeps what survives.
+
+`--base-ref` is resolved to a concrete commit when the plan is written, and the plan name
+must be a lowercase Python identifier because it becomes a package directory under
+`reasoning_core/tasks/generated/`.
+
+## wave0, the reference wave
+
+```bash
+python -m reasoning_core.task_search import-legacy
+```
+
+`wave0` is the 80 hand-written candidates from `WAVE1.md`, imported with no model calls:
+their descriptions were already one-line coverage specs. It exists to be beaten. A model
+wave and the hand-written wave go through identical plan generation, identical validation
+and identical scoring, so "the proposer earns its calls" is a measurable claim rather than
+an assumption. Imported proposals carry `novelty.source: legacy` and no scores, because no
+critic ever reviewed them.
 
 If bounded generation rounds produce fewer accepted ideas than requested, the archive is
 still written with `objective.complete: false` and the command exits 2. This preserves

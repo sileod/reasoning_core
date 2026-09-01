@@ -4,12 +4,20 @@ import argparse
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 from .implementor_prompt import DEFAULT_PACE, PACE, render_implementor_prompt
+from .legacy import LEGACY_SOURCE
+from .wave_proposer import DEFAULT_API_KEY_ENV, DEFAULT_ENDPOINT, DEFAULT_MODEL
 from .plan import _frozen_module_drift, _plan_problems, load_plan
 from .runner import _repo_root, run_plan
 from .sandbox import _write_json
+
+
+def _archive_path(repo_root, name):
+    return (repo_root / "reasoning_core" / "task_search" / "proposals" / "archive"
+            / f"{name}.yaml")
 
 
 def _parser():
@@ -27,15 +35,16 @@ def _parser():
     propose.add_argument("name")
     propose.add_argument("--count", type=int, default=12)
     propose.add_argument("--output")
-    propose.add_argument("--model", default="moonshotai/kimi-k3")
-    propose.add_argument(
-        "--endpoint", default="https://integrate.api.nvidia.com/v1/chat/completions"
-    )
-    propose.add_argument("--api-key-env", default="NVIDIA_API_KEY")
+    propose.add_argument("--model", default=DEFAULT_MODEL)
+    propose.add_argument("--endpoint", default=DEFAULT_ENDPOINT)
+    propose.add_argument("--api-key-env", default=DEFAULT_API_KEY_ENV)
     propose.add_argument("--seed", type=int, default=0)
     propose.add_argument("--temperature", type=float, default=1.0)
     propose.add_argument(
-        "--reasoning-effort", choices=("low", "high", "max"), default="max"
+        "--reasoning-effort",
+        choices=("low", "high", "max", "none"),
+        default="max",
+        help="none omits the field, for endpoints that reject unknown keys",
     )
     propose.add_argument("--rounds", type=int, default=3)
     propose.add_argument("--max-catalog-chars", type=int, default=240000)
@@ -43,6 +52,27 @@ def _parser():
         "check-proposals", help="validate an archived SFT proposal wave"
     )
     proposal_check.add_argument("proposal_wave")
+    legacy = subparsers.add_parser(
+        "import-legacy",
+        help="archive the hand-written candidate list as a reference proposal wave",
+    )
+    legacy.add_argument("--name", default="wave0")
+    legacy.add_argument("--source", default=LEGACY_SOURCE)
+    legacy.add_argument("--output")
+    build = subparsers.add_parser(
+        "plan", help="turn an archived proposal wave into an executable plan"
+    )
+    build.add_argument("proposal_wave")
+    build.add_argument("--name", required=True)
+    build.add_argument(
+        "--variants",
+        type=int,
+        default=1,
+        help="independent implementations to run per proposal (different seeds)",
+    )
+    build.add_argument("--base-ref", default="HEAD")
+    build.add_argument("--output")
+    build.add_argument("--context-file", action="append", default=[])
     catalog = subparsers.add_parser(
         "proposal-catalog", help="summarize the durable novelty catalog"
     )
@@ -109,25 +139,14 @@ def main(argv=None):
         from .wave_proposer import propose_wave, write_proposal_wave
 
         repo_root = _repo_root(Path.cwd())
-        output = (
-            Path(args.output)
-            if args.output
-            else repo_root
-            / "reasoning_core"
-            / "task_search"
-            / "proposals"
-            / "archive"
-            / f"{args.name}.yaml"
-        )
+        output = Path(args.output) if args.output else _archive_path(repo_root, args.name)
         if output.exists():
             raise SystemExit(
                 f"refusing to spend model calls: archive already exists: {output}"
             )
         api_key = os.environ.get(args.api_key_env)
         if not api_key:
-            raise SystemExit(
-                f"{args.api_key_env} is required for the NVIDIA NIM proposer"
-            )
+            raise SystemExit(f"{args.api_key_env} is required for the proposer")
         wave = propose_wave(
             repo_root,
             name=args.name,
@@ -137,7 +156,7 @@ def main(argv=None):
             api_key=api_key,
             seed=args.seed,
             temperature=args.temperature,
-            reasoning_effort=args.reasoning_effort,
+            reasoning_effort=None if args.reasoning_effort == "none" else args.reasoning_effort,
             rounds=args.rounds,
             max_catalog_chars=args.max_catalog_chars,
         )
@@ -153,6 +172,50 @@ def main(argv=None):
                 file=sys.stderr,
             )
             raise SystemExit(2)
+        return
+    if args.command == "import-legacy":
+        from .legacy import build_legacy_wave
+        from .wave_proposer import write_proposal_wave
+
+        repo_root = _repo_root(Path.cwd())
+        output = Path(args.output) if args.output else _archive_path(repo_root, args.name)
+        wave = build_legacy_wave(repo_root, name=args.name, source=args.source)
+        write_proposal_wave(output, wave)
+        print(
+            f"{output}: {len(wave['proposals'])} imported, "
+            f"{len(wave['rejected'])} rejected"
+        )
+        return
+    if args.command == "plan":
+        import yaml
+
+        from .plan_builder import DEFAULT_CONTEXT_FILES, build_plan, write_plan
+
+        repo_root = _repo_root(Path.cwd())
+        wave = yaml.safe_load(Path(args.proposal_wave).read_text())
+        # Resolve a moving ref now: a plan that says HEAD means a different experiment
+        # every time it is read, and base_ref is the commit every worktree is cut from.
+        base_ref = subprocess.check_output(
+            ["git", "rev-parse", f"{args.base_ref}^{{commit}}"],
+            cwd=repo_root, text=True,
+        ).strip()
+        plan = build_plan(
+            wave,
+            name=args.name,
+            base_ref=base_ref,
+            variants=args.variants,
+            context_files=tuple(args.context_file) or DEFAULT_CONTEXT_FILES,
+        )
+        output = (
+            Path(args.output)
+            if args.output
+            else repo_root / "reasoning_core" / "task_search" / f"{args.name}.yaml"
+        )
+        write_plan(output, plan)
+        print(
+            f"{output}: {len(plan['trials'])} trials from "
+            f"{len(wave['proposals'])} proposals at {base_ref[:7]}"
+        )
         return
     if args.command == "check-proposals":
         from .wave_proposer import check_proposal_file

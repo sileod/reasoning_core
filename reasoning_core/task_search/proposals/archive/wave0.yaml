@@ -1,0 +1,595 @@
+format_version: 1
+kind: sft_task_proposals
+name: wave0
+created_at: '2026-09-01T18:31:34.240182+00:00'
+objective:
+  training_stage: sft
+  requested: 80
+  accepted: 80
+  complete: true
+catalog:
+  sha256: 34dc02c6a0b0a6a8acb63a11207691010d00d7280ad3c7463e64acea55373ef4
+  entries: 257
+  sources:
+    gallery: 65
+    plan: 97
+    task: 95
+generation:
+  provider: legacy
+  source: reasoning_core/task_search/WAVE1.md
+  calls: []
+proposals:
+- name: strongly_connected_component
+  summary: Given a directed graph and node, output the sorted members of its strongly connected component.
+  id: P001
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-001
+- name: articulation_vertices
+  summary: Given an undirected graph, output all articulation vertices in sorted order.
+  id: P002
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-002
+- name: bridge_edges
+  summary: Given an undirected graph, output all bridge edges canonically.
+  id: P003
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-003
+- name: core_number
+  summary: Given an undirected graph and node, output that node's k-core number.
+  id: P004
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-004
+- name: eulerian_status
+  summary: Classify a graph as none, open Euler trail, or Euler circuit; give the canonical start if applicable.
+  id: P005
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-005
+- name: topological_generation
+  summary: Given a DAG and node, output its round under repeated zero-indegree removal.
+  id: P006
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-006
+- name: graph_planarity
+  summary: Given an undirected graph, answer whether it is planar.
+  id: P007
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-007
+- name: graph_chordality
+  summary: Given an undirected graph, answer whether every cycle of length at least four has a chord.
+  id: P008
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-008
+- name: heap_key_update
+  summary: Apply one key increase or decrease in a binary heap and output the key's final index.
+  id: P009
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-009
+- name: open_addressing_slot
+  summary: Insert keys under a stated open-addressing probe rule and output the queried key's slot.
+  id: P010
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-010
+- name: bloom_filter_membership
+  summary: Apply explicit hashes to a Bloom filter and classify a query as definitely absent or possibly
+    present.
+  id: P011
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-011
+- name: trie_unique_prefix
+  summary: Given strings, output the shortest prefix uniquely identifying the target.
+  id: P012
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-012
+- name: fenwick_prefix_nodes
+  summary: Given an index, output the Fenwick-tree indices visited by its prefix query.
+  id: P013
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-013
+- name: union_find_representative
+  summary: Execute canonical union-by-rank operations and output a queried element's representative.
+  id: P014
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-014
+- name: btree_promoted_key
+  summary: Given a small B-tree and one insertion, output the first promoted key or None.
+  id: P015
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-015
+- name: binary_search_probes
+  summary: Given a sorted array and target, output the indices probed by deterministic binary search.
+  id: P016
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-016
+- name: skip_list_search_path
+  summary: Given explicit skip-list levels and a target, output visited keys in search order.
+  id: P017
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-017
+- name: red_black_black_height
+  summary: Given a valid red-black tree and node, output its black-height.
+  id: P018
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-018
+- name: finite_group_inverse
+  summary: Given a Cayley table and element, output its inverse.
+  id: P019
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-019
+- name: finite_group_element_order
+  summary: Given a Cayley table and element, output the element's order.
+  id: P020
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-020
+- name: generated_subgroup_membership
+  summary: Given a finite group, generators, and element, answer whether it lies in the generated subgroup.
+  id: P021
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-021
+- name: left_coset_identification
+  summary: Given a subgroup and element, output the canonical sorted left coset.
+  id: P022
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-022
+- name: group_homomorphism_check
+  summary: Given two finite group tables and a mapping, answer whether the mapping is a homomorphism.
+  id: P023
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-023
+- name: finite_relation_properties
+  summary: Given a finite relation, output which of reflexive, symmetric, antisymmetric, and transitive
+    hold.
+  id: P024
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-024
+- name: poset_cover_query
+  summary: Given a finite partial order, output the elements covering a queried element.
+  id: P025
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-025
+- name: lattice_join_meet
+  summary: Given a finite lattice and two elements, output their join and meet.
+  id: P026
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-026
+- name: fd_attribute_closure
+  summary: Given functional dependencies and attributes, output their attribute closure.
+  id: P027
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-027
+- name: candidate_key_minimality
+  summary: Classify an attribute set as non-superkey, nonminimal superkey, or candidate key.
+  id: P028
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-028
+- name: bcnf_violation
+  summary: Given a schema and dependencies, output the first canonical BCNF violation or None.
+  id: P029
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-029
+- name: lossless_binary_decomposition
+  summary: Given dependencies and a binary schema decomposition, answer whether it is lossless.
+  id: P030
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-030
+- name: conflict_serializability
+  summary: Given a transaction schedule, determine conflict serializability and give the unique serial
+    order if one exists.
+  id: P031
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-031
+- name: schedule_recoverability
+  summary: Classify a schedule as strict, cascadeless, recoverable-only, or unrecoverable.
+  id: P032
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-032
+- name: mvcc_visibility
+  summary: Given transaction timestamps and row versions, output the version visible to a queried snapshot.
+  id: P033
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-033
+- name: two_phase_lock_blocker
+  summary: Given lock requests under strict 2PL, output the transaction blocking a queried request or
+    None.
+  id: P034
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-034
+- name: lamport_clock
+  summary: Given local events and message edges, output the Lamport timestamp of a queried event.
+  id: P035
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-035
+- name: vector_clock_order
+  summary: Given two vector timestamps, classify them as before, after, equal, or concurrent.
+  id: P036
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-036
+- name: consistent_distributed_cut
+  summary: Given process prefixes and message edges, answer whether the selected global cut is consistent.
+  id: P037
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-037
+- name: linearizability_check
+  summary: Given a small concurrent history and sequential specification, answer whether the history is
+    linearizable.
+  id: P038
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-038
+- name: wait_for_deadlock
+  summary: Given a wait-for graph, output the transactions participating in deadlock cycles.
+  id: P039
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-039
+- name: quorum_intersection
+  summary: Given replica and quorum sizes, answer whether every read quorum must intersect every write
+    quorum.
+  id: P040
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-040
+- name: paxos_chosen_value
+  summary: Given acceptor votes for numbered proposals, output the value already chosen or None.
+  id: P041
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-041
+- name: raft_vote_eligibility
+  summary: Given candidate and voter terms plus log metadata, answer whether the voter may grant the vote.
+  id: P042
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-042
+- name: virtual_address_translation
+  summary: Given page tables and a virtual address, output the physical address or page fault.
+  id: P043
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-043
+- name: set_associative_cache
+  summary: Given cache state and an access, output hit or miss and the affected way.
+  id: P044
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-044
+- name: clock_page_replacement
+  summary: Given Clock replacement state and a page fault, output the frame chosen for eviction.
+  id: P045
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-045
+- name: longest_prefix_route
+  summary: Given bit-prefix routes and a destination bitstring, output the selected next hop.
+  id: P046
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-046
+- name: unix_mode_permission
+  summary: Given Unix mode metadata and user identity, answer whether a requested access is permitted.
+  id: P047
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-047
+- name: posix_acl_permission
+  summary: Given POSIX ACL entries, mask, ownership, and groups, output the effective permission set.
+  id: P048
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-048
+- name: buddy_allocator
+  summary: Apply one allocation or free to a buddy allocator and output the canonical free-block sizes.
+  id: P049
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-049
+- name: round_robin_completion
+  summary: Given arrivals, burst lengths, and quantum, output process completion order under Round Robin.
+  id: P050
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-050
+- name: bgp_best_path
+  summary: Given BGP route attributes, output the route selected by a stated best-path rule sequence.
+  id: P051
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-051
+- name: firewall_rule_shadowing
+  summary: Given ordered finite-domain firewall rules, output the first fully shadowed rule or None.
+  id: P052
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-052
+- name: lexical_scope_resolution
+  summary: Given nested scopes and declarations, output the declaration bound to a queried identifier
+    occurrence.
+  id: P053
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-053
+- name: c3_linearization
+  summary: Given a multiple-inheritance DAG, output the C3 method-resolution order of a queried class.
+  id: P054
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-054
+- name: nominal_subtyping
+  summary: Given a nominal type hierarchy, answer whether one type is a subtype of another.
+  id: P055
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-055
+- name: generic_variance_subtyping
+  summary: Given variance declarations and ground types, answer a parameterized subtype query.
+  id: P056
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-056
+- name: overload_resolution
+  summary: Given overload signatures and argument types, output the unique most-specific applicable overload
+    or Ambiguous.
+  id: P057
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-057
+- name: struct_layout_alignment
+  summary: Given field sizes, alignments, and ABI rules, output a field offset or total struct size.
+  id: P058
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-058
+- name: virtual_method_dispatch
+  summary: Given hierarchy, overrides, and runtime class, output the method definition that is invoked.
+  id: P059
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-059
+- name: pattern_match_exhaustiveness
+  summary: Given a finite algebraic datatype and pattern clauses, answer whether all constructors are
+    covered.
+  id: P060
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-060
+- name: borda_winner
+  summary: Given ranked ballots, output the Borda winner with deterministic tie-breaking.
+  id: P061
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-061
+- name: instant_runoff_winner
+  summary: Given ranked ballots, execute instant-runoff elimination and output the winner.
+  id: P062
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-062
+- name: condorcet_winner
+  summary: Given ranked ballots, output the Condorcet winner or None.
+  id: P063
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-063
+- name: dhondt_apportionment
+  summary: Given party vote totals and seat count, output the final D'Hondt seat vector.
+  id: P064
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-064
+- name: approval_voting_winner
+  summary: Given approval ballots, output the winner with deterministic tie-breaking.
+  id: P065
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-065
+- name: top_trading_cycles
+  summary: Given agents, owned items, and strict preferences, output the item assigned to a queried agent.
+  id: P066
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-066
+- name: canonical_huffman_code
+  summary: Given symbol frequencies, build a tie-broken Huffman tree and output one symbol's canonical
+    codeword.
+  id: P067
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-067
+- name: crc_remainder
+  summary: Given a bitstring and generator polynomial, output the CRC remainder.
+  id: P068
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-068
+- name: kraft_feasibility
+  summary: Given prefix-code word lengths, answer whether they satisfy Kraft's inequality.
+  id: P069
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-069
+- name: prefix_code_decode
+  summary: Given a prefix-free codebook and bitstream, output the decoded symbol sequence.
+  id: P070
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-070
+- name: suffix_array_rank
+  summary: Given a string and suffix start index, output that suffix's rank in the suffix array.
+  id: P071
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-071
+- name: kmp_prefix_value
+  summary: Given a pattern and position, output the KMP prefix-function value at that position.
+  id: P072
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-072
+- name: dimensional_consistency
+  summary: Given dimensions for variables and an equation, answer whether the equation is dimensionally
+    valid.
+  id: P073
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-073
+- name: missing_dimension
+  summary: Given a valid formula with one unknown quantity dimension, output its base-dimension exponent
+    vector.
+  id: P074
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-074
+- name: gregorian_weekday
+  summary: Given a valid Gregorian date, output its weekday.
+  id: P075
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-075
+- name: cron_next_fire
+  summary: Given a restricted numeric cron expression and timestamp, output the next matching timestamp.
+  id: P076
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-076
+- name: petri_enabled_transitions
+  summary: Given a Petri-net marking and weighted arcs, output all currently enabled transitions.
+  id: P077
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-077
+- name: petri_conflict_pair
+  summary: Output the canonical pair of individually enabled transitions that compete for insufficient
+    shared tokens, or None.
+  id: P078
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-078
+- name: incremental_build_rebuild_set
+  summary: Given a build dependency DAG and changed sources, output all targets that must rebuild.
+  id: P079
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-079
+- name: semantic_version_precedence
+  summary: Given two SemVer strings, output which has higher precedence or equal.
+  id: P080
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: W1-080
+rejected: []

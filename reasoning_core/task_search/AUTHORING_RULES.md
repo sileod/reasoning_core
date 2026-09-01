@@ -1,6 +1,6 @@
-# Wave 7 standing rules
+# Standing task-authoring rules
 
-Every rule here was bought with a failed trial. They apply to every task in this wave.
+Every rule here was bought with a failed trial. They apply to every task in every wave.
 
 ## The prompt must determine the answer
 
