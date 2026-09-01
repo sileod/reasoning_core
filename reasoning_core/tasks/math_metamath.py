@@ -1024,5 +1024,9 @@ class MetamathCoreSelect(Task):
         )
 
     def score_answer(self, answer, entry):
-        m = re.search(r"[A-D]", str(answer).upper())
-        return float(bool(m) and m.group(0) == entry.answer)
+        # A bare [A-D] search matches the letter inside any word, so junk containing
+        # the gold letter scored 1.0: "reajrjrje9595!" beat gold "A". Require the
+        # letter to stand alone, and take the last one, which is the choice a model
+        # that reasoned before concluding actually settled on.
+        letters = re.findall(r"\b[A-D]\b", str(answer).upper())
+        return float(bool(letters) and letters[-1] == entry.answer)
