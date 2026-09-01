@@ -24,23 +24,39 @@ import argparse, ast, hashlib, json, os, pathlib, re, shlex, subprocess, sys, ti
 # and a self-check that cannot start reports nothing at all.
 SAMPLE_LEVELS = ("0", "2", "5")
 SAMPLE_EXAMPLES = 2
+SAMPLE_PROMPT_CHARS = 100
 
 
 def sample_shortfall(body):
-    """Which required levels does the samples file not actually show twice?
+    """Which required levels does the samples file not actually show twice, with prompts?
 
     The gate used to be four substrings, which a file carrying the right headings and
     a single example passed just as happily as one carrying two. Measured over 480
     sample files, three did exactly that, and their authors were told they had passed.
+
+    Headings are also not prompts: S45 in wave4 wrote every heading and every gold
+    answer with an empty prompt under each, and only the semantic reviewer noticed --
+    as "no solver can produce these answers", which reads like a broken task rather
+    than a broken file. Across the same 480 files the 469 from successful trials all
+    carry at least 254 characters of prompt text per level, so SAMPLE_PROMPT_CHARS is
+    set well under that: it catches the empty file and never a terse real one.
     """
     body = body.lower()
     hits = [(m.start(), m.group(1)) for m in re.finditer(r"level\s*([025])\b", body)]
     counts = dict.fromkeys(SAMPLE_LEVELS, 0)
+    chars = dict.fromkeys(SAMPLE_LEVELS, 0)
     for index, (position, level) in enumerate(hits):
         end = hits[index + 1][0] if index + 1 < len(hits) else len(body)
-        counts[level] += body.count("answer", position, end)
-    return [f"level {level} shows {counts[level]} of {SAMPLE_EXAMPLES} answers"
-            for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
+        section = body[position:end]
+        counts[level] += section.count("answer")
+        prompts = [line for line in section.splitlines()
+                   if not line.lstrip().startswith(("#", "answer", "**answer"))]
+        chars[level] += len(re.sub(r"\s", "", "".join(prompts)))
+    return ([f"level {level} shows {counts[level]} of {SAMPLE_EXAMPLES} answers"
+             for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
+            + [f"level {level} carries {chars[level]} characters of prompt text, under"
+               f" {SAMPLE_PROMPT_CHARS}: print each prompt as the task emits it"
+               for level in SAMPLE_LEVELS if chars[level] < SAMPLE_PROMPT_CHARS])
 # opencode kills a bash call at 300s (runner.py's _mini_config) and the harness gives
 # each validation command the same. Stop early enough to print the summary.
 DEADLINE = time.monotonic() + 240

@@ -314,6 +314,11 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
         "  prompt/answer examples at each of levels 0, 2 and 5. The headings `Level 0`,",
         "  `Level 2` and `Level 5` are matched literally and the word `Answer` is counted",
         "  under each: one example per level fails, however well the file reads.",
+        "  Print each example's prompt exactly as the task emits it and its gold answer",
+        "  underneath, both verbatim and neither paraphrased nor left out. A reader with",
+        "  only this file decides whether your task is answerable at all, and two wave4",
+        "  trials were thrown out as unanswerable when the task was fine: one printed",
+        "  headings with no prompt under them, one dropped an answer.",
         "- `contract` generates 64 examples and requires score_answer to return 1.0 on",
         "  every gold answer and less than 1.0 on empty and junk strings.",
         "- `speed` times generate_example at the DEFAULT config, which is the one the",
@@ -673,23 +678,39 @@ def _task_metadata(worktree, owned_path):
 # the worker it had passed something the coordinator then failed it on.
 SAMPLE_LEVELS = ("0", "2", "5")
 SAMPLE_EXAMPLES = 2
+SAMPLE_PROMPT_CHARS = 100
 
 
 def sample_shortfall(body):
-    """Which required levels does the samples file not actually show twice?
+    """Which required levels does the samples file not actually show twice, with prompts?
 
     The gate used to be four substrings, which a file carrying the right headings and
     a single example passed just as happily as one carrying two. Measured over 480
     sample files, three did exactly that, and their authors were told they had passed.
+
+    Headings are also not prompts: S45 in wave4 wrote every heading and every gold
+    answer with an empty prompt under each, and only the semantic reviewer noticed --
+    as "no solver can produce these answers", which reads like a broken task rather
+    than a broken file. Across the same 480 files the 469 from successful trials all
+    carry at least 254 characters of prompt text per level, so SAMPLE_PROMPT_CHARS is
+    set well under that: it catches the empty file and never a terse real one.
     """
     body = body.lower()
     hits = [(m.start(), m.group(1)) for m in re.finditer(r"level\s*([025])\b", body)]
     counts = dict.fromkeys(SAMPLE_LEVELS, 0)
+    chars = dict.fromkeys(SAMPLE_LEVELS, 0)
     for index, (position, level) in enumerate(hits):
         end = hits[index + 1][0] if index + 1 < len(hits) else len(body)
-        counts[level] += body.count("answer", position, end)
-    return [f"level {level} shows {counts[level]} of {SAMPLE_EXAMPLES} answers"
-            for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
+        section = body[position:end]
+        counts[level] += section.count("answer")
+        prompts = [line for line in section.splitlines()
+                   if not line.lstrip().startswith(("#", "answer", "**answer"))]
+        chars[level] += len(re.sub(r"\s", "", "".join(prompts)))
+    return ([f"level {level} shows {counts[level]} of {SAMPLE_EXAMPLES} answers"
+             for level in SAMPLE_LEVELS if counts[level] < SAMPLE_EXAMPLES]
+            + [f"level {level} carries {chars[level]} characters of prompt text, under"
+               f" {SAMPLE_PROMPT_CHARS}: print each prompt as the task emits it"
+               for level in SAMPLE_LEVELS if chars[level] < SAMPLE_PROMPT_CHARS])
 
 
 _SANITY_URL = "https://albert.api.etalab.gouv.fr/v1/chat/completions"
@@ -714,6 +735,19 @@ VERDICT: VALID or INVALID
 WHY: one sentence naming the example and the violated constraint, or "-" when VALID."""
 
 
+_SANITY_RECHECK = """A first reviewer called one worked example invalid. You are the second reader.
+
+Recompute the named example from its prompt alone, then decide. Reviewers misread a
+range, skip a step of the prompt's own procedure, or invent data the prompt never gives:
+in wave4 one killed a correct spreadsheet task by summing three cells for the range
+A1:B1. Confirm INVALID only when you can restate the violation with numbers you
+recomputed yourself.
+
+Answer in this exact shape, nothing else:
+VERDICT: VALID or INVALID
+WHY: one sentence naming the example and the violated constraint, or "-" when VALID."""
+
+
 def _review_source(worktree, owned_path, limit=20000):
     """Bounded candidate source for the semantic reviewer, excluding test scaffolding."""
     parts = []
@@ -731,30 +765,48 @@ def _sample_sanity(sample_path, instruction="", source=""):
     Every other gate asks whether an answer is stable, hard to guess and consistent with
     the generator that produced it. None asks whether it is right, and self-consistency
     is cheap to satisfy while wrong: S17 in wave2 passed all eleven gates reporting an
-    expected absorption time of -44/5, from transition rows that summed above 1. This is
-    The original samples-only call cleared six of six wave3 candidates; manual review
-    found missing multiset multiplicities, mismatched mixed-radix prose, negative
-    population counts and self-intersecting polygons. Assignment and bounded source
-    context expose those self-consistent failures without adding another provider call.
+    expected absorption time of -44/5, from transition rows that summed above 1. The
+    original samples-only call cleared six of six wave3 candidates that manual review
+    then rejected, so the assignment and a bounded slice of the source go in too.
 
-    Fails open. A missing key, an unreachable endpoint or an unparseable reply all return
-    a null verdict, because a reviewer outage must never reject a task that is fine.
+    An INVALID needs two votes. The reviewer does the arithmetic itself and gets it
+    wrong: in wave4 it killed a correct spreadsheet task by summing three cells for the
+    range A1:B1, one false rejection in nineteen judged trials. The recheck reads the
+    same file under a prompt that asks it to recompute the accused example, and only an
+    INVALID it confirms rejects the trial.
+
+    Fails open at every step. A missing key, an unreachable endpoint, an unparseable
+    reply and an unconfirmed accusation all return a null verdict, because neither a
+    reviewer outage nor a lone hallucination may reject a task that is fine.
     """
     key = os.environ.get(os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "ALBERT_API_KEY"), "")
     if not key:
         return {"verdict": None, "why": "no reviewer key"}
     if not sample_path.is_file():
         return {"verdict": None, "why": "no samples file"}
+    message = ("ASSIGNMENT:\n" + instruction[:6000]
+               + "\n\nCANDIDATE SOURCE (untrusted):\n" + source[:20000]
+               + "\n\nWORKED EXAMPLES:\n" + sample_path.read_text()[:20000])
+    first = _sanity_ask(_SANITY_ASK, message)
+    if first["verdict"] != "INVALID":
+        return first
+    second = _sanity_ask(_SANITY_RECHECK, message + "\n\nFIRST REVIEWER: " + first["why"])
+    if second["verdict"] == "INVALID":
+        return second
+    return {"verdict": second["verdict"],
+            "why": ("recheck did not confirm (" + second["why"] + "); first reviewer said: "
+                    + first["why"])[:400]}
+
+
+def _sanity_ask(system, message):
+    """One reviewer call. Fails open: any fault returns a null verdict, never a rejection."""
+    key = os.environ.get(os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "ALBERT_API_KEY"), "")
     body = json.dumps({
         "model": os.environ.get("TASK_SEARCH_REVIEW_MODEL", "deepseek-v4-flash"),
         "temperature": 0,
         "max_tokens": 512,
-        "messages": [{"role": "system", "content": _SANITY_ASK},
-                     {"role": "user", "content": (
-                         "ASSIGNMENT:\n" + instruction[:6000]
-                         + "\n\nCANDIDATE SOURCE (untrusted):\n" + source[:20000]
-                         + "\n\nWORKED EXAMPLES:\n" + sample_path.read_text()[:20000]
-                     )}],
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": message}],
     }).encode()
     try:
         request = urllib.request.Request(_SANITY_URL, body, {

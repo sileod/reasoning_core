@@ -59,6 +59,16 @@ ROOT = Path(__file__).parents[1]
 PLAN = ROOT / "reasoning_core" / "task_search" / "wave0.yaml"
 
 
+# A prompt of realistic length, because the gate now measures prompt text as well as
+# answers: a file of headings with nothing under them is not a worked example.
+SAMPLE_PROMPT = ("Prompt:\nSort the multiset {3, 1, 2} and report the median as an"
+                 " integer. Show the sorted order first, then the element that sits"
+                 " in the middle of it.\n")
+SAMPLE_BODY = "".join(
+    f"# Level {level}\n" + (SAMPLE_PROMPT + f"Answer: {level}{index}\n") * 2
+    for index, level in enumerate(("0", "2", "5")))
+
+
 def test_wave0_plan_is_valid_and_folder_scoped():
     plan = load_plan(PLAN)
 
@@ -381,9 +391,7 @@ def test_sample_review_hard_gate_uses_durable_artifacts(tmp_path):
     sample = root / "samples_N1.md"
     (root / "generate_samples_N1.py").write_text("# sample generator\n")
     sample.write_text(
-        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
-        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
-        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
+        SAMPLE_BODY
     )
     events = tmp_path / "events.jsonl"
     target = str(sample)
@@ -420,9 +428,7 @@ def test_sample_command_exit_is_observed_but_not_a_hard_gate(tmp_path):
     (root / "generate_samples_N1.py").write_text("# generator\n")
     sample = root / "samples_N1.md"
     sample.write_text(
-        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
-        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
-        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
+        SAMPLE_BODY
     )
     command = (
         "PYTHONDONTWRITEBYTECODE=1 python "
@@ -456,9 +462,7 @@ def test_sample_event_order_is_observational_not_a_hard_gate(tmp_path):
     (root / "generate_samples_N1.py").write_text("# generator\n")
     sample = root / "samples_N1.md"
     sample.write_text(
-        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
-        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
-        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
+        SAMPLE_BODY
     )
     # Built, not spelled out: the recorded command has to match the one the harness
     # runs, and it has gained a PYTHONPATH since this test was written.
@@ -492,9 +496,7 @@ def test_sample_review_observes_agy_tools(tmp_path):
     (root / "generate_samples_N1.py").write_text("# generator\n")
     sample = root / "samples_N1.md"
     sample.write_text(
-        "# Level 0\nPrompt: a\nAnswer: b\nPrompt: c\nAnswer: d\n"
-        "# Level 2\nPrompt: e\nAnswer: f\nPrompt: g\nAnswer: h\n"
-        "# Level 5\nPrompt: i\nAnswer: j\nPrompt: k\nAnswer: l\n"
+        SAMPLE_BODY
     )
     events = tmp_path / "events.jsonl"
     events.write_text("\n".join([
@@ -762,17 +764,20 @@ def test_self_check_reports_the_sections_the_gate_actually_requires():
     so the two copies are pinned here by behaviour -- a worker told it passed a gate the
     coordinator then fails it on is the failure this whole harness exists to avoid.
     """
-    thorough = ("## Level 0\nP\nAnswer: 1\nP\nAnswer: 2\n"
-                "## Level 2\nP\nAnswer: 3\nP\nAnswer: 4\n"
-                "## Level 5\nP\nAnswer: 5\nP\nAnswer: 6\n")
+    thorough = SAMPLE_BODY.replace("# Level", "## Level")
     # One example per level: the headings are all there, which is all the gate used
     # to look for. Three of 480 sample files looked exactly like this.
-    thin = thorough.replace("P\nAnswer: 2\n", "").replace("P\nAnswer: 4\n", "")
-    for body in (thorough, thin, "", "Level 0\nLevel 2\nLevel 5\nAnswer"):
+    thin = thorough.replace(SAMPLE_PROMPT + "Answer: 00\n", "", 1).replace(
+        SAMPLE_PROMPT + "Answer: 21\n", "", 1)
+    # Every heading and every answer, no prompt under any of them: S45 in wave4.
+    empty = "".join(f"## Level {level}\nAnswer: 1\nAnswer: 2\n" for level in ("0", "2", "5"))
+    for body in (thorough, thin, empty, "", "Level 0\nLevel 2\nLevel 5\nAnswer"):
         assert sample_shortfall(body) == selfcheck.sample_shortfall(body)
     assert sample_shortfall(thorough) == []
     assert [s.split()[1] for s in sample_shortfall(thin)] == ["0", "2"]
-    assert len(sample_shortfall("")) == 3
+    assert [s.split()[1] for s in sample_shortfall(empty)] == ["0", "2", "5"]
+    assert all("prompt text" in s for s in sample_shortfall(empty))
+    assert len(sample_shortfall("")) == 6
 
 
 def test_plan_problems_are_the_ones_check_used_to_miss():
