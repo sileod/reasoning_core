@@ -26,6 +26,12 @@ DEFAULT_API_KEY_ENV = "NVIDIA_API_KEY"
 # ran to a page of nested schema; two fields cost about forty tokens, so a batch of 64 is
 # a small fraction of one response.
 MAX_BATCH = 64
+# One 504 from NIM used to end a whole wave. The old backoff was 1s then 2s, which is
+# nothing to a provider that needs three minutes to answer at all: retrying that fast
+# just asks the same overloaded queue the same question twice and gives up. Wait longer
+# than a call takes, and keep waiting -- a wave is hours of work, and losing it to a
+# gateway timeout costs far more than sitting out ten minutes.
+RETRY_BACKOFF = (30, 90, 240, 600)
 SUMMARY_MIN_CHARS = 40
 SUMMARY_MAX_CHARS = 240
 PROPOSAL_KEYS = {"name", "summary"}
@@ -379,7 +385,7 @@ class ChatClient:
                    "Accept": "application/json"}
         request_bytes = json.dumps(body, sort_keys=True).encode()
         response_bytes = b""
-        for attempt in range(3):
+        for attempt, backoff in enumerate(RETRY_BACKOFF):
             response = requests.post(
                 self.endpoint,
                 headers=headers,
@@ -390,9 +396,9 @@ class ChatClient:
             if response.status_code not in {429, 500, 502, 503, 504}:
                 response.raise_for_status()
                 break
-            if attempt == 2:
+            if attempt == len(RETRY_BACKOFF) - 1:
                 response.raise_for_status()
-            time.sleep(min(30, 2 ** attempt))
+            time.sleep(backoff)
         if response.status_code == 202:
             response = self._poll(response, headers)
             response_bytes = response.content
