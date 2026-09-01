@@ -502,7 +502,7 @@ def _exact_catalog_collision(proposal, catalog):
 def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
                  endpoint=DEFAULT_ENDPOINT, api_key=None, seed=0, temperature=1.0,
                  reasoning_effort="max", rounds=3, max_catalog_chars=240_000,
-                 max_batch=MAX_BATCH, client=None):
+                 max_batch=MAX_BATCH, timeout=2400, client=None):
     """Generate and independently novelty-review an SFT proposal wave."""
     if count < 1 or rounds < 1:
         raise ValueError("count and rounds must be positive")
@@ -513,7 +513,7 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
     initial_catalog = catalog_record(catalog)
     client = client or ChatClient(model=model, endpoint=endpoint, api_key=api_key,
                                   seed=seed, temperature=temperature,
-                                  reasoning_effort=reasoning_effort)
+                                  reasoning_effort=reasoning_effort, timeout=timeout)
     accepted, rejected, exclusions = [], [], []
     for round_index in range(1, rounds + 1):
         missing = count - len(accepted)

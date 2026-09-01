@@ -47,6 +47,12 @@ def _parser():
         help="none omits the field, for endpoints that reject unknown keys",
     )
     propose.add_argument("--rounds", type=int, default=3)
+    propose.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=2400,
+        help="per-call budget; NIM queues kimi-k3 for minutes before it answers",
+    )
     propose.add_argument("--max-catalog-chars", type=int, default=240000)
     proposal_check = subparsers.add_parser(
         "check-proposals", help="validate an archived SFT proposal wave"
@@ -159,6 +165,7 @@ def main(argv=None):
             reasoning_effort=None if args.reasoning_effort == "none" else args.reasoning_effort,
             rounds=args.rounds,
             max_catalog_chars=args.max_catalog_chars,
+            timeout=args.timeout_seconds,
         )
         write_proposal_wave(output, wave)
         print(
