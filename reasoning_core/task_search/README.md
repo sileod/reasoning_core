@@ -40,6 +40,24 @@ VM for adversarial models or secret-bearing hosts.
 
 ## Commands
 
+Task ideation is deliberately separate from executable waves. Generate an SFT-first
+proposal archive with a novelty catalog and an independent Kimi K3 critic before asking
+coding workers to implement anything:
+
+```bash
+export NVIDIA_API_KEY=...
+python -m reasoning_core.task_search proposal-catalog
+python -m reasoning_core.task_search propose sft-wave-1 --count 12
+python -m reasoning_core.task_search check-proposals \
+  reasoning_core/task_search/proposals/archive/sft-wave-1.yaml
+```
+
+The proposal format and novelty-memory rules are documented in
+[`proposals/FORMAT.md`](proposals/FORMAT.md). Archived proposals are included in future
+novelty checks even if they were never implemented. Proposal waves describe SFT learning
+signal, distribution, curriculum, answer contract and shortcut risks; only reviewed
+proposals should later be compiled into the verifier-oriented execution format below.
+
 Validate and inspect a plan without launching models:
 
 ```bash

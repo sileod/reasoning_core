@@ -1985,6 +1985,27 @@ def _parser():
     render.add_argument("plan")
     render.add_argument("trial_id")
     render.add_argument("--pace", choices=sorted(PACE), default=DEFAULT_PACE)
+    propose = subparsers.add_parser(
+        "propose", help="generate an SFT-first proposal wave with novelty review")
+    propose.add_argument("name")
+    propose.add_argument("--count", type=int, default=12)
+    propose.add_argument("--output")
+    propose.add_argument("--model", default="moonshotai/kimi-k3")
+    propose.add_argument(
+        "--endpoint", default="https://integrate.api.nvidia.com/v1/chat/completions")
+    propose.add_argument("--api-key-env", default="NVIDIA_API_KEY")
+    propose.add_argument("--seed", type=int, default=0)
+    propose.add_argument("--temperature", type=float, default=1.0)
+    propose.add_argument("--reasoning-effort", choices=("low", "high", "max"),
+                         default="max")
+    propose.add_argument("--rounds", type=int, default=3)
+    propose.add_argument("--max-catalog-chars", type=int, default=240000)
+    proposal_check = subparsers.add_parser(
+        "check-proposals", help="validate an archived SFT proposal wave")
+    proposal_check.add_argument("proposal_wave")
+    catalog = subparsers.add_parser(
+        "proposal-catalog", help="summarize the durable novelty catalog")
+    catalog.add_argument("--output", help="optionally write the complete catalog as JSON")
     run = subparsers.add_parser("run", help="launch folder-scoped coding workers")
     run.add_argument("plan")
     run.add_argument("--model", required=True)
@@ -2039,6 +2060,50 @@ def _parser():
 
 def main(argv=None):
     args = _parser().parse_args(argv)
+    if args.command == "propose":
+        from .wave_proposer import propose_wave, write_proposal_wave
+        repo_root = _repo_root(Path.cwd())
+        output = (Path(args.output) if args.output else
+                  repo_root / "reasoning_core" / "task_search" / "proposals" /
+                  "archive" / f"{args.name}.yaml")
+        if output.exists():
+            raise SystemExit(f"refusing to spend model calls: archive already exists: {output}")
+        api_key = os.environ.get(args.api_key_env)
+        if not api_key:
+            raise SystemExit(f"{args.api_key_env} is required for the NVIDIA NIM proposer")
+        wave = propose_wave(
+            repo_root, name=args.name, count=args.count, model=args.model,
+            endpoint=args.endpoint, api_key=api_key,
+            seed=args.seed, temperature=args.temperature,
+            reasoning_effort=args.reasoning_effort, rounds=args.rounds,
+            max_catalog_chars=args.max_catalog_chars)
+        write_proposal_wave(output, wave)
+        print(f"{output}: {len(wave['proposals'])} accepted, "
+              f"{len(wave['rejected'])} rejected")
+        if not wave["objective"]["complete"]:
+            print(f"INCOMPLETE: requested {wave['objective']['requested']}; "
+                  "increase --rounds after reviewing the archive", file=sys.stderr)
+            raise SystemExit(2)
+        return
+    if args.command == "check-proposals":
+        from .wave_proposer import check_proposal_file
+        problems = check_proposal_file(args.proposal_wave)
+        if problems:
+            for problem in problems:
+                print(f"PROBLEM: {problem}")
+            raise SystemExit(1)
+        print(f"{args.proposal_wave}: OK")
+        return
+    if args.command == "proposal-catalog":
+        from .wave_proposer import build_catalog, catalog_record
+        repo_root = _repo_root(Path.cwd())
+        entries = build_catalog(repo_root)
+        record = catalog_record(entries)
+        print(json.dumps(record, indent=2, sort_keys=True))
+        if args.output:
+            _write_json(Path(args.output), [entry.as_dict() for entry in entries])
+        return
+
     plan = load_plan(args.plan)
     if args.command == "check":
         print(f"{plan.name}: {len(plan.trials)} trials from {plan.base_ref}")
