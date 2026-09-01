@@ -35,7 +35,7 @@ Statuses use the first failed gate:
 
 `timed_out → harness_failed → scope_violation → no_implementation → metadata_mismatch →
 sample_review_failed → contract_failed → undiscoverable → candidate_mutated →
-sample_not_reproducible → validation_failed → success`
+sample_not_reproducible → validation_failed → answers_impossible → success`
 
 A later status implies the earlier gates passed. `orchestration_error` appears only in
 the invocation summary and indicates that the coordinator itself failed before it could
