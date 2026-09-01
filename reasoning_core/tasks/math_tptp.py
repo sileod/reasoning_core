@@ -889,6 +889,8 @@ class TptpEntailment(DevTask):
     A task that generates problems to determine if a set of hypotheses
     proves a given conjecture.
     """
+    summary = "Decide whether generated TPTP hypotheses entail conjectures across algebraic, numeric, geometric, logical, set, and topological domains."
+
     def __init__(self, config=None):
         super().__init__(config=config or EntailConfig())
         # Initialize prover session at task init (pulls docker image if needed)
@@ -1130,6 +1132,8 @@ class ConsistencyRepairConfig(Config):
 
 class TPTPConsistencyRepair(DevTask):
     """Find all singleton deletions that restore satisfiability."""
+    summary = "Find every singleton axiom deletion that restores satisfiability across generated multi-domain TPTP theories."
+
     def __init__(self, config=None):
         super().__init__(config=config or ConsistencyRepairConfig(), timeout=720)
         self._sat_cache = {}

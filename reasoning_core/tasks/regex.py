@@ -673,6 +673,8 @@ def _has_regex_abstraction(pattern):
 
 
 class RegexRetrieval(DevTask):
+    summary = "Retrieve exact non-overlapping matches across natural-language, structured-data, and generated regex-text instances."
+
     def __init__(self, config=None):
         super().__init__(config=config or RegexRetrievalConfig())
 

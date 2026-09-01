@@ -32,6 +32,7 @@ Implement tasks that are:
 Every task should provide:
 - `Config` subclass with `apply_difficulty(self, level)`.
 - `Task` subclass implementing:
+  - `summary`: a class-level literal string containing a packed one-line coverage spec.
   - `generate_entry(self) -> Entry`
   - `render_prompt(self, metadata) -> str`
   - `score_answer(self, answer, entry) -> float | Reward` (or rely on default exact match)
@@ -53,6 +54,23 @@ deduplication, and ranking. Do not repeat correctness checks in task-specific im
 - `_deduplication_key` (128-bit hash of the canonical prompt/answer pair, with shallow
   payload order normalized; override `deduplication_key()` only for safe semantic invariances).
 For behavioral changes, bump `task_version`; if absent, start with `task_version = 2`.
+
+### Coverage summary
+
+Every `Task` and `DevTask` must define `summary` as one sentence on the task class.
+It is a compact specification of the full generated distribution, not a tagline,
+single example, implementation note, or verifier description. Mention the distinct
+problem modes, operations or input families and answer regimes that a reader needs to
+distinguish this task from its nearest neighbors. Keep it concise and on one line. The
+literal form matters: gallery generation and task-search novelty checks read it without
+importing the task.
+
+Examples:
+
+```python
+summary = "Solve query-aware assignment, graph, scheduling, grid, set, and numeric CSPs."
+summary = "Compositional arithmetics with float/int/bool, varied operators, number theory."
+```
 
 ## Config and Difficulty Scaling
 Base `Config` protected fields:
@@ -116,6 +134,7 @@ class MyTaskConfig(Config):
 
 class MyTask(Task):
     # Do not put "Task" in the task name
+    summary = "Solve the complete generated problem family and name its important modes."
     config_cls = MyTaskConfig
 
     def generate_entry(self):
@@ -142,6 +161,7 @@ class MyTask(Task):
 
 ## Quality Checklist
 - `task = MyTask(); x = task.generate_example()` works.
+- `summary` is a packed one-line coverage spec for the whole task distribution.
 - `task.score_answer(x.answer, x) == 1`.
 - Wrong/random answers do not all score `1`.
 - `task.validate()` passes.

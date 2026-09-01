@@ -7,6 +7,8 @@ from reasoning_core.template import Entry, Task, timeout_retry
 
 
 class ConstantLabelTask(Task):
+    summary = "Generate distinct indexed prompts with one constant Boolean label for validation tests."
+
     def __init__(self):
         super().__init__()
         self.index = 0
@@ -28,6 +30,11 @@ class NonJsonMetadataTask(ConstantLabelTask):
         return Entry({"index": self.index, "bad": object()}, "True")
 
 
+class MissingSummaryTask(Task):
+    def generate_entry(self):
+        raise AssertionError("summary validation must run before generation")
+
+
 def test_validation_does_not_treat_repeated_labels_as_other_answers():
     task = ConstantLabelTask()
     rows = [Entry({"index": i}, "True") for i in range(4)]
@@ -40,6 +47,11 @@ def test_validation_does_not_treat_repeated_labels_as_other_answers():
 def test_validation_rejects_non_json_metadata():
     with pytest.raises(TypeError, match="JSON serializable"):
         NonJsonMetadataTask().validate(n_samples=1)
+
+
+def test_validation_requires_a_packed_one_line_summary():
+    with pytest.raises(AssertionError, match="one-line coverage spec"):
+        MissingSummaryTask().validate(n_samples=1)
 
 
 def test_timeout_retry_recovers_from_ctypes_wrapped_signal(monkeypatch):

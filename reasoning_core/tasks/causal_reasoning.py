@@ -461,6 +461,8 @@ class Rung(ABC):
 
 
 class BayesianAssociation(Rung, DevTask):
+    summary = "Infer observational distributions in discrete Bayesian networks with evidence, noise, and conditional-independence structure."
+
     def __init__(self, config=None):
         super().__init__(config=config or Rung12Config())
 
@@ -492,6 +494,8 @@ class BayesianAssociation(Rung, DevTask):
 
 
 class BayesianIntervention(Rung, DevTask):
+    summary = "Infer interventional distributions in discrete Bayesian networks under do-operations, evidence, noise, and conditional-independence structure."
+
     def __init__(self, config=None):
         super().__init__(config=config or Rung12Config())
 

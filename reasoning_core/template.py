@@ -547,6 +547,11 @@ class Task(ProceduralDataset):
     
     def validate(self, n_samples=10, cache=False, refresh=False):
         """Smoke tests to ensure that generation and scoring are working as expected."""
+        summary = getattr(type(self), "summary", None)
+        assert isinstance(summary, str) and summary.strip(), (
+            f"{type(self).__name__}.summary must be a class-level one-line coverage spec")
+        assert summary == summary.strip() and "\n" not in summary and "\r" not in summary, (
+            f"{type(self).__name__}.summary must be one trimmed line")
         if cache:
             key = f"{self.task_name}:{self.config.level}"
             signature = {

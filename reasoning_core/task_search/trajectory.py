@@ -7,7 +7,7 @@ believed it was finished or because it ran out of steps. Reading eighteen of the
 is how the largest measured improvement to this system was found -- the workers
 were not running the self-check, because the prompt of that wave never named it.
 
-    python -m reasoning_core.task_search.trajectory runs/ts_albert/WAVE0/<stamp>
+    python -m reasoning_core.task_search.trajectory /path/to/runs/WAVE0/<stamp>
 """
 import argparse
 import collections

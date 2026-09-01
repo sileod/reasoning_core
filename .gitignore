@@ -125,6 +125,7 @@ task_diagnostics/
 
 # Internal-only: infra paths + unpublished analysis. Public repo -- keep out of git.
 docs/GRID5000.md
+reasoning_core/task_search/README.providers.private.md
 # reports/: the tooling is shared so other agents get it from a plain git pull.
 # build/ stays private -- it holds result snapshots, queue telemetry and embedded data.
 reasoning_core/reports/build/

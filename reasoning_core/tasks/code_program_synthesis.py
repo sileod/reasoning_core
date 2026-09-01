@@ -443,6 +443,8 @@ class ProgramSynthesisCfg(Config):
 
 
 class ProgramSynthesis(Task):
+    summary = "Synthesize minimum-cost bounded string-transformation programs from examples across compositional StringFrag operations."
+
     def __init__(self, config=None):
         super().__init__(config=config or ProgramSynthesisCfg())
 

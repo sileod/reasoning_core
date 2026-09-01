@@ -898,6 +898,8 @@ class MetamathEntailment(Task):
 class MetamathCoreSelect(Task):
     """Select the minimal sufficient displayed rule subset for a Metamath proof."""
 
+    summary = "Select the minimal sufficient displayed Metamath rule subset for a generated formal proof obligation."
+
     def __init__(self, config=None, **kwargs):
         super().__init__(config=config or MetamathConfig(), timeout=120, **kwargs)
 

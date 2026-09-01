@@ -837,6 +837,8 @@ def _parse_rendered_term(text):
 class MathScratchEntailment(DevTask):
     """True/False equivalence by normal form in a terminating rewrite world."""
 
+    summary = "Decide expression equivalence by normalization across generated terminating symbolic rewrite systems."
+
     config_cls = ScratchConfig
 
     def __init__(self, config=None, **kwargs):
@@ -911,6 +913,8 @@ class MathScratchEntailment(DevTask):
 
 class MathScratchCoreSelect(DevTask):
     """Select a sufficient displayed rule subset for a scratch rewrite proof."""
+
+    summary = "Select a sufficient displayed rule subset that proves equivalence in generated terminating rewrite systems."
 
     config_cls = ScratchConfig
 
@@ -1001,6 +1005,8 @@ class MathScratchCoreSelect(DevTask):
 
 class MathScratchNormalize(DevTask):
     """Predict the normal form of one expression under the displayed rewrite rules."""
+
+    summary = "Predict canonical normal forms of expressions under generated terminating symbolic rewrite systems."
 
     config_cls = ScratchConfig
 

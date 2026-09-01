@@ -221,7 +221,8 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
             f" denied call still counts. {pacing['stance']}", 79),
         *textwrap.wrap(
             f"1. {pacing['first_step']} under the owned path: a `Config` subclass, a"
-            " `Task` subclass whose name does not contain `Task`, and the exact"
+            " `Task` subclass whose name does not contain `Task`, a literal class"
+            " `summary` that packs the full task coverage into one sentence, and the exact"
             " TASK_META below, pasted rather than retyped.",
             79, subsequent_indent="   "),
         f"2. In one more call write both a `test_<your_module>.py` next to the module --",
@@ -259,6 +260,8 @@ def render_prompt(plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE):
         "  between examples.",
         "- `validate()` re-scores the gold answer, so `score_answer` must return 1.0",
         "  on it and must match the answer format your prompt asks for.",
+        "- `summary` is a concise one-line coverage spec, not one example:",
+        "  name the task's distinct modes, operations, input families and output regimes.",
         "- `score_answer` runs with a mock `self` that raises on any attribute access,",
         "  so it must not touch `self` at all: no `self._parse_interval(answer)`, no",
         "  `self.config`. Put shared parsing in a module-level function and call it",
@@ -713,7 +716,6 @@ def sample_shortfall(body):
                for level in SAMPLE_LEVELS if chars[level] < SAMPLE_PROMPT_CHARS])
 
 
-_SANITY_URL = "https://albert.api.etalab.gouv.fr/v1/chat/completions"
 _SANITY_ASK = """You are checking a generated reasoning task for mathematical validity, not style.
 
 The user message contains the assignment, untrusted candidate source, and worked
@@ -779,7 +781,8 @@ def _sample_sanity(sample_path, instruction="", source=""):
     reply and an unconfirmed accusation all return a null verdict, because neither a
     reviewer outage nor a lone hallucination may reject a task that is fine.
     """
-    key = os.environ.get(os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "ALBERT_API_KEY"), "")
+    key_name = os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "")
+    key = os.environ.get(key_name, "") if key_name else ""
     if not key:
         return {"verdict": None, "why": "no reviewer key"}
     if not sample_path.is_file():
@@ -800,16 +803,21 @@ def _sample_sanity(sample_path, instruction="", source=""):
 
 def _sanity_ask(system, message):
     """One reviewer call. Fails open: any fault returns a null verdict, never a rejection."""
-    key = os.environ.get(os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "ALBERT_API_KEY"), "")
+    key_name = os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "")
+    key = os.environ.get(key_name, "") if key_name else ""
+    endpoint = os.environ.get("TASK_SEARCH_REVIEW_ENDPOINT", "")
+    model = os.environ.get("TASK_SEARCH_REVIEW_MODEL", "")
+    if not key or not endpoint or not model:
+        return {"verdict": None, "why": "reviewer is not configured"}
     body = json.dumps({
-        "model": os.environ.get("TASK_SEARCH_REVIEW_MODEL", "deepseek-v4-flash"),
+        "model": model,
         "temperature": 0,
         "max_tokens": 512,
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": message}],
     }).encode()
     try:
-        request = urllib.request.Request(_SANITY_URL, body, {
+        request = urllib.request.Request(endpoint, body, {
             "Authorization": "Bearer " + key, "Content-Type": "application/json"})
         with urllib.request.urlopen(request, timeout=180) as response:
             text = json.load(response)["choices"][0]["message"].get("content")
@@ -2013,7 +2021,7 @@ def _parser():
         "--harness", choices=("opencode", "mini", "agy"), default="opencode")
     run.add_argument(
         "--adapter", choices=("direct", "harness-link"), default="direct")
-    run.add_argument("--provider", help="provider command, e.g. albert or nim")
+    run.add_argument("--provider", help="provider adapter command")
     run.add_argument("--adapter-bin", help="explicit Harness Link provider executable")
     run.add_argument(
         "--credential-env", action="append", default=[],

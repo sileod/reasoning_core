@@ -65,6 +65,8 @@ class EliminationDepthChain(Task):
     inside a linear system of approximately fixed dimension; matched nuisance
     equations and variables inflate the system without shortening the chain."""
 
+    summary = "Solve target variables in fixed-size linear systems with controlled elimination depth and matched nuisance subchains."
+
     config_cls = EliminationDepthChainCfg
 
     def _try_generate(self, n: int, depth: int):

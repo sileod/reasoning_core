@@ -15,6 +15,8 @@ class TreeReconstructionConfig(Config):
 
 
 class TreeReconstruction(Task):
+    summary = "Recover binary-tree roots from preorder-plus-inorder or inorder-plus-postorder traversal pairs."
+
     config_cls = TreeReconstructionConfig
 
     def _order_traversal(self, root, left, right):

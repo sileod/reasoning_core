@@ -41,6 +41,8 @@ class MaxFlowMinCutConfig(Config):
 
 
 class MaxFlowMinCut(Task):
+    summary = "Compute maximum flow values and identify valid source-side minimum cuts in generated capacitated directed graphs."
+
     config_cls = MaxFlowMinCutConfig
 
     def _build(self):

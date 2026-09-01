@@ -64,6 +64,20 @@ def _task_name(node):
     return name.removesuffix("_task")
 
 
+def _class_summary(node):
+    """Read a task's literal coverage summary without importing its module."""
+    for item in node.body:
+        if (isinstance(item, ast.Assign) and len(item.targets) == 1
+                and isinstance(item.targets[0], ast.Name)
+                and item.targets[0].id == "summary"):
+            try:
+                value = ast.literal_eval(item.value)
+            except (ValueError, TypeError):
+                return ""
+            return _one_line(value) if isinstance(value, str) else ""
+    return ""
+
+
 def _gallery_entries(repo_root):
     path = Path(repo_root) / "GALLERY.md"
     if not path.is_file():
@@ -103,7 +117,8 @@ def _task_entries(repo_root):
             if not {"Task", "DevTask"} & bases:
                 continue
             name = _task_name(node)
-            summary = _one_line(ast.get_docstring(node)) or module_doc
+            summary = (_class_summary(node)
+                       or _one_line(ast.get_docstring(node)) or module_doc)
             entries.append(CatalogEntry(
                 "task:" + ".".join(relative.with_suffix("").parts) + ":" + node.name,
                 name, summary or name.replace("_", " "), "task"))

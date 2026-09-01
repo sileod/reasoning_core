@@ -457,6 +457,8 @@ def generate_parse(config=None, max_attempts=200):
 
 
 class Parsability(DevTask):
+    summary = "Classify generated context-free grammar strings as unambiguous, ambiguous, or unparsable."
+
     def __init__(self, config=None):
         super().__init__(config=config or GrammarConfig())
         self.balancing_key_ratio=1/3
@@ -477,6 +479,8 @@ class Parsability(DevTask):
 
 
 class Parsing(DevTask):
+    summary = "Parse unambiguous context-free grammar strings as canonical trees or token POS-and-depth annotations."
+
     def __init__(self, config=None):
         super().__init__(config=config or GrammarConfig())
         self.config.perturbation_rate = 0.0
@@ -657,6 +661,8 @@ def _build_cot(tokens, can_stop, justifications):
 
 class Continuation(DevTask):
     """Grammar continuation task using proper CFG parsing."""
+
+    summary = "Enumerate every valid next terminal or stopping option for prefixes of generated context-free grammar strings."
     
     def __init__(self, config=None):
         super().__init__(config=config or GrammarConfig())
@@ -1319,6 +1325,8 @@ def _stress_pair(g, analysis, depth, k, max_answer, tries=60):
     return None
 
 class StressContinuation(DevTask):
+    summary = "Resolve long-context grammar continuations whose identical suffix windows conceal different valid next-token sets."
+
     def __init__(self, config=None):
         super().__init__(config=config or StressContinuationConfig())
         self._sources = _stress_sources(self.config)

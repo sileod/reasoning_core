@@ -80,6 +80,17 @@ def test_catalog_includes_gallery_plans_and_tasks():
     assert any(entry.name == "graph_pathfinding" for entry in entries)
 
 
+def test_catalog_uses_task_coverage_summaries_for_novelty():
+    entries = {entry.entry_id: entry for entry in build_catalog(ROOT)}
+
+    csp = entries["task:constraint_satisfaction:ConstraintSatisfaction"]
+    arithmetic = entries["task:arithmetics:Arithmetics"]
+    assert csp.summary == (
+        "Solve query-aware assignment, graph, scheduling, grid, set, and numeric CSPs.")
+    assert arithmetic.summary == (
+        "Compositional arithmetics with float/int/bool, varied operators, number theory.")
+
+
 def test_closest_entries_uses_signature_not_only_name():
     catalog = (
         CatalogEntry("old:parity", "signed_graph_query",

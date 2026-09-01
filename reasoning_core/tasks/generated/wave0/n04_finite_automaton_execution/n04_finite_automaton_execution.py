@@ -54,6 +54,8 @@ def _run_nfa_active(table, start, word):
 
 
 class FiniteAutomatonExecution(Task):
+    summary = "Execute nondeterministic finite automata and report active-set size, accepting-state count, or maximum active accepting state."
+
     config_cls = FiniteAutomatonConfig
 
     def generate_entry(self):

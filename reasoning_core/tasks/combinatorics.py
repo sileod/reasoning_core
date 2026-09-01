@@ -791,6 +791,8 @@ def _expression_features(expression):
 class CombinatoricsFormula(Task):
     """Synthesize the unique expression in a small constrained grammar."""
 
+    summary = "Synthesize canonical counting expressions for selections, arrangements, distributions, unions, committees, strings, and constrained lattice paths."
+
     config_cls = CombinatoricsConfig
 
     def _sample_atomic(self):

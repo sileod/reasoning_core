@@ -91,7 +91,7 @@ def test_worker_prompt_combines_global_and_specific_context():
         "idea": trial.idea,
         "hypothesis": trial.hypothesis,
         "changes": trial.changes,
-        "generation": {"model_name": "albert/deepseek-v4-flash"},
+        "generation": {"model_name": "example-provider/example-model"},
     }
 
     prompt = render_prompt(plan, trial, ROOT, metadata)
@@ -100,7 +100,7 @@ def test_worker_prompt_combines_global_and_specific_context():
     assert trial.instruction in prompt
     assert trial.owned_path in prompt
     assert "TASK_META =" in prompt
-    assert "albert/deepseek-v4-flash" in prompt
+    assert "example-provider/example-model" in prompt
     assert "samples_N1.md" in prompt
     assert "generate_samples_N1.py" in prompt
 
@@ -177,26 +177,26 @@ def test_bubblewrap_can_overlay_one_harness_runtime_file():
 
 def test_generation_metadata_records_requested_but_unforwarded_seed():
     metadata = generation_metadata(
-        "albert/deepseek-v4-flash",
+        "example-provider/example-model",
         "1.18.20",
         "task-search-worker",
         requested_seed=42,
     )
 
-    assert metadata["provider_name"] == "albert"
+    assert metadata["provider_name"] == "example-provider"
     assert metadata["settings"]["requested_seed"] == 42
     assert metadata["settings"]["seed_forwarded"] is False
 
 
 def test_generation_metadata_records_selected_harness():
     metadata = generation_metadata(
-        "deepseek-v4-flash", "1.15.0", "mini-default",
-        provider_name="albert", adapter_name="harness-link",
+        "example-model", "1.15.0", "mini-default",
+        provider_name="provider-cli", adapter_name="harness-link",
         harness_name="mini",
     )
 
     assert metadata["harness_name"] == "mini"
-    assert metadata["provider_name"] == "albert"
+    assert metadata["provider_name"] == "provider-cli"
 
 
 def test_opencode_profile_forwards_seed_when_requested():
@@ -216,7 +216,7 @@ def test_opencode_profile_forwards_seed_when_requested():
 def test_prompt_is_a_positional_message_not_a_greedy_file_argument(tmp_path):
     command = _opencode_command(
         "opencode",
-        model="albert/deepseek-v4-flash",
+        model="example-provider/example-model",
         agent="task-search-worker",
         worktree=tmp_path,
         prompt="complete prompt",
@@ -227,37 +227,37 @@ def test_prompt_is_a_positional_message_not_a_greedy_file_argument(tmp_path):
 
 
 def test_harness_link_wraps_opencode_without_replacing_its_arguments(monkeypatch):
-    monkeypatch.setattr("shutil.which", lambda value: "/usr/local/bin/albert")
+    monkeypatch.setattr("shutil.which", lambda value: "/usr/local/bin/provider-cli")
     direct = ["opencode", "run", "--pure", "prompt"]
 
     command = _adapter_command(
         direct,
         adapter="harness-link",
-        provider="albert",
-        model="deepseek-v4-flash",
+        provider="provider-cli",
+        model="example-model",
     )
 
     assert command == [
-        "/usr/local/bin/albert", "opencode", "--model",
-        "deepseek-v4-flash", "--", "run", "--pure", "prompt",
+        "/usr/local/bin/provider-cli", "opencode", "--model",
+        "example-model", "--", "run", "--pure", "prompt",
     ]
 
 
 def test_harness_link_wraps_mini_without_replacing_its_arguments(monkeypatch):
-    monkeypatch.setattr("shutil.which", lambda value: "/usr/local/bin/albert")
+    monkeypatch.setattr("shutil.which", lambda value: "/usr/local/bin/provider-cli")
     direct = ["mini", "-c", "mini.yaml", "-t", "prompt"]
 
     command = _adapter_command(
         direct,
         adapter="harness-link",
-        provider="albert",
-        model="deepseek-v4-flash",
+        provider="provider-cli",
+        model="example-model",
         harness="mini",
     )
 
     assert command == [
-        "/usr/local/bin/albert", "mini", "--model",
-        "deepseek-v4-flash", "--", "-c", "mini.yaml", "-t", "prompt",
+        "/usr/local/bin/provider-cli", "mini", "--model",
+        "example-model", "--", "-c", "mini.yaml", "-t", "prompt",
     ]
 
 
@@ -541,31 +541,31 @@ def test_independent_validation_times_out(tmp_path):
 
 
 def test_validation_environment_removes_named_credentials(monkeypatch):
-    monkeypatch.setenv("ALBERT_API_KEY", "secret")
+    monkeypatch.setenv("PROVIDER_API_KEY", "secret")
     monkeypatch.setenv("KEEP_ME", "visible")
 
-    environment = _sanitized_environment(("ALBERT_API_KEY",))
+    environment = _sanitized_environment(("PROVIDER_API_KEY",))
 
-    assert "ALBERT_API_KEY" not in environment
+    assert "PROVIDER_API_KEY" not in environment
     assert environment["KEEP_ME"] == "visible"
 
 
 def test_sandboxed_validation_does_not_receive_named_credential(monkeypatch):
-    monkeypatch.setenv("ALBERT_API_KEY", "secret")
+    monkeypatch.setenv("PROVIDER_API_KEY", "secret")
     with tempfile.TemporaryDirectory(prefix=".task-search-test-", dir=ROOT) as root:
         root = Path(root)
         worktree = root / "worktree"
         (worktree / "owned").mkdir(parents=True)
         results = _run_validation(
             worktree,
-            ('test -z "${ALBERT_API_KEY+x}"',),
+            ('test -z "${PROVIDER_API_KEY+x}"',),
             root / "validation.log",
             owned_path="owned",
             runtime_root=root / "runtime",
             bwrap_bin="bwrap",
             resource_limits={"enabled": False},
             timeout_seconds=5,
-            credential_env_names=("ALBERT_API_KEY",),
+            credential_env_names=("PROVIDER_API_KEY",),
         )
 
     assert results[0]["exit_code"] == 0
@@ -996,6 +996,8 @@ def test_sample_sanity_reads_the_verdict_and_reason(tmp_path, monkeypatch):
     samples.write_text("Answer: -44/5\n")
     monkeypatch.setenv("TASK_SEARCH_REVIEW_KEY_ENV", "TASK_SEARCH_FAKE_KEY")
     monkeypatch.setenv("TASK_SEARCH_FAKE_KEY", "x")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_ENDPOINT", "https://example.test/v1/chat/completions")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_MODEL", "example-model")
     reply = _json.dumps({"choices": [{"message": {"content":
         "VERDICT: INVALID\nWHY: expected time is negative."}}]})
     requests = []
@@ -1017,6 +1019,8 @@ def test_sample_sanity_fails_open_on_empty_model_content(tmp_path, monkeypatch):
     samples.write_text("Answer: 1\n")
     monkeypatch.setenv("TASK_SEARCH_REVIEW_KEY_ENV", "TASK_SEARCH_FAKE_KEY")
     monkeypatch.setenv("TASK_SEARCH_FAKE_KEY", "x")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_ENDPOINT", "https://example.test/v1/chat/completions")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_MODEL", "example-model")
     reply = json.dumps({"choices": [{"message": {"content": None}}]})
     monkeypatch.setattr("reasoning_core.task_search.runner.urllib.request.urlopen",
                         lambda *a, **k: io.BytesIO(reply.encode()))

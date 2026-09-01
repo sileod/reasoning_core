@@ -1,5 +1,11 @@
+import ast
+from pathlib import Path
+
 import reasoning_core
 from reasoning_core import _discover_tasks
+
+
+TASKS_ROOT = Path(__file__).parents[1] / "reasoning_core" / "tasks"
 
 
 def test_task_discovery_recurses_into_generated_modules(tmp_path):
@@ -40,3 +46,24 @@ def test_mutated_tasks_are_discovered_but_hidden_by_default(tmp_path, monkeypatc
     monkeypatch.setattr(reasoning_core, "_mutated_task_names", {"mutated_example"})
     assert reasoning_core.list_tasks() == ["core"]
     assert reasoning_core.list_tasks(include_mutated=True) == ["core", "mutated_example"]
+
+
+def test_every_discoverable_task_has_a_literal_coverage_summary():
+    tasks, dev_tasks = _discover_tasks(TASKS_ROOT)
+
+    for module_name, class_name in (*tasks.values(), *dev_tasks.values()):
+        path = TASKS_ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
+        tree = ast.parse(path.read_text(), filename=str(path))
+        node = next(node for node in ast.walk(tree)
+                    if isinstance(node, ast.ClassDef) and node.name == class_name)
+        assignment = next(
+            (item for item in node.body
+             if isinstance(item, ast.Assign)
+             and any(isinstance(target, ast.Name) and target.id == "summary"
+                     for target in item.targets)),
+            None,
+        )
+        assert assignment is not None, f"{module_name}.{class_name} needs summary"
+        summary = ast.literal_eval(assignment.value)
+        assert isinstance(summary, str) and summary.strip()
+        assert summary == summary.strip() and "\n" not in summary and "\r" not in summary
