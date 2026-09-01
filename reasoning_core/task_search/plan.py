@@ -194,9 +194,14 @@ def _frozen_module_drift(repo_root, base_ref):
     is an argparse error inside every worktree pinned before it.
     """
     problems = []
+    # The whole import closure of the worker's self-check, not just its entry point:
+    # selfcheck imports validation, which imports sandbox and implementor_prompt, and a
+    # worker silently runs the base_ref copy of every one of them.
     for relative in (
         "reasoning_core/task_search/selfcheck.py",
         "reasoning_core/task_search/validation.py",
+        "reasoning_core/task_search/sandbox.py",
+        "reasoning_core/task_search/implementor_prompt.py",
         "reasoning_core/task_search/prior_audit.py",
     ):
         live = (Path(repo_root) / relative).read_bytes()

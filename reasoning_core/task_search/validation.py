@@ -18,7 +18,12 @@ from .implementor_prompt import (
     _sample_command,
     _sample_command_for,
 )
-from .sandbox import _resource_command, _sandbox_command, _sanitized_environment
+from .sandbox import (
+    _resource_command,
+    _run_validation,
+    _sandbox_command,
+    _sanitized_environment,
+)
 
 FAILURE_PRECEDENCE = (
     ("timed_out", "completed_in_time"),
@@ -933,6 +938,7 @@ def validate_candidate(
     requested_seed,
     trial_root,
     *,
+    task_meta,
     bwrap_bin,
     resource_limits,
     timeout_seconds,
@@ -968,7 +974,7 @@ def validate_candidate(
             runtime_root=validation_runtime,
             bwrap_bin=bwrap_bin,
             resource_limits=resource_limits,
-            timeout_seconds=validation_timeout_seconds,
+            timeout_seconds=timeout_seconds,
             credential_env_names=credential_env_names,
         )
     )
@@ -1000,7 +1006,7 @@ def validate_candidate(
             runtime_root=validation_runtime,
             bwrap_bin=bwrap_bin,
             resource_limits=resource_limits,
-            timeout_seconds=validation_timeout_seconds,
+            timeout_seconds=timeout_seconds,
             credential_env_names=credential_env_names,
         )
     )
@@ -1030,7 +1036,7 @@ def validate_candidate(
             runtime_root=validation_runtime,
             bwrap_bin=bwrap_bin,
             resource_limits=resource_limits,
-            timeout_seconds=validation_timeout_seconds,
+            timeout_seconds=timeout_seconds,
             credential_env_names=credential_env_names,
         )
         recheck_digests.append(

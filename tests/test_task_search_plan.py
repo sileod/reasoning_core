@@ -153,7 +153,13 @@ def test_frozen_module_drift_catches_a_base_ref_left_behind(tmp_path):
     """
     paths = {
         name: tmp_path / f"reasoning_core/task_search/{name}.py"
-        for name in ("selfcheck", "validation", "prior_audit")
+        for name in (
+            "selfcheck",
+            "validation",
+            "sandbox",
+            "implementor_prompt",
+            "prior_audit",
+        )
     }
     git = lambda *args: subprocess.run(
         ("git",) + args, cwd=tmp_path, check=True, capture_output=True

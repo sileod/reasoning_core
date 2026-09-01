@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import sys
 
 from .implementor_prompt import DEFAULT_PACE, PACE, render_implementor_prompt
 from .plan import _frozen_module_drift, _plan_problems, load_plan

@@ -1,3 +1,5 @@
+import ast
+import builtins
 import dataclasses
 import json
 import random
@@ -519,3 +521,159 @@ def test_review_source_excludes_tests_and_sample_generators(tmp_path):
     assert "BROKEN = True" not in source
     assert "assert True" not in source
     assert "print('samples')" not in source
+
+
+def _git_worktree(tmp_path, owned):
+    """A minimal repository whose only content is one candidate task module."""
+    root = tmp_path / "worktree"
+    (root / owned).mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    return root
+
+
+def test_validate_candidate_records_a_metadata_mismatch(tmp_path):
+    """The whole gate pipeline, on the cheap path where no gate opens a sandbox.
+
+    Every name this function reads has to exist. Three of them did not survive the
+    split out of runner.py -- task_meta, validation_timeout_seconds and
+    _run_validation -- and no test called validate_candidate at all, so a package
+    whose 47 tests passed failed every trial it ran with a NameError.
+    """
+    owned = "reasoning_core/tasks/generated/wave/example"
+    worktree = _git_worktree(tmp_path, owned)
+    (worktree / owned / "task.py").write_text("TASK_META = {'idea': 'other'}\n")
+    trial = Trial(
+        trial_id="S1",
+        instruction="build something",
+        owned_path=owned,
+        validation=("true",),
+        idea="an idea",
+        changes="the changes",
+    )
+    events = tmp_path / "events.jsonl"
+    events.write_text("")
+    trial_root = tmp_path / "trial"
+    trial_root.mkdir()
+
+    audit = validation.validate_candidate(
+        worktree,
+        trial,
+        events,
+        0,
+        False,
+        7,
+        trial_root,
+        task_meta={"idea": "an idea"},
+        bwrap_bin="bwrap",
+        resource_limits={"enabled": False},
+        timeout_seconds=30,
+        credential_env_names=(),
+    )
+
+    assert audit["status"] == "metadata_mismatch"
+    assert audit["task_metadata_matches"] is False
+    assert audit["validation"] == []
+    assert audit["contract_audit"] == {"classes": [], "exit_code": None}
+
+
+def test_validate_candidate_accepts_the_metadata_the_runner_assigned(tmp_path):
+    owned = "reasoning_core/tasks/generated/wave/example"
+    worktree = _git_worktree(tmp_path, owned)
+    task_meta = {"idea": "an idea", "changes": "the changes"}
+    (worktree / owned / "task.py").write_text(f"TASK_META = {task_meta!r}\n")
+    trial = Trial(
+        trial_id="S1",
+        instruction="build something",
+        owned_path=owned,
+        validation=("true",),
+        idea="an idea",
+        changes="the changes",
+    )
+    events = tmp_path / "events.jsonl"
+    events.write_text("")
+    trial_root = tmp_path / "trial"
+    trial_root.mkdir()
+
+    audit = validation.validate_candidate(
+        worktree,
+        trial,
+        events,
+        # A non-zero harness exit keeps the sandboxed gates shut, so the test needs
+        # no bubblewrap while still reading every name on the metadata path.
+        1,
+        False,
+        7,
+        trial_root,
+        task_meta=task_meta,
+        bwrap_bin="bwrap",
+        resource_limits={"enabled": False},
+        timeout_seconds=30,
+        credential_env_names=(),
+    )
+
+    assert audit["task_metadata_matches"] is True
+    assert audit["status"] == "harness_failed"
+
+
+def test_no_task_search_module_reads_an_undefined_name():
+    """A pyflakes-shaped guard over the package, in the absence of a linter in CI.
+
+    The refactor that split runner.py left four reads of names that no longer
+    existed in scope, in code paths -- a failing gate, an incomplete proposal wave --
+    that only run against a live provider.
+    """
+    package = Path(validation.__file__).parent
+    problems = []
+    for path in sorted(package.glob("*.py")):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        module = {
+            node.id
+            for statement in tree.body
+            if isinstance(statement, ast.Assign)
+            for node in ast.walk(statement.targets[0])
+            if isinstance(node, ast.Name)
+        }
+        # Anywhere in the tree, not just at module level: a helper defined inside
+        # its caller binds a name the caller then reads.
+        module |= {
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        }
+        module |= {
+            alias.asname or alias.name.split(".")[0]
+            for statement in tree.body
+            if isinstance(statement, (ast.Import, ast.ImportFrom))
+            for alias in statement.names
+        }
+        functions = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        # Closures read their enclosing function's locals, so a name bound anywhere
+        # in the file counts as bound. That still catches every name bound nowhere.
+        bound = set(module)
+        for function in functions:
+            bound |= {argument.arg for argument in ast.walk(function)
+                      if isinstance(argument, ast.arg)}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                bound.add(node.id)
+            elif isinstance(node, ast.ExceptHandler) and node.name:
+                bound.add(node.name)
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                bound |= {alias.asname or alias.name.split(".")[0]
+                          for alias in node.names}
+        for function in functions:
+            for node in ast.walk(function):
+                if (
+                    isinstance(node, ast.Name)
+                    and isinstance(node.ctx, ast.Load)
+                    and node.id not in bound
+                    and node.id not in dir(builtins)
+                ):
+                    problems.append(
+                        f"{path.name}:{node.lineno} {function.name} reads {node.id}"
+                    )
+    assert not problems, "\n".join(problems)

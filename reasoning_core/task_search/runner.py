@@ -448,6 +448,7 @@ def _run_trial(
         timed_out,
         requested_seed,
         trial_root,
+        task_meta=task_meta,
         bwrap_bin=bwrap_bin,
         resource_limits=resource_limits,
         timeout_seconds=validation_timeout_seconds,
