@@ -34,6 +34,13 @@ MAX_BATCH = 64
 RETRY_BACKOFF = (30, 90, 240, 600)
 SUMMARY_MIN_CHARS = 40
 SUMMARY_MAX_CHARS = 240
+# The prompt has to quote the same budget the validator enforces. It did not, saying only
+# "one line", and deepseek-v4-flash answered with 242-280 characters: five of six proposals
+# were thrown away for breaking a rule they were never given. The target is not the catalog's
+# own ~85 characters, tempting as that number is: the paragraph above asks for problem modes,
+# input families and the answer in one line, and a proposal that does all three honestly runs
+# to about 170. Naming 85 would just make the prompt contradict itself and land back on the cap.
+_SUMMARY_TARGET_CHARS = 170
 PROPOSAL_KEYS = {"name", "summary"}
 PROPOSALS_ROOT = Path(__file__).with_name("proposals")
 ARCHIVE_ROOT = PROPOSALS_ROOT / "archive"
@@ -256,8 +263,12 @@ def proposal_problems(proposal):
     elif summary != summary.strip() or "\n" in summary or "\r" in summary:
         problems.append("summary must be one trimmed line")
     elif not SUMMARY_MIN_CHARS <= len(summary) <= SUMMARY_MAX_CHARS:
+        # The length is in the message because the archive keeps the reason and drops the
+        # summary: without it a run of these says nothing about whether the proposer missed
+        # by four characters or by a hundred, and the prompt cannot be aimed at anything.
         problems.append(
-            f"summary must be {SUMMARY_MIN_CHARS}-{SUMMARY_MAX_CHARS} characters")
+            f"summary must be {SUMMARY_MIN_CHARS}-{SUMMARY_MAX_CHARS} characters,"
+            f" got {len(summary)}")
     elif len(summary.split()) < 6:
         problems.append("summary must state what is generated and what is answered")
     # Reject the old sludge rather than ignoring it: a proposer that keeps emitting
@@ -442,6 +453,9 @@ Rules:
 - Two summaries that differ only in wording are one proposal.
 - Say nothing about difficulty levels, verifier libraries, prompt wording or answer
   formatting. Those are library-wide conventions and the implementor's decisions.
+- A summary is one trimmed line of {SUMMARY_MIN_CHARS}-{SUMMARY_MAX_CHARS} characters, and
+  {SUMMARY_MAX_CHARS} is a hard limit that discards the proposal. Aim near
+  {_SUMMARY_TARGET_CHARS} and count: past that you are pre-deciding the implementation.
 - Return exactly {count} proposals, and no keys besides name and summary.
 
 Rejected earlier in this run:
