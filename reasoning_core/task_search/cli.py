@@ -76,7 +76,13 @@ def _parser():
         "plan", help="turn an archived proposal wave into an executable plan"
     )
     build.add_argument("proposal_wave")
-    build.add_argument("--name", required=True)
+    build.add_argument(
+        "--name",
+        required=True,
+        help="name of the implementation wave, which is not the proposal wave it runs: "
+             "one set of ideas can be implemented repeatedly. Convention: "
+             "<proposal_wave>_r<n>, e.g. wave0_r2",
+    )
     build.add_argument(
         "--variants",
         type=int,
@@ -255,7 +261,11 @@ def main(argv=None):
 
     plan = load_plan(args.plan)
     if args.command == "check":
-        print(f"{plan.name}: {len(plan.trials)} trials from {plan.base_ref}")
+        print(
+            f"implementation wave {plan.name}: {len(plan.trials)} trials "
+            f"implementing proposal wave {plan.proposal_wave or '(unrecorded)'} "
+            f"at {plan.base_ref}"
+        )
         repo_root = _repo_root(plan.path.parent)
         for problem in _plan_problems(plan, repo_root):
             print(f"PROBLEM: {problem}")

@@ -29,6 +29,13 @@ class SearchPlan:
     trials: tuple
     queues: dict
     path: Path
+    # Two different things used to share one name. `name` is the implementation wave --
+    # one attempt at building tasks, repeatable with new seeds against the same ideas.
+    # `proposal_wave` is where the ideas came from. wave8 was two implementation runs of
+    # the eighty wave0 proposals and no run record said so, which made "how did the
+    # legacy list do against kimi's" unanswerable from the records alone. Empty means a
+    # plan written before the field existed, and `check` reports it as unrecorded.
+    proposal_wave: str = ""
     # Hashed at load, not at record time: editing the plan mid-wave would otherwise
     # stamp later trials with a hash of a file that is not the one they ran under.
     sha256: str = ""
@@ -51,6 +58,7 @@ def load_plan(path):
     name = str(data.get("name", "")).strip()
     if not name:
         raise ValueError("plan name is required")
+    proposal_wave = str(data.get("proposal_wave", "")).strip()
     defaults = data.get("defaults") or {}
     base_ref = str(defaults.get("base_ref", "HEAD"))
     contexts = tuple(
@@ -131,7 +139,8 @@ def load_plan(path):
         tuple(trials),
         queues,
         path,
-        hashlib.sha256(plan_bytes).hexdigest(),
+        proposal_wave=proposal_wave,
+        sha256=hashlib.sha256(plan_bytes).hexdigest(),
     )
 
 

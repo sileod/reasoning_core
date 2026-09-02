@@ -118,6 +118,33 @@ def test_plan_rejects_overlapping_owned_paths(tmp_path):
     with pytest.raises(ValueError, match="owned paths overlap"):
         load_plan(plan)
 
+def test_a_plan_records_which_proposal_wave_it_implements(tmp_path):
+    """One set of ideas can be implemented many times, so the two names are not one name.
+
+    wave8 was two implementation runs of the eighty wave0 proposals. The plan said so and
+    load_plan dropped it, so every run record claimed only `wave: wave8` and comparing one
+    proposal wave against another meant remembering by hand which plan came from where.
+    """
+    body = (
+        "trials:\n"
+        "  - id: A\n"
+        "    idea: a\n"
+        "    changes: a\n"
+        "    instruction: a\n"
+        "    owned_path: out/a\n"
+        "    validation: [check-a]\n"
+    )
+    plan = tmp_path / "plan.yaml"
+    plan.write_text("version: 1\nname: wave0_r2\nproposal_wave: wave0\n" + body)
+    assert load_plan(plan).proposal_wave == "wave0"
+    assert load_plan(plan).name == "wave0_r2"
+
+    # Plans written before the field existed stay loadable and report it as unrecorded.
+    older = tmp_path / "older.yaml"
+    older.write_text("version: 1\nname: wave7\n" + body)
+    assert load_plan(older).proposal_wave == ""
+
+
 def test_plan_problems_are_the_ones_check_used_to_miss():
     """A plan could pass `check` and still have nowhere to run.
 

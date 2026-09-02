@@ -491,6 +491,7 @@ def _run_trial(
     record = {
         "schema_version": 1,
         "wave": plan.name,
+        "proposal_wave": plan.proposal_wave,
         "trial_id": trial.trial_id,
         "hypothesis": trial.hypothesis,
         "base_commit": base_commit,
@@ -649,6 +650,7 @@ def run_plan(
             invocation / "summary.json",
             {
                 "wave": plan.name,
+                "proposal_wave": plan.proposal_wave,
                 "queues": list(queue_names),
                 "base_commit": base_commit,
                 "model": model,
@@ -759,6 +761,7 @@ def run_plan(
                 result = {
                     "schema_version": 1,
                     "wave": plan.name,
+                    "proposal_wave": plan.proposal_wave,
                     "trial_id": trial_id,
                     "status": "orchestration_error",
                     "error_type": type(error).__name__,
