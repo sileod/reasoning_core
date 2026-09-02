@@ -16,7 +16,7 @@ import json
 import os
 from pathlib import Path
 
-from .trajectory import read, totals
+from .trajectory import read, totals, trial_directories
 from .wave_proposer import ChatClient
 
 DEFAULT_MODEL = "deepseek-v4-flash"
@@ -125,8 +125,8 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
-    directories = {directory.name: directory for directory in sorted(args.wave.iterdir())
-                   if directory.is_dir() and (directory / "events.jsonl").is_file()}
+    directories = {directory.name: directory
+                   for directory in trial_directories(args.wave)}
     rows = [read(directory) for directory in directories.values()]
     if not rows:
         raise SystemExit(f"no trials with events.jsonl under {args.wave}")

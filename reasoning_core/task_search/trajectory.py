@@ -149,13 +149,28 @@ def _rate(rows, prefix):
     return f"{sum(1 for r in group if r['status'] == 'success')}/{len(group)}"
 
 
+def trial_directories(wave):
+    """The live trials under a run directory, without the retry archives.
+
+    A transient failure is retried by renaming the dead attempt to
+    `<trial>.attempt<N>-<reason>` and starting the trial again, so a wave of 80 trials
+    can leave 155 directories behind. Counting those reports a wave as far bigger and
+    far more broken than it was -- wave8 v2 read as 200 trials and 131 harness failures
+    when it was 80 and 11 -- and it spends the digest's one model call diagnosing the
+    same 429 eighty times. The dot is what a live trial id can never contain.
+    """
+    return [directory for directory in sorted(Path(wave).iterdir())
+            if directory.is_dir()
+            and "." not in directory.name
+            and (directory / "events.jsonl").is_file()]
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("wave", type=Path, help="a runs/<arm>/WAVE0/<stamp> directory")
     parser.add_argument("--json", action="store_true", help="emit the rows instead")
     args = parser.parse_args(argv)
-    rows = [read(d) for d in sorted(args.wave.iterdir())
-            if d.is_dir() and (d / "events.jsonl").is_file()]
+    rows = [read(d) for d in trial_directories(args.wave)]
     if args.json:
         for row in rows:
             row.pop("calls")

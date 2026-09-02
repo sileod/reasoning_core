@@ -53,6 +53,13 @@ def _parser():
         default=2400,
         help="per-call budget; NIM queues kimi-k3 for minutes before it answers",
     )
+    propose.add_argument(
+        "--max-batch",
+        type=int,
+        default=12,
+        help="proposals per model call; NIM's gateway returns 504 long before "
+             "kimi-k3 finishes writing sixty of them",
+    )
     propose.add_argument("--max-catalog-chars", type=int, default=240000)
     proposal_check = subparsers.add_parser(
         "check-proposals", help="validate an archived SFT proposal wave"
@@ -164,6 +171,7 @@ def main(argv=None):
             temperature=args.temperature,
             reasoning_effort=None if args.reasoning_effort == "none" else args.reasoning_effort,
             rounds=args.rounds,
+            max_batch=args.max_batch,
             max_catalog_chars=args.max_catalog_chars,
             timeout=args.timeout_seconds,
         )
