@@ -30,6 +30,8 @@ from reasoning_core.task_search.plan import (
 from reasoning_core.task_search.implementation_runner import (
     _mini_config,
     _prepare_harness,
+    _RETRY_CEILING_SECONDS,
+    _retry_delay,
     _retryable_harness_failure,
     generation_metadata,
     opencode_config,
@@ -189,3 +191,19 @@ def test_retry_classifier_accepts_explicit_provider_transients_only(tmp_path):
         )
         == "signal_15"
     )
+
+
+def test_a_provider_backoff_grows_past_one_minute_and_is_jittered():
+    """wave8 burned 120 attempts retrying a shared token bucket in lockstep.
+
+    The delay used to be capped at 60s, which against a per-minute limit meant every
+    worker woke into the same saturated minute, every time. Growth is what eventually
+    outlasts the bucket; jitter is what stops the herd re-arriving together.
+    """
+    third = [_retry_delay(60, 3) for _ in range(50)]
+    assert min(third) > 60, "the delay must be able to outgrow a one-minute window"
+    assert len(set(third)) > 1, "an unjittered delay retries the whole wave in lockstep"
+    assert max(third) <= _RETRY_CEILING_SECONDS * 1.5
+
+    assert all(_retry_delay(30, 9) <= _RETRY_CEILING_SECONDS * 1.5 for _ in range(20))
+    assert sum(_retry_delay(60, 1) for _ in range(400)) / 400 == pytest.approx(60, rel=0.2)

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import random
 import shutil
 import subprocess
 import sys
@@ -523,6 +524,21 @@ def _run_trial(
 
 
 _TRANSIENT_HTTP_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
+# A provider 429 is one token bucket shared by every worker in the wave, so the wait has
+# to be able to outgrow the bucket's refill window; a cap at one minute turns the
+# exponential back into a constant. Ten minutes is long enough to outlast a per-minute
+# limit and still short against a 25-minute trial timeout.
+_RETRY_CEILING_SECONDS = 600
+# Workers hit the shared limit at the same instant, so an unjittered delay wakes all of
+# them into the same saturated minute and spends a retry for nothing. This keeps the
+# expected wait and spreads the arrivals.
+_RETRY_JITTER = (0.5, 1.5)
+
+
+def _retry_delay(backoff_seconds, provider_retries):
+    """How long to wait before re-running a trial the provider refused."""
+    delay = min(_RETRY_CEILING_SECONDS, backoff_seconds * (2 ** (provider_retries - 1)))
+    return delay * random.uniform(*_RETRY_JITTER)
 
 
 def _retryable_harness_failure(result):
@@ -719,8 +735,7 @@ def run_plan(
                 stdout=subprocess.DEVNULL,
             )
             if not is_signal and retry_backoff_seconds:
-                delay = min(60, retry_backoff_seconds * (2 ** (provider_retries - 1)))
-                time.sleep(delay)
+                time.sleep(_retry_delay(retry_backoff_seconds, provider_retries))
 
     write_summary()
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
