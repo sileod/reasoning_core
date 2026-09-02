@@ -35,6 +35,11 @@ DEFAULT_API_KEY_ENV = "NVIDIA_API_KEY"
 # ran to a page of nested schema; two fields cost about forty tokens, so a batch of 64 is
 # a small fraction of one response.
 MAX_BATCH = 64
+# The critic is a smaller model than the proposer and truncates its reply well before the
+# proposer truncates its own: measured on deepseek-v4-flash, 12 candidates came back
+# complete and 24 came back as a single review. A missing review is scored as a rejection,
+# so an over-large batch does not fail loudly -- it silently rejects the tail.
+CRITIC_MAX_BATCH = 12
 # One 504 from NIM used to end a whole wave. The old backoff was 1s then 2s, which is
 # nothing to a provider that needs three minutes to answer at all: retrying that fast
 # just asks the same overloaded queue the same question twice and gives up. Wait longer
@@ -628,7 +633,7 @@ def _review_verdict(review, candidate_id, allowed_neighbor_ids):
 
 
 def _critic_votes(critic, reviewable, catalog, *, max_catalog_chars, samples,
-                  round_index, wave_name):
+                  round_index, wave_name, max_batch=CRITIC_MAX_BATCH):
     """Ask the critic `samples` times, shuffling the candidates for each one.
 
     One flash review is a noisy gate, and the two errors are not symmetric: a wrong
@@ -648,25 +653,30 @@ def _critic_votes(critic, reviewable, catalog, *, max_catalog_chars, samples,
         order = list(range(len(reviewable)))
         if samples > 1:
             random.Random(f"{wave_name}:{round_index}:{sample}").shuffle(order)
-        presented = [reviewable[position] for position in order]
-        purpose = (f"critic-round-{round_index}" if samples == 1
-                   else f"critic-round-{round_index}-sample-{sample}")
-        reviewed = critic.json(
-            purpose, _CRITIC_SYSTEM,
-            _critic_prompt(presented, catalog, max_catalog_chars))
-        reviews = reviewed.get("reviews")
-        if not isinstance(reviews, list):
-            raise ValueError("critic response requires a reviews list")
-        by_id = {review.get("proposal_id"): review for review in reviews}
-        # Neighbour ids naming other candidates refer to this sample's ordering.
-        allowed = ({entry.entry_id for entry in catalog}
-                   | {f"candidate:C{seat:03d}" for seat in range(1, len(presented) + 1)})
-        for seat, position in enumerate(order, 1):
-            candidate_id = f"C{seat:03d}"
-            review = by_id.get(candidate_id)
-            votes[position].append(
-                None if not review
-                else _review_verdict(review, candidate_id, allowed))
+        stem = (f"critic-round-{round_index}" if samples == 1
+                else f"critic-round-{round_index}-sample-{sample}")
+        for batch, start in enumerate(range(0, len(order), max_batch), 1):
+            seats = order[start:start + max_batch]
+            presented = [reviewable[position] for position in seats]
+            purpose = stem if len(order) <= max_batch else f"{stem}-batch-{batch}"
+            reviewed = critic.json(
+                purpose, _CRITIC_SYSTEM,
+                _critic_prompt(presented, catalog, max_catalog_chars))
+            reviews = reviewed.get("reviews")
+            if not isinstance(reviews, list):
+                raise ValueError("critic response requires a reviews list")
+            by_id = {review.get("proposal_id"): review for review in reviews}
+            # Candidate ids are seats in this batch, so a neighbour reference naming
+            # another candidate only resolves against this batch's own seating.
+            allowed = ({entry.entry_id for entry in catalog}
+                       | {f"candidate:C{seat:03d}"
+                          for seat in range(1, len(presented) + 1)})
+            for seat, position in enumerate(seats, 1):
+                candidate_id = f"C{seat:03d}"
+                review = by_id.get(candidate_id)
+                votes[position].append(
+                    None if not review
+                    else _review_verdict(review, candidate_id, allowed))
     return votes
 
 
@@ -737,6 +747,7 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
                 else:
                     reason = "exact name repeated within proposal batch"
                 rejected.append({"name": _snake(proposal.get("name")) or "invalid",
+                                 "summary": proposal.get("summary"),
                                  "verdict": "invalid" if problems else "duplicate",
                                  "closest_id": collision.entry_id if collision else None,
                                  "reason": reason})
@@ -757,7 +768,8 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
             # a minority of samples skipped is judged by the samples that did look at it.
             if not cast:
                 rejected.append({"name": proposal["name"], "verdict": "invalid",
-                                 "closest_id": None, "reason": "critic omitted the candidate"})
+                                 "summary": proposal.get("summary"), "closest_id": None,
+                                 "reason": "every critic sample omitted the candidate"})
                 exclusions.append(f"{proposal['name']}: critic omitted the candidate")
                 continue
             tally = f"{len(in_favour)}/{len(cast)}"
@@ -795,6 +807,7 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
                 if len(cast) > 1:
                     reason = f"{tally} samples judged it novel; " + reason
                 rejected.append({"name": proposal["name"],
+                                 "summary": proposal.get("summary"),
                                  "verdict": review.get("verdict", "invalid"),
                                  "nearest_neighbors": ballot["neighbors"], "reason": reason,
                                  "scores": ballot["scores"], "votes": tally})

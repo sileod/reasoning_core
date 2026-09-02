@@ -6,8 +6,10 @@ import yaml
 
 from reasoning_core.task_search.wave_proposer import (
     CatalogEntry,
+    CRITIC_MAX_BATCH,
     ChatClient,
     UpstreamError,
+    _critic_votes,
     _extract_json,
     build_catalog,
     catalog_record,
@@ -550,3 +552,48 @@ def test_an_upstream_error_that_never_clears_is_raised_not_swallowed(monkeypatch
     client = ChatClient(model="m", endpoint="http://x", api_key="k", stream=False)
     with pytest.raises(UpstreamError, match="still overloaded"):
         client.json("probe", "s", "u")
+
+
+def test_a_critic_batch_is_capped_so_a_truncated_reply_cannot_reject_the_tail():
+    """Measured: deepseek-v4-flash returned one review for twenty-four candidates.
+
+    Every review it does not return is scored as a rejection, so an over-large batch does
+    not fail loudly -- it silently rejects everything after the truncation point. Twelve
+    came back complete, so the batch is capped there and the round is split across calls.
+    """
+    seen = []
+
+    class Critic:
+        model, provider, endpoint = "small", "fake", "http://fake"
+        reasoning_effort = None
+
+        def __init__(self):
+            self.calls = []
+
+        def json(self, purpose, system, user):
+            self.calls.append({"purpose": purpose})
+            count = user.count('"proposal_id"') - 1  # the response shape carries one
+            seen.append(count)
+            return {"reviews": []}
+
+    candidates = [proposal(f"candidate_number_{index:02d}") for index in range(30)]
+    critic = Critic()
+    _critic_votes(critic, candidates, [], max_catalog_chars=1000, samples=1,
+                  round_index=1, wave_name="capped")
+
+    assert max(seen) <= CRITIC_MAX_BATCH, f"sent a batch of {max(seen)} candidates"
+    assert sum(seen) == 30, "candidates were dropped rather than split across batches"
+    assert [c["purpose"] for c in critic.calls] == [
+        "critic-round-1-batch-1", "critic-round-1-batch-2", "critic-round-1-batch-3"]
+
+
+def test_a_rejected_proposal_keeps_its_summary_so_it_can_be_rejudged():
+    """wave9's seventy-one rejected ideas are unrecoverable: the archive kept the reason
+    and dropped the summary, and the proposer's replies keep only a sha256. Without the
+    summary a rejection cannot be audited, re-judged, or reconsidered later."""
+    critic = VotingCritic(["duplicate"])
+    wave = propose_wave(ROOT, name="keeps", count=1, rounds=1,
+                        client=_one_proposal_client("signed_constraint_parity"),
+                        critic_client=critic, critic_samples=1)
+
+    assert wave["rejected"][0]["summary"] == proposal()["summary"]
