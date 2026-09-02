@@ -8,6 +8,11 @@ import subprocess
 import sys
 
 from .implementor_prompt import DEFAULT_PACE, PACE, render_implementor_prompt
+from .design_proposer import (
+    DEFAULT_API_KEY_ENV as DESIGN_API_KEY_ENV,
+    DEFAULT_ENDPOINT as DESIGN_ENDPOINT,
+    DEFAULT_MODEL as DESIGN_MODEL,
+)
 from .legacy import LEGACY_SOURCE
 from .wave_proposer import DEFAULT_API_KEY_ENV, DEFAULT_ENDPOINT, DEFAULT_MODEL
 from .plan import _frozen_module_drift, _plan_problems, load_plan
@@ -92,6 +97,17 @@ def _parser():
     build.add_argument("--base-ref", default="HEAD")
     build.add_argument("--output")
     build.add_argument("--context-file", action="append", default=[])
+    build.add_argument(
+        "--design-choices",
+        type=int,
+        default=0,
+        help="ask the design proposer for this many approaches per task and split the"
+             " variants across them, instead of splitting on seed alone; must equal"
+             " --variants. 0 leaves the plan exactly as it has always been built",
+    )
+    build.add_argument("--design-model", default=DESIGN_MODEL)
+    build.add_argument("--design-endpoint", default=DESIGN_ENDPOINT)
+    build.add_argument("--design-api-key-env", default=DESIGN_API_KEY_ENV)
     catalog = subparsers.add_parser(
         "proposal-catalog", help="summarize the durable novelty catalog"
     )
@@ -220,9 +236,29 @@ def main(argv=None):
             ["git", "rev-parse", f"{args.base_ref}^{{commit}}"],
             cwd=repo_root, text=True,
         ).strip()
+        design_choices = None
+        if args.design_choices:
+            from .design_proposer import propose_wave_design_choices
+
+            if args.design_choices != args.variants:
+                raise SystemExit(
+                    f"--design-choices {args.design_choices} must equal"
+                    f" --variants {args.variants}: one choice per variant"
+                )
+            api_key = os.environ.get(args.design_api_key_env)
+            if not api_key:
+                raise SystemExit(
+                    f"{args.design_api_key_env} is required for the design proposer"
+                )
+            design_choices = propose_wave_design_choices(
+                wave, args.design_choices, model=args.design_model,
+                endpoint=args.design_endpoint, api_key=api_key,
+                temperature=0.7, reasoning_effort=None,
+            )
         plan = build_plan(
             wave,
             name=args.name,
+            design_choices=design_choices,
             base_ref=base_ref,
             variants=args.variants,
             context_files=tuple(args.context_file) or DEFAULT_CONTEXT_FILES,

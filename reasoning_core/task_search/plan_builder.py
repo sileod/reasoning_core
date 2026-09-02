@@ -49,8 +49,13 @@ def _instruction(task_name, summary):
 
 
 def build_plan(wave, *, name, base_ref="HEAD", variants=1,
-               context_files=DEFAULT_CONTEXT_FILES):
-    """Build a task-search plan running every proposal in `wave` `variants` times."""
+               context_files=DEFAULT_CONTEXT_FILES, design_choices=None):
+    """Build a task-search plan running every proposal in `wave` `variants` times.
+
+    `design_choices` maps a proposal id to the approaches its variants should be split
+    across, as `design_proposer` returns them. Pass none and the variants differ only by
+    seed, which is what every wave so far has done.
+    """
     if not isinstance(wave, dict) or wave.get("kind") != "sft_task_proposals":
         raise ValueError("expected an SFT proposal wave")
     # The wave name becomes a package directory under reasoning_core/tasks/generated, and
@@ -62,12 +67,21 @@ def build_plan(wave, *, name, base_ref="HEAD", variants=1,
     proposals = wave.get("proposals") or []
     if not proposals:
         raise ValueError("proposal wave has no accepted proposals")
+    design_choices = design_choices or {}
     trials, queues = [], {f"v{index}": [] for index in range(1, variants + 1)}
     for proposal in proposals:
         base_name = _snake(proposal.get("name"))
         summary = str(proposal.get("summary", "")).strip()
         if not base_name or not summary:
             raise ValueError(f"proposal {proposal.get('id', '?')} needs a name and a summary")
+        # One choice per variant, so a proposal fanned three ways is three named
+        # approaches and not one approach drawn three times.
+        choices = tuple(design_choices.get(str(proposal.get("id", "")), ()))
+        if choices and len(choices) != variants:
+            raise ValueError(
+                f"proposal {proposal.get('id', '?')} has {len(choices)} design choices"
+                f" for {variants} variants: they have to match"
+            )
         for index in range(1, variants + 1):
             task_name = f"{base_name}_v{index}" if variants > 1 else base_name
             trial_id = f"{proposal.get('id', base_name)}v{index}"
@@ -81,6 +95,7 @@ def build_plan(wave, *, name, base_ref="HEAD", variants=1,
                 "instruction": _instruction(task_name, summary),
                 "owned_path": owned_path,
                 "validation": [VALIDATION_COMMAND.format(owned_path=owned_path)],
+                **({"design_choice": choices[index - 1]} if choices else {}),
             })
             queues[f"v{index}"].append(trial_id)
     # One cheap draw to run first: the same six proposals every time, so a smoke run of two

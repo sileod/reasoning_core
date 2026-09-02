@@ -17,6 +17,9 @@ class Trial:
     validation: tuple
     hypothesis: str = ""
     parent: str = ""
+    # The one approach this trial is told to take, when the wave is comparing approaches
+    # rather than seeds. Empty is the normal case and renders no prompt bytes at all.
+    design_choice: str = ""
     idea: str = ""
     changes: str = ""
 
@@ -98,6 +101,7 @@ def load_plan(path):
                 ),
                 idea=idea,
                 changes=changes,
+                design_choice=str(raw.get("design_choice", "")).strip(),
             )
         )
     if not trials:

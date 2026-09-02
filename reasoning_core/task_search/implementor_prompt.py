@@ -33,6 +33,32 @@ PACE = {
 DEFAULT_PACE = "hurry"
 
 
+def _design_choice_section(trial):
+    """The one approach this trial is told to take, or no bytes at all.
+
+    Variants of a proposal differ only by seed today, so when one passes and its twin
+    fails -- 21 of the 80 wave0 proposals split exactly that way -- the records cannot
+    say what the winner did differently. Naming the choice in the plan turns that noise
+    into something readable. Unset is the normal case and renders nothing, so a plan
+    without design choices produces the prompt it always did, byte for byte.
+    """
+    if not trial.design_choice:
+        return ()
+    return (
+        "",
+        "## Assigned design choice",
+        "",
+        *textwrap.wrap(
+            "Other workers are implementing this same summary under different choices,"
+            " so that the wave can tell which one works. Take this one even where you"
+            " would have picked another, and do not hedge by implementing both:",
+            79,
+        ),
+        "",
+        trial.design_choice,
+    )
+
+
 def render_implementor_prompt(
     plan, trial, repo_root, task_meta=None, pace=DEFAULT_PACE
 ):
@@ -65,6 +91,7 @@ def render_implementor_prompt(
                 else "Parent module: `none (new task)`"
             ),
             f"Owned path: `{trial.owned_path}/`",
+            *_design_choice_section(trial),
             "",
             "Design constraint, measured on this wave: the answer has to vary across",
             "examples. Yes/no answers and small fixed label sets lose the gameability gate",

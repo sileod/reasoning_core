@@ -207,3 +207,85 @@ def test_frozen_module_drift_catches_a_base_ref_left_behind(tmp_path):
     paths["prior_audit"].write_text("# prior_audit --max-shortcut\n")
     drift = _frozen_module_drift(tmp_path, "HEAD")
     assert "Move base_ref forward" in drift and "prior_audit.py" in drift
+
+
+def test_a_trial_without_a_design_choice_renders_the_prompt_it_always_did(tmp_path):
+    """The design-choice section is built but not in use, so it must cost nothing.
+
+    Every wave so far fanned its variants on seed alone. Adding an unused field that
+    shifted a single prompt byte would make those waves incomparable with the next one
+    for no gain, so the empty case renders no section at all.
+    """
+    def plan_with(extra):
+        path = tmp_path / f"{'set' if extra else 'unset'}.yaml"
+        path.write_text(
+            "version: 1\nname: w\nproposal_wave: p\ntrials:\n"
+            "  - id: A\n    idea: a\n    changes: a\n    instruction: Implement it.\n"
+            "    owned_path: reasoning_core/tasks/generated/w/a\n"
+            "    validation: [check-a]\n" + extra
+        )
+        return load_plan(path)
+
+    unset = plan_with("")
+    assert unset.trials[0].design_choice == ""
+    without = render_implementor_prompt(unset, unset.trials[0], Path.cwd())
+    assert "design choice" not in without.lower()
+
+    chosen = plan_with("    design_choice: Answer with the witness, not the verdict.\n")
+    assert chosen.trials[0].design_choice == "Answer with the witness, not the verdict."
+    with_choice = render_implementor_prompt(chosen, chosen.trials[0], Path.cwd())
+    assert "## Assigned design choice" in with_choice
+    assert "Answer with the witness, not the verdict." in with_choice
+    # The only difference is the new section: nothing else about the prompt moved.
+    assert without == with_choice.replace(
+        with_choice[with_choice.index("\n## Assigned design choice") :
+                    with_choice.index("\nDesign constraint, measured on this wave:")],
+        "",
+    )
+
+
+def test_design_choices_fan_variants_across_approaches_not_seeds():
+    """One choice per variant, or the wave reports one approach as two draws."""
+    from reasoning_core.task_search.plan_builder import build_plan
+
+    wave = {
+        "kind": "sft_task_proposals",
+        "name": "p",
+        "proposals": [{"id": "P001", "name": "thing", "summary": "Do a thing."}],
+    }
+    built = build_plan(wave, name="w", variants=2,
+                       design_choices={"P001": ("choice one", "choice two")})
+    assert [t["design_choice"] for t in built["trials"]] == ["choice one", "choice two"]
+
+    # Unused, the field is absent rather than empty: an old plan and a new one with no
+    # choices are the same bytes.
+    plain = build_plan(wave, name="w", variants=2)
+    assert all("design_choice" not in trial for trial in plain["trials"])
+
+    with pytest.raises(ValueError, match="have to match"):
+        build_plan(wave, name="w", variants=2, design_choices={"P001": ("only one",)})
+
+
+def test_the_design_proposer_rejects_a_short_or_duplicated_reply():
+    """Fewer distinct choices than variants would run one approach twice."""
+    from reasoning_core.task_search import design_proposer
+
+    class Client:
+        def __init__(self, choices):
+            self.choices = choices
+
+        def json(self, _label, _system, _prompt):
+            return {"choices": self.choices}
+
+    assert design_proposer.propose_design_choices(
+        "t", "A summary.", 2, client=Client(["  first  way ", "second way"])
+    ) == ("first way", "second way")
+
+    with pytest.raises(ValueError, match="got 1"):
+        design_proposer.propose_design_choices(
+            "t", "A summary.", 2, client=Client(["same way", "SAME WAY"])
+        )
+    with pytest.raises(ValueError, match="choices list"):
+        design_proposer.propose_design_choices(
+            "t", "A summary.", 2, client=Client("not a list")
+        )

@@ -494,6 +494,7 @@ def _run_trial(
         "proposal_wave": plan.proposal_wave,
         "trial_id": trial.trial_id,
         "hypothesis": trial.hypothesis,
+        "design_choice": trial.design_choice,
         "base_commit": base_commit,
         "plan_sha256": plan.sha256,
         # Wave-level, deliberately not inside TASK_META: anything in there is pasted
