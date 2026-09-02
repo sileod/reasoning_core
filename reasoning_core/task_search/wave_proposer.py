@@ -40,6 +40,7 @@ MAX_BATCH = 64
 # just asks the same overloaded queue the same question twice and gives up. Wait longer
 # than a call takes, and keep waiting -- a wave is hours of work, and losing it to a
 # gateway timeout costs far more than sitting out ten minutes.
+RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 RETRY_BACKOFF = (30, 90, 240, 600)
 SUMMARY_MIN_CHARS = 40
 SUMMARY_MAX_CHARS = 240
@@ -348,6 +349,22 @@ def provider_of(endpoint):
     return ".".join(parts[:-1]) or host
 
 
+class UpstreamError(RuntimeError):
+    """A gateway answered 200 and put the failure in the body.
+
+    OpenRouter reports an upstream 429 or 502 this way, inside a reply that is otherwise
+    well-formed HTTP. raise_for_status cannot see it, so without this the retry loop takes
+    a failure for an answer and the caller gets a KeyError several frames from the cause.
+    """
+
+
+def _raise_body_error(payload):
+    if isinstance(payload, dict) and payload.get("error"):
+        error = payload["error"]
+        raise UpstreamError(str(error.get("message", error))
+                            if isinstance(error, dict) else str(error))
+
+
 class ChatClient:
     """A JSON-returning OpenAI-compatible chat client.
 
@@ -394,6 +411,7 @@ class ChatClient:
     def _read_document(response):
         """Content, raw bytes and id from a whole JSON reply."""
         payload = response.json()
+        _raise_body_error(payload)
         content = payload["choices"][0]["message"].get("content")
         if isinstance(content, list):
             content = "".join(str(part.get("text", "")) if isinstance(part, dict)
@@ -419,6 +437,7 @@ class ChatClient:
                 break
             chunks.append(payload)
             parsed = json.loads(payload)
+            _raise_body_error(parsed)
             response_id = response_id or parsed.get("id")
             # reasoning_content is the model thinking aloud, not the answer, and every
             # endpoint that emits it also emits content separately.
@@ -426,6 +445,13 @@ class ChatClient:
             if piece:
                 text.append(piece)
         return "".join(text), "\n".join(chunks).encode(), response_id
+
+    def _read_reply(self, response, headers):
+        """The three ways an endpoint can hand back one answer."""
+        if response.status_code == 202:
+            # The asynchronous path answers with a whole document however it was asked.
+            return self._read_document(self._poll(response, headers))
+        return self._read_stream(response) if self.stream else self._read_document(response)
 
     def json(self, purpose, system, user, max_tokens=32768):
         body = {
@@ -444,6 +470,7 @@ class ChatClient:
         request_bytes = json.dumps(body, sort_keys=True).encode()
         response_bytes = b""
         for attempt, backoff in enumerate(RETRY_BACKOFF):
+            last = attempt == len(RETRY_BACKOFF) - 1
             response = requests.post(
                 self.endpoint,
                 headers=headers,
@@ -451,23 +478,24 @@ class ChatClient:
                 timeout=self.timeout,
                 stream=self.stream,
             )
-            if response.status_code not in {429, 500, 502, 503, 504}:
-                response.raise_for_status()
-                break
-            # Reading .content here consumes a streamed body, so it happens only on the
-            # failures, whose bodies are short and worth keeping for the call log.
-            response_bytes = response.content
-            if attempt == len(RETRY_BACKOFF) - 1:
-                response.raise_for_status()
-            time.sleep(backoff)
-        if response.status_code == 202:
-            # The asynchronous path answers with a whole document however it was asked.
-            content, response_bytes, response_id = self._read_document(
-                self._poll(response, headers))
-        elif self.stream:
-            content, response_bytes, response_id = self._read_stream(response)
-        else:
-            content, response_bytes, response_id = self._read_document(response)
+            if response.status_code in RETRY_STATUS:
+                # Reading .content here consumes a streamed body, so it happens only on
+                # the failures, whose bodies are short and worth keeping for the call log.
+                response_bytes = response.content
+                if last:
+                    response.raise_for_status()
+                time.sleep(backoff)
+                continue
+            response.raise_for_status()
+            try:
+                content, response_bytes, response_id = self._read_reply(response, headers)
+            except UpstreamError as failure:
+                if last:
+                    raise
+                response_bytes = str(failure).encode()
+                time.sleep(backoff)
+                continue
+            break
         result = _extract_json(content)
         self.calls.append({
             "purpose": purpose,

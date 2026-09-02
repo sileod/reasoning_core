@@ -7,6 +7,7 @@ import yaml
 from reasoning_core.task_search.wave_proposer import (
     CatalogEntry,
     ChatClient,
+    UpstreamError,
     _extract_json,
     build_catalog,
     catalog_record,
@@ -487,3 +488,65 @@ def test_each_sample_shuffles_the_candidates_and_verdicts_follow_the_proposal():
     assert [p["name"] for p in wave["proposals"]] == [liked]
     assert {name for name, _ in [tuple(seat) for seat in seatings]} == {liked, disliked}, \
         "every sample presented the same candidate first, so the order was never shuffled"
+
+
+def test_a_two_hundred_carrying_an_upstream_error_is_retried_not_parsed(monkeypatch):
+    """OpenRouter answers 200 and puts the upstream 429 in the body.
+
+    raise_for_status is blind to it, so before this the loop took the failure for an
+    answer and the caller died on a KeyError several frames from the cause -- with the
+    retries it had earned never spent. Measured against the real gateway, which returned
+    `{"error": {"message": "Upstream error from Nvidia: Service temporarily overloaded"}}`
+    under an HTTP 200.
+    """
+    replies = [
+        {"error": {"message": "Upstream error from Nvidia: Service temporarily overloaded",
+                   "code": 502}},
+        {"id": "gen-2", "choices": [{"message": {"content": '{"ok": true}'}}]},
+    ]
+    posted = []
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, payload):
+            self._payload = payload
+            self.content = json.dumps(payload).encode()
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            return None
+
+    def post(url, **kwargs):
+        posted.append(url)
+        return Response(replies[len(posted) - 1])
+
+    monkeypatch.setattr("reasoning_core.task_search.wave_proposer.requests.post", post)
+    monkeypatch.setattr("reasoning_core.task_search.wave_proposer.time.sleep", lambda _: None)
+
+    client = ChatClient(model="m", endpoint="http://x", api_key="k", stream=False)
+    assert client.json("probe", "s", "u") == {"ok": True}
+    assert len(posted) == 2, "the body-level failure did not cost a retry"
+    assert client.calls[0]["response_id"] == "gen-2"
+
+
+def test_an_upstream_error_that_never_clears_is_raised_not_swallowed(monkeypatch):
+    class Response:
+        status_code = 200
+        content = b'{"error": {"message": "still overloaded"}}'
+
+        def json(self):
+            return {"error": {"message": "still overloaded"}}
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr("reasoning_core.task_search.wave_proposer.requests.post",
+                        lambda url, **kwargs: Response())
+    monkeypatch.setattr("reasoning_core.task_search.wave_proposer.time.sleep", lambda _: None)
+
+    client = ChatClient(model="m", endpoint="http://x", api_key="k", stream=False)
+    with pytest.raises(UpstreamError, match="still overloaded"):
+        client.json("probe", "s", "u")
