@@ -14,7 +14,14 @@ from .design_proposer import (
     DEFAULT_MODEL as DESIGN_MODEL,
 )
 from .legacy import LEGACY_SOURCE
-from .wave_proposer import DEFAULT_API_KEY_ENV, DEFAULT_ENDPOINT, DEFAULT_MODEL
+from .wave_proposer import (
+    CRITIC_API_KEY_ENV,
+    CRITIC_ENDPOINT,
+    CRITIC_MODEL,
+    DEFAULT_API_KEY_ENV,
+    DEFAULT_ENDPOINT,
+    DEFAULT_MODEL,
+)
 from .plan import _frozen_module_drift, _plan_problems, load_plan
 from .implementation_runner import _repo_root, run_plan
 from .sandbox import _write_json
@@ -66,6 +73,14 @@ def _parser():
              "kimi-k3 finishes writing sixty of them",
     )
     propose.add_argument("--max-catalog-chars", type=int, default=240000)
+    propose.add_argument(
+        "--critic-model", default=CRITIC_MODEL,
+        help="model for the novelty review, on its own provider so that the two calls in"
+             " a round cannot starve each other; 'same' reuses the proposer's client")
+    propose.add_argument("--critic-endpoint", default=CRITIC_ENDPOINT)
+    propose.add_argument("--critic-api-key-env", default=CRITIC_API_KEY_ENV)
+    propose.add_argument(
+        "--critic-reasoning-effort", default="none", choices=("none", "low", "high", "max"))
     proposal_check = subparsers.add_parser(
         "check-proposals", help="validate an archived SFT proposal wave"
     )
@@ -182,6 +197,15 @@ def main(argv=None):
         api_key = os.environ.get(args.api_key_env)
         if not api_key:
             raise SystemExit(f"{args.api_key_env} is required for the proposer")
+        critic_model = None if args.critic_model == "same" else args.critic_model
+        critic_key = os.environ.get(args.critic_api_key_env)
+        if critic_model and not critic_key:
+            # Degrading to a shared client is right -- the split is a robustness measure,
+            # not a correctness one -- but silently is not: the 429 it prevents arrives
+            # an hour later, in the critic, with the whole wave lost.
+            print(f"WARNING: {args.critic_api_key_env} is unset, so the critic shares the"
+                  f" proposer's client and quota", file=sys.stderr)
+            critic_model = None
         wave = propose_wave(
             repo_root,
             name=args.name,
@@ -192,6 +216,11 @@ def main(argv=None):
             seed=args.seed,
             temperature=args.temperature,
             reasoning_effort=None if args.reasoning_effort == "none" else args.reasoning_effort,
+            critic_model=critic_model,
+            critic_endpoint=args.critic_endpoint,
+            critic_api_key=critic_key,
+            critic_reasoning_effort=(None if args.critic_reasoning_effort == "none"
+                                     else args.critic_reasoning_effort),
             rounds=args.rounds,
             max_batch=args.max_batch,
             max_catalog_chars=args.max_catalog_chars,

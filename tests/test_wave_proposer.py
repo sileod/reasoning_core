@@ -286,3 +286,77 @@ def test_a_client_can_still_be_asked_for_a_whole_document(monkeypatch):
 
     assert client.json("test", "system", "user") == {"proposals": []}
     assert client.calls[0]["response_id"] == "doc-1"
+
+
+def test_the_critic_can_run_on_a_separate_client_from_the_proposer(tmp_path):
+    """A round is two calls, and wave9 lost a whole wave to a 429 raised by the second.
+
+    The proposer had already spent the shared quota by the time the critic asked for its
+    turn, so the split is what keeps one call from starving the other. The archive has to
+    say which model actually issued the novelty verdicts, or a wave's acceptances cannot
+    be attributed later.
+    """
+    class Client:
+        def __init__(self, model, reply):
+            self.model, self.provider, self.endpoint = model, "fake", "http://fake"
+            self.reasoning_effort, self.calls, self.purposes = None, [], []
+            self._reply = reply
+
+        def json(self, purpose, system, user):
+            self.purposes.append(purpose)
+            self.calls.append({"purpose": purpose})
+            return self._reply
+
+    proposer = Client("big", {"proposals": [
+        {"name": "novel_thing", "summary": 'Given a labelled hypergraph and a rewrite budget, decide which contraction orders reach the target normal form and report the cheapest one.'}]})
+    critic = Client("small", {"reviews": [{
+        "proposal_id": "C001", "verdict": "novel",
+        "nearest_neighbors": [
+            {"id": "plan:WAVE0:M1", "relationship": "adjacent",
+             "overlap": "both propagate constraints"},
+            {"id": "gallery:belief_tracking", "relationship": "different",
+             "overlap": "both update latent relations"},
+            {"id": "gallery:constraint_satisfaction", "relationship": "adjacent",
+             "overlap": "both enforce consistency"},
+        ],
+        "substantive_difference": "contracts hyperedges under a cost budget",
+        "scores": {"novelty": 5, "sft_value": 5, "feasibility": 5, "clarity": 5},
+        "reason": "distinct operation"}]})
+
+    wave = propose_wave(ROOT, name="split", count=1, rounds=1,
+                        client=proposer, critic_client=critic)
+
+    assert [p["name"] for p in wave["proposals"]] == ["novel_thing"]
+    assert all("propose-round" in purpose for purpose in proposer.purposes)
+    assert all("critic-round" in purpose for purpose in critic.purposes)
+    assert wave["review"]["model"] == "small"
+    assert wave["review"]["shared_with_generator"] is False
+    assert wave["generation"]["calls"] and wave["review"]["calls"]
+
+
+def test_one_client_still_does_both_jobs_when_no_critic_is_given(tmp_path):
+    """The split is opt-in at the library level, so existing callers keep working."""
+    class Client:
+        model, provider, endpoint = "solo", "fake", "http://fake"
+        reasoning_effort = None
+
+        def __init__(self):
+            self.calls, self.purposes = [], []
+
+        def json(self, purpose, system, user):
+            self.purposes.append(purpose)
+            self.calls.append({"purpose": purpose})
+            if purpose.startswith("propose"):
+                return {"proposals": [{"name": "solo_thing", "summary": 'Given a labelled hypergraph and a rewrite budget, decide which contraction orders reach the target normal form and report the cheapest one.'}]}
+            return {"reviews": [{
+                "proposal_id": "C001", "verdict": "novel",
+                "substantive_difference": "it is different",
+                "scores": {"novelty": 5, "sft_value": 5, "feasibility": 5, "clarity": 5},
+                "nearest_neighbors": [], "reason": "distinct operation"}]}
+
+    solo = Client()
+    wave = propose_wave(ROOT, name="solo", count=1, rounds=1, client=solo)
+
+    assert wave["review"]["shared_with_generator"] is True
+    assert wave["review"]["calls"] == []
+    assert len(solo.purposes) == 2

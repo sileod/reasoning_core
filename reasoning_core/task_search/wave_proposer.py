@@ -19,6 +19,11 @@ import yaml
 
 
 DEFAULT_MODEL = "moonshotai/kimi-k3"
+# The critic's defaults are deliberately a different provider from the proposer's, not a
+# cheaper tier of the same one: sharing a quota is what killed wave9. See propose_wave.
+CRITIC_MODEL = "deepseek-v4-flash"
+CRITIC_ENDPOINT = "https://albert.api.etalab.gouv.fr/v1/chat/completions"
+CRITIC_API_KEY_ENV = "ALBERT_API_KEY"
 DEFAULT_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 DEFAULT_API_KEY_ENV = "NVIDIA_API_KEY"
 # One call should carry a whole wave: these are big models, and they are better used in
@@ -562,8 +567,18 @@ def _exact_catalog_collision(proposal, catalog):
 def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
                  endpoint=DEFAULT_ENDPOINT, api_key=None, seed=0, temperature=1.0,
                  reasoning_effort="max", rounds=3, max_catalog_chars=240_000,
-                 max_batch=MAX_BATCH, timeout=2400, client=None):
-    """Generate and independently novelty-review an SFT proposal wave."""
+                 max_batch=MAX_BATCH, timeout=2400, client=None,
+                 critic_model=None, critic_endpoint=None, critic_api_key=None,
+                 critic_reasoning_effort=None, critic_client=None):
+    """Generate and independently novelty-review an SFT proposal wave.
+
+    The critic can run on a different provider from the proposer, and by default should.
+    A round is two calls against one quota, and wave9 died on a 429 raised by the critic
+    after every retry -- the proposer had already spent the budget. They are also not the
+    same job: proposing is generation, where the strongest available model earns its cost,
+    while judging novelty is comparison against a catalog, which a small model does well.
+    Splitting them puts the two calls on quotas that cannot starve each other.
+    """
     if count < 1 or rounds < 1:
         raise ValueError("count and rounds must be positive")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", name):
@@ -574,6 +589,13 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
     client = client or ChatClient(model=model, endpoint=endpoint, api_key=api_key,
                                   seed=seed, temperature=temperature,
                                   reasoning_effort=reasoning_effort, timeout=timeout)
+    # No critic asked for means the old behaviour: one client does both jobs.
+    if critic_client is None and critic_model:
+        critic_client = ChatClient(
+            model=critic_model, endpoint=critic_endpoint or endpoint,
+            api_key=critic_api_key, seed=seed, temperature=temperature,
+            reasoning_effort=critic_reasoning_effort, timeout=timeout)
+    critic = critic_client or client
     accepted, rejected, exclusions = [], [], []
     for round_index in range(1, rounds + 1):
         missing = count - len(accepted)
@@ -609,7 +631,7 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
                 round_names.add(_snake(proposal.get("name")))
         if not reviewable:
             continue
-        reviewed = client.json(
+        reviewed = critic.json(
             f"critic-round-{round_index}", _CRITIC_SYSTEM,
             _critic_prompt(reviewable, catalog, max_catalog_chars))
         reviews = reviewed.get("reviews")
@@ -687,6 +709,16 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
             "seed": seed, "temperature": temperature,
             "reasoning_effort": reasoning_effort,
             "calls": list(client.calls),
+        },
+        # Recorded separately even when it is the same client, so that a wave's novelty
+        # verdicts can always be attributed to the model that actually issued them.
+        "review": {
+            "provider": getattr(critic, "provider", None),
+            "model": getattr(critic, "model", None),
+            "endpoint": getattr(critic, "endpoint", None),
+            "reasoning_effort": getattr(critic, "reasoning_effort", None),
+            "shared_with_generator": critic is client,
+            "calls": [] if critic is client else list(critic.calls),
         },
         "proposals": accepted,
         "rejected": rejected,
