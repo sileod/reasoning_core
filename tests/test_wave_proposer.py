@@ -79,7 +79,7 @@ def test_a_proposal_is_a_name_and_a_coverage_summary():
     assert proposal_problems({"name": "Bad Name", "summary": proposal()["summary"]}) == [
         "name must be canonical snake_case"]
     assert proposal_problems({"name": "ok_task", "summary": "sorts a list"}) == [
-        "summary must be 40-240 characters"]
+        "summary must be 40-240 characters, got 12"]
     assert proposal_problems({"name": "ok_task", "summary": "x " * 40}) == [
         "summary must be one trimmed line"]
 
@@ -222,3 +222,67 @@ def test_client_polls_a_pending_asynchronous_request(monkeypatch):
     assert observed["url"] == "https://integrate.api.nvidia.com/v1/status/abc"
     assert client.calls[0]["response_id"] == "response-1"
     assert "secret" not in json.dumps(client.calls)
+
+
+def test_client_reads_a_streamed_reply(monkeypatch):
+    """Streaming is the default because a silent request to NIM is killed by the gateway.
+
+    kimi-k3 spends minutes reasoning before its first content token, and wave9 died on a
+    504 at batch 12 and again at batch 6 while a 16-token request to the same model
+    answered fine. The bytes are what hold the connection open, so the reader has to
+    survive keep-alive blanks, reasoning-only deltas and the terminating sentinel.
+    """
+    chunks = [
+        'data: {"id": "stream-1", "choices": [{"delta": {"reasoning_content": "think"}}]}',
+        "",
+        'data: {"id": "stream-1", "choices": [{"delta": {"content": "{\\"proposals\\":"}}]}',
+        ": keep-alive",
+        'data: {"id": "stream-1", "choices": [{"delta": {"content": " []}"}}]}',
+        "data: [DONE]",
+        'data: {"id": "stream-1", "choices": [{"delta": {"content": "ignored"}}]}',
+    ]
+
+    class Response:
+        status_code = 200
+        content = b"consuming this would eat the stream"
+
+        def raise_for_status(self):
+            return None
+
+        def iter_lines(self, decode_unicode=False):
+            return iter(chunks)
+
+    observed = {}
+
+    def post(url, **kwargs):
+        observed.update(stream=kwargs.get("stream"), body=kwargs.get("json"))
+        return Response()
+
+    monkeypatch.setattr("requests.post", post)
+    client = ChatClient(api_key="secret", timeout=10)
+
+    assert client.json("test", "system", "user") == {"proposals": []}
+    # Asking for a stream and then not reading it as one is the failure that hangs.
+    assert observed["stream"] is True and observed["body"]["stream"] is True
+    assert client.calls[0]["response_id"] == "stream-1"
+    assert "secret" not in json.dumps(client.calls)
+
+
+def test_a_client_can_still_be_asked_for_a_whole_document(monkeypatch):
+    """Endpoints that do not stream have to keep working, so the flag stays a choice."""
+    class Response:
+        status_code = 200
+        content = json.dumps({"id": "doc-1", "choices": [
+            {"message": {"content": '{"proposals": []}'}}]}).encode()
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return json.loads(self.content)
+
+    monkeypatch.setattr("requests.post", lambda *args, **kwargs: Response())
+    client = ChatClient(api_key="secret", timeout=10, stream=False)
+
+    assert client.json("test", "system", "user") == {"proposals": []}
+    assert client.calls[0]["response_id"] == "doc-1"

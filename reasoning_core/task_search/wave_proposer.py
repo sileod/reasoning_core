@@ -350,7 +350,7 @@ class ChatClient:
 
     def __init__(self, *, model=DEFAULT_MODEL, endpoint=DEFAULT_ENDPOINT,
                  api_key=None, seed=0, temperature=1.0, reasoning_effort="max",
-                 timeout=600):
+                 timeout=600, stream=True):
         self.model, self.endpoint = model, endpoint
         self.provider = provider_of(endpoint)
         self.api_key = api_key or os.environ.get(DEFAULT_API_KEY_ENV)
@@ -360,6 +360,7 @@ class ChatClient:
             raise ValueError("reasoning_effort must be low, high, max or None")
         self.seed, self.temperature = seed, temperature
         self.reasoning_effort, self.timeout = reasoning_effort, timeout
+        self.stream = stream
         self.calls = []
 
     def _poll(self, response, headers):
@@ -380,6 +381,43 @@ class ChatClient:
             return response
         raise TimeoutError(f"request {request_id} stayed pending for {self.timeout}s")
 
+    @staticmethod
+    def _read_document(response):
+        """Content, raw bytes and id from a whole JSON reply."""
+        payload = response.json()
+        content = payload["choices"][0]["message"].get("content")
+        if isinstance(content, list):
+            content = "".join(str(part.get("text", "")) if isinstance(part, dict)
+                              else str(part) for part in content)
+        return content, response.content, payload.get("id")
+
+    def _read_stream(self, response):
+        """Accumulate an SSE reply into the (content, raw bytes, id) a JSON reply gives.
+
+        A proposal batch is minutes of reasoning before the first content token, and NIM's
+        gateway closes a request that has sent nothing for long enough: wave9 died on a 504
+        at batch 12 and again at batch 6, after exhausting every retry, while a 16-token
+        request to the same model answered fine. Streaming is not an optimisation here --
+        it is what keeps the connection alive long enough to finish. Measured on kimi-k3
+        with the real proposer prompt: first byte at 55s, where the silent request 504s.
+        """
+        chunks, text, response_id = [], [], None
+        for line in response.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data: "):
+                continue
+            payload = line[6:]
+            if payload == "[DONE]":
+                break
+            chunks.append(payload)
+            parsed = json.loads(payload)
+            response_id = response_id or parsed.get("id")
+            # reasoning_content is the model thinking aloud, not the answer, and every
+            # endpoint that emits it also emits content separately.
+            piece = (parsed.get("choices") or [{}])[0].get("delta", {}).get("content")
+            if piece:
+                text.append(piece)
+        return "".join(text), "\n".join(chunks).encode(), response_id
+
     def json(self, purpose, system, user, max_tokens=32768):
         body = {
             "model": self.model,
@@ -388,7 +426,7 @@ class ChatClient:
             "max_tokens": max_tokens,
             "seed": self.seed,
             "temperature": self.temperature,
-            "stream": False,
+            "stream": self.stream,
         }
         if self.reasoning_effort:
             body["reasoning_effort"] = self.reasoning_effort
@@ -402,29 +440,31 @@ class ChatClient:
                 headers=headers,
                 json=body,
                 timeout=self.timeout,
+                stream=self.stream,
             )
-            response_bytes = response.content
             if response.status_code not in {429, 500, 502, 503, 504}:
                 response.raise_for_status()
                 break
+            # Reading .content here consumes a streamed body, so it happens only on the
+            # failures, whose bodies are short and worth keeping for the call log.
+            response_bytes = response.content
             if attempt == len(RETRY_BACKOFF) - 1:
                 response.raise_for_status()
             time.sleep(backoff)
         if response.status_code == 202:
-            response = self._poll(response, headers)
-            response_bytes = response.content
-        payload = response.json()
-        message = payload["choices"][0]["message"]
-        content = message.get("content")
-        if isinstance(content, list):
-            content = "".join(str(part.get("text", "")) if isinstance(part, dict)
-                              else str(part) for part in content)
+            # The asynchronous path answers with a whole document however it was asked.
+            content, response_bytes, response_id = self._read_document(
+                self._poll(response, headers))
+        elif self.stream:
+            content, response_bytes, response_id = self._read_stream(response)
+        else:
+            content, response_bytes, response_id = self._read_document(response)
         result = _extract_json(content)
         self.calls.append({
             "purpose": purpose,
             "request_sha256": _sha256(request_bytes),
             "response_sha256": _sha256(response_bytes),
-            "response_id": payload.get("id"),
+            "response_id": response_id,
         })
         return result
 
