@@ -12,7 +12,7 @@ trials. Proposal generation remains a separate subsystem in `wave_proposer.py`.
   validation subprocesses.
 - `validation.py` owns every coordinator and worker-facing gate and their failure
   precedence. `selfcheck.py` is only its CLI compatibility wrapper.
-- `runner.py` creates worktrees, launches Harness Link, validates candidates, retries
+- `implementation_runner.py` creates worktrees, launches Harness Link, validates candidates, retries
   explicit infrastructure failures, and writes run records.
 - `cli.py` contains argument parsing and command dispatch.
 

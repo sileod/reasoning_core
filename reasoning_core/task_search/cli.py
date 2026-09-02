@@ -16,7 +16,7 @@ from .design_proposer import (
 from .legacy import LEGACY_SOURCE
 from .wave_proposer import DEFAULT_API_KEY_ENV, DEFAULT_ENDPOINT, DEFAULT_MODEL
 from .plan import _frozen_module_drift, _plan_problems, load_plan
-from .runner import _repo_root, run_plan
+from .implementation_runner import _repo_root, run_plan
 from .sandbox import _write_json
 
 

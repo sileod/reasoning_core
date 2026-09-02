@@ -29,7 +29,7 @@ from reasoning_core.task_search.plan import (
     _select_trials,
     load_plan,
 )
-from reasoning_core.task_search.runner import (
+from reasoning_core.task_search.implementation_runner import (
     _mini_config,
     _prepare_harness,
     _retryable_harness_failure,
@@ -535,7 +535,7 @@ def test_validate_candidate_records_a_metadata_mismatch(tmp_path):
     """The whole gate pipeline, on the cheap path where no gate opens a sandbox.
 
     Every name this function reads has to exist. Three of them did not survive the
-    split out of runner.py -- task_meta, validation_timeout_seconds and
+    split out of implementation_runner.py -- task_meta, validation_timeout_seconds and
     _run_validation -- and no test called validate_candidate at all, so a package
     whose 47 tests passed failed every trial it ran with a NameError.
     """
@@ -618,7 +618,7 @@ def test_validate_candidate_accepts_the_metadata_the_runner_assigned(tmp_path):
 def test_no_task_search_module_reads_an_undefined_name():
     """A pyflakes-shaped guard over the package, in the absence of a linter in CI.
 
-    The refactor that split runner.py left four reads of names that no longer
+    The refactor that split implementation_runner.py left four reads of names that no longer
     existed in scope, in code paths -- a failing gate, an incomplete proposal wave --
     that only run against a live provider.
     """

@@ -27,7 +27,7 @@ from reasoning_core.task_search.plan import (
     _select_trials,
     load_plan,
 )
-from reasoning_core.task_search.runner import (
+from reasoning_core.task_search.implementation_runner import (
     _mini_config,
     _prepare_harness,
     _retryable_harness_failure,

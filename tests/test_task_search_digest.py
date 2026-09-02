@@ -4,7 +4,7 @@ import json
 
 from reasoning_core.task_search import digest
 from reasoning_core.task_search.plan import Trial
-from reasoning_core.task_search.runner import _spellings, opencode_permissions
+from reasoning_core.task_search.implementation_runner import _spellings, opencode_permissions
 
 OWNED = "reasoning_core/tasks/generated/wave7/graph_chordality"
 
