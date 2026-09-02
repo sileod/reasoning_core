@@ -360,3 +360,130 @@ def test_one_client_still_does_both_jobs_when_no_critic_is_given(tmp_path):
     assert wave["review"]["shared_with_generator"] is True
     assert wave["review"]["calls"] == []
     assert len(solo.purposes) == 2
+
+
+def _neighbors():
+    return [
+        {"id": "plan:WAVE0:M1", "relationship": "adjacent",
+         "overlap": "both propagate constraints"},
+        {"id": "gallery:belief_tracking", "relationship": "different",
+         "overlap": "both update latent relations"},
+        {"id": "gallery:constraint_satisfaction", "relationship": "adjacent",
+         "overlap": "both enforce consistency"},
+    ]
+
+
+class VotingCritic:
+    """A critic whose verdict per sample is scripted, one entry per call."""
+
+    model, provider, endpoint = "small", "fake", "http://fake"
+    reasoning_effort = None
+
+    def __init__(self, verdicts):
+        self.verdicts, self.calls, self.purposes = list(verdicts), [], []
+
+    def json(self, purpose, system, user):
+        self.purposes.append(purpose)
+        self.calls.append({"purpose": purpose})
+        verdict = self.verdicts.pop(0)
+        if verdict is None:
+            return {"reviews": []}
+        return {"reviews": [{
+            "proposal_id": "C001", "verdict": verdict,
+            "nearest_neighbors": _neighbors(),
+            "substantive_difference": "contracts hyperedges under a cost budget",
+            "scores": {"novelty": 5 if verdict == "novel" else 2, "sft_value": 5,
+                       "feasibility": 5, "clarity": 5},
+            "reason": f"judged {verdict}"}]}
+
+
+def _one_proposal_client(*names):
+    class Client:
+        model, provider, endpoint = "big", "fake", "http://fake"
+        reasoning_effort = None
+
+        def __init__(self):
+            self.calls = []
+
+        def json(self, purpose, system, user):
+            self.calls.append({"purpose": purpose})
+            return {"proposals": [proposal(name) for name in names]}
+
+    return Client()
+
+
+@pytest.mark.parametrize("verdicts, accepted, votes", [
+    (["novel", "novel", "duplicate"], True, "2/3"),
+    (["novel", "duplicate", "duplicate"], False, "1/3"),
+])
+def test_the_critic_is_polled_k_times_and_the_majority_decides(verdicts, accepted, votes):
+    """One flash opinion is noisy, and its two errors do not cost the same.
+
+    A wrong reject loses one idea; a wrong accept spends an implementation trial and then
+    sits in the catalog as the thing every later novelty check measures against.
+    """
+    critic = VotingCritic(verdicts)
+    wave = propose_wave(ROOT, name="voted", count=1, rounds=1,
+                        client=_one_proposal_client("signed_constraint_parity"),
+                        critic_client=critic, critic_samples=3)
+
+    assert len(critic.purposes) == 3
+    if accepted:
+        assert wave["proposals"][0]["novelty"]["votes"] == votes
+        assert wave["proposals"][0]["novelty"]["dissent"] == ["duplicate"]
+        assert validate_proposal_wave(wave) == []
+    else:
+        assert wave["proposals"] == []
+        assert wave["rejected"][0]["votes"] == votes
+        assert "1/3 samples judged it novel" in wave["rejected"][0]["reason"]
+
+
+def test_samples_that_skip_a_candidate_leave_the_decision_to_the_ones_that_did_not():
+    """Partial failure is the common case with a small model, not an aborted round."""
+    critic = VotingCritic([None, "novel", "novel"])
+    wave = propose_wave(ROOT, name="partial", count=1, rounds=1,
+                        client=_one_proposal_client("signed_constraint_parity"),
+                        critic_client=critic, critic_samples=3)
+
+    assert wave["proposals"][0]["novelty"]["votes"] == "2/2"
+
+
+def test_each_sample_shuffles_the_candidates_and_verdicts_follow_the_proposal():
+    """The shuffle is the reason K samples are worth more than one repeated K times.
+
+    Candidates are presented as an ordered list and judged partly against each other, so
+    the same order twice mostly reproduces the same opinion twice. Shuffling also means a
+    verdict has to be carried back through that sample's own seating: get the mapping
+    wrong and the votes land on the neighbouring proposal, which no threshold would catch.
+    """
+    liked, disliked = "zzq_liked_operation", "zzq_disliked_operation"
+    seatings = []
+
+    class SeatAwareCritic:
+        model, provider, endpoint = "small", "fake", "http://fake"
+        reasoning_effort = None
+
+        def __init__(self):
+            self.calls = []
+
+        def json(self, purpose, system, user):
+            self.calls.append({"purpose": purpose})
+            seating = sorted((liked, disliked), key=user.index)
+            seatings.append(seating)
+            return {"reviews": [
+                {"proposal_id": f"C{seat:03d}",
+                 "verdict": "novel" if name == liked else "duplicate",
+                 "nearest_neighbors": _neighbors(),
+                 "substantive_difference": "a genuinely different operation",
+                 "scores": {"novelty": 5 if name == liked else 1, "sft_value": 5,
+                            "feasibility": 5, "clarity": 5},
+                 "reason": f"judged on {name}"}
+                for seat, name in enumerate(seating, 1)]}
+
+    wave = propose_wave(ROOT, name="shuffled", count=2, rounds=1,
+                        client=_one_proposal_client(liked, disliked),
+                        critic_client=SeatAwareCritic(), critic_samples=6)
+
+    assert [p["name"] for p in wave["proposals"]] == [liked]
+    assert {name for name, _ in [tuple(seat) for seat in seatings]} == {liked, disliked}, \
+        "every sample presented the same candidate first, so the order was never shuffled"

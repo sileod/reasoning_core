@@ -18,6 +18,7 @@ from .wave_proposer import (
     CRITIC_API_KEY_ENV,
     CRITIC_ENDPOINT,
     CRITIC_MODEL,
+    CRITIC_SAMPLES,
     DEFAULT_API_KEY_ENV,
     DEFAULT_ENDPOINT,
     DEFAULT_MODEL,
@@ -81,6 +82,10 @@ def _parser():
     propose.add_argument("--critic-api-key-env", default=CRITIC_API_KEY_ENV)
     propose.add_argument(
         "--critic-reasoning-effort", default="none", choices=("none", "low", "high", "max"))
+    propose.add_argument(
+        "--critic-samples", type=int, default=CRITIC_SAMPLES,
+        help="review each candidate this many times over shuffled orderings and take the"
+             " majority; 1 restores a single opinion")
     proposal_check = subparsers.add_parser(
         "check-proposals", help="validate an archived SFT proposal wave"
     )
@@ -221,6 +226,7 @@ def main(argv=None):
             critic_api_key=critic_key,
             critic_reasoning_effort=(None if args.critic_reasoning_effort == "none"
                                      else args.critic_reasoning_effort),
+            critic_samples=max(1, args.critic_samples),
             rounds=args.rounds,
             max_batch=args.max_batch,
             max_catalog_chars=args.max_catalog_chars,

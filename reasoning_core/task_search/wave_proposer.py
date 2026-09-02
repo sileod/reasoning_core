@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import random
 import re
 import time
 
@@ -24,6 +25,9 @@ DEFAULT_MODEL = "moonshotai/kimi-k3"
 CRITIC_MODEL = "deepseek-v4-flash"
 CRITIC_ENDPOINT = "https://albert.api.etalab.gouv.fr/v1/chat/completions"
 CRITIC_API_KEY_ENV = "ALBERT_API_KEY"
+# A small model is cheap enough to ask more than once, and three is the smallest K that
+# can disagree with itself. Two would only ever tie.
+CRITIC_SAMPLES = 3
 DEFAULT_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 DEFAULT_API_KEY_ENV = "NVIDIA_API_KEY"
 # One call should carry a whole wave: these are big models, and they are better used in
@@ -559,6 +563,85 @@ FULL KNOWN CATALOG:
 {_catalog_text(catalog, max_catalog_chars)}"""
 
 
+def _review_verdict(review, candidate_id, allowed_neighbor_ids):
+    """Does one critic review clear the structural gate, and what did it say?
+
+    Lifted out of the accept loop so that K reviews of the same candidate are judged by
+    exactly the same rules as one was. Nothing here is new: a review has to name three
+    real neighbours, must not label any of them the same operation while calling the
+    candidate novel, and has to clear the score floors.
+    """
+    scores = review.get("scores") or {}
+    neighbors = review.get("nearest_neighbors")
+    neighbors_valid = (
+        isinstance(neighbors, list) and len(neighbors) >= 3
+        and all(isinstance(item, dict)
+                and item.get("id") in allowed_neighbor_ids
+                and item.get("id") != f"candidate:{candidate_id}"
+                and item.get("relationship") in
+                    {"same_operation", "variant", "adjacent", "different"}
+                and _one_line(item.get("overlap"))
+                for item in neighbors)
+    )
+    contradicts_novelty = (neighbors_valid and any(
+        item["relationship"] in {"same_operation", "variant"}
+        for item in neighbors))
+    passes = (review.get("verdict") == "novel"
+              and neighbors_valid and not contradicts_novelty
+              and scores.get("novelty", 0) >= 4
+              and scores.get("sft_value", 0) >= 4
+              and scores.get("feasibility", 0) >= 3
+              and scores.get("clarity", 0) >= 3)
+    return {"passes": passes, "review": review, "scores": scores,
+            "neighbors": neighbors if neighbors_valid else [],
+            "neighbors_valid": neighbors_valid,
+            "contradicts_novelty": contradicts_novelty,
+            "verdict": review.get("verdict", "invalid")}
+
+
+def _critic_votes(critic, reviewable, catalog, *, max_catalog_chars, samples,
+                  round_index, wave_name):
+    """Ask the critic `samples` times, shuffling the candidates for each one.
+
+    One flash review is a noisy gate, and the two errors are not symmetric: a wrong
+    reject costs one idea, a wrong accept costs a whole implementation trial and puts a
+    duplicate in the catalog that every later novelty check then measures against.
+    Sampling turns a single opinion into a tally, and disagreement is itself the
+    measurement -- an accepted proposal that only just carried the vote is visible.
+
+    The shuffle is what makes the samples worth having. Candidates are presented as an
+    ordered list and judged partly against each other, so the same order twice mostly
+    reproduces the same opinion twice; a different order is a different prompt, which is
+    also why the samples need no seed variation. Order is derived from the wave name and
+    round so a rerun shuffles identically.
+    """
+    votes = [[] for _ in reviewable]
+    for sample in range(1, samples + 1):
+        order = list(range(len(reviewable)))
+        if samples > 1:
+            random.Random(f"{wave_name}:{round_index}:{sample}").shuffle(order)
+        presented = [reviewable[position] for position in order]
+        purpose = (f"critic-round-{round_index}" if samples == 1
+                   else f"critic-round-{round_index}-sample-{sample}")
+        reviewed = critic.json(
+            purpose, _CRITIC_SYSTEM,
+            _critic_prompt(presented, catalog, max_catalog_chars))
+        reviews = reviewed.get("reviews")
+        if not isinstance(reviews, list):
+            raise ValueError("critic response requires a reviews list")
+        by_id = {review.get("proposal_id"): review for review in reviews}
+        # Neighbour ids naming other candidates refer to this sample's ordering.
+        allowed = ({entry.entry_id for entry in catalog}
+                   | {f"candidate:C{seat:03d}" for seat in range(1, len(presented) + 1)})
+        for seat, position in enumerate(order, 1):
+            candidate_id = f"C{seat:03d}"
+            review = by_id.get(candidate_id)
+            votes[position].append(
+                None if not review
+                else _review_verdict(review, candidate_id, allowed))
+    return votes
+
+
 def _exact_catalog_collision(proposal, catalog):
     name = _snake(proposal.get("name"))
     return next((entry for entry in catalog if _snake(entry.name) == name), None)
@@ -569,7 +652,8 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
                  reasoning_effort="max", rounds=3, max_catalog_chars=240_000,
                  max_batch=MAX_BATCH, timeout=2400, client=None,
                  critic_model=None, critic_endpoint=None, critic_api_key=None,
-                 critic_reasoning_effort=None, critic_client=None):
+                 critic_reasoning_effort=None, critic_client=None,
+                 critic_samples=1):
     """Generate and independently novelty-review an SFT proposal wave.
 
     The critic can run on a different provider from the proposer, and by default should.
@@ -578,6 +662,9 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
     same job: proposing is generation, where the strongest available model earns its cost,
     while judging novelty is comparison against a catalog, which a small model does well.
     Splitting them puts the two calls on quotas that cannot starve each other.
+
+    critic_samples asks the same critic K times over shuffled candidate orders and takes
+    the majority; see _critic_votes for why the shuffle is the part that matters.
     """
     if count < 1 or rounds < 1:
         raise ValueError("count and rounds must be positive")
@@ -631,69 +718,58 @@ def propose_wave(repo_root, *, name, count=12, model=DEFAULT_MODEL,
                 round_names.add(_snake(proposal.get("name")))
         if not reviewable:
             continue
-        reviewed = critic.json(
-            f"critic-round-{round_index}", _CRITIC_SYSTEM,
-            _critic_prompt(reviewable, catalog, max_catalog_chars))
-        reviews = reviewed.get("reviews")
-        if not isinstance(reviews, list):
-            raise ValueError("critic response requires a reviews list")
-        by_id = {review.get("proposal_id"): review for review in reviews}
-        allowed_neighbor_ids = ({entry.entry_id for entry in catalog}
-                                | {f"candidate:C{index:03d}"
-                                   for index in range(1, len(reviewable) + 1)})
-        for index, proposal in enumerate(reviewable, 1):
-            candidate_id = f"C{index:03d}"
-            review = by_id.get(candidate_id)
-            if not review:
+        votes = _critic_votes(critic, reviewable, catalog,
+                              max_catalog_chars=max_catalog_chars,
+                              samples=critic_samples, round_index=round_index,
+                              wave_name=name)
+        for proposal, ballots in zip(reviewable, votes):
+            cast = [ballot for ballot in ballots if ballot]
+            in_favour = [ballot for ballot in cast if ballot["passes"]]
+            # A candidate that no sample reviewed is an omission, not a verdict; one that
+            # a minority of samples skipped is judged by the samples that did look at it.
+            if not cast:
                 rejected.append({"name": proposal["name"], "verdict": "invalid",
                                  "closest_id": None, "reason": "critic omitted the candidate"})
                 exclusions.append(f"{proposal['name']}: critic omitted the candidate")
                 continue
-            scores = review.get("scores") or {}
-            neighbors = review.get("nearest_neighbors")
-            neighbors_valid = (
-                isinstance(neighbors, list) and len(neighbors) >= 3
-                and all(isinstance(item, dict)
-                        and item.get("id") in allowed_neighbor_ids
-                        and item.get("id") != f"candidate:{candidate_id}"
-                        and item.get("relationship") in
-                            {"same_operation", "variant", "adjacent", "different"}
-                        and _one_line(item.get("overlap"))
-                        for item in neighbors)
-            )
-            contradicts_novelty = (neighbors_valid and any(
-                item["relationship"] in {"same_operation", "variant"}
-                for item in neighbors))
-            passes = (review.get("verdict") == "novel"
-                      and neighbors_valid and not contradicts_novelty
-                      and scores.get("novelty", 0) >= 4
-                      and scores.get("sft_value", 0) >= 4
-                      and scores.get("feasibility", 0) >= 3
-                      and scores.get("clarity", 0) >= 3)
-            if passes and len(accepted) < count:
+            tally = f"{len(in_favour)}/{len(cast)}"
+            if len(in_favour) * 2 > len(cast) and len(accepted) < count:
+                # The neighbours kept are one ballot's, never merged across ballots: each
+                # sample saw its own ordering, so its candidate:* references mean nothing
+                # beside another sample's.
+                ballot = in_favour[0]
                 proposal = dict(proposal)
                 proposal["id"] = f"P{len(accepted) + 1:03d}"
                 proposal["novelty"] = {
                     "verdict": "novel",
-                    "nearest_neighbors": neighbors,
-                    "substantive_difference": _one_line(review.get("substantive_difference")),
-                    "scores": scores,
-                    "reason": _one_line(review.get("reason")),
+                    "nearest_neighbors": ballot["neighbors"],
+                    "substantive_difference": _one_line(
+                        ballot["review"].get("substantive_difference")),
+                    "scores": ballot["scores"],
+                    "reason": _one_line(ballot["review"].get("reason")),
+                    "votes": tally,
+                    # What the losing samples called it, so that a proposal accepted 2/3
+                    # can be told from one accepted 3/3 after the fact.
+                    "dissent": [other["verdict"] for other in cast if not other["passes"]],
                 }
                 accepted.append(proposal)
                 catalog.append(CatalogEntry(
                     f"proposal:{name}:{proposal['id']}", proposal["name"],
                     proposal["summary"], "proposal"))
             else:
+                ballot = next((other for other in cast if not other["passes"]), cast[0])
+                review = ballot["review"]
                 reason = _one_line(review.get("reason")) or "critic thresholds not met"
-                if not neighbors_valid:
+                if not ballot["neighbors_valid"]:
                     reason = "critic did not return three valid catalog neighbors; " + reason
-                elif contradicts_novelty and review.get("verdict") == "novel":
+                elif ballot["contradicts_novelty"] and review.get("verdict") == "novel":
                     reason = "novel verdict contradicted its nearest-neighbor labels; " + reason
+                if len(cast) > 1:
+                    reason = f"{tally} samples judged it novel; " + reason
                 rejected.append({"name": proposal["name"],
                                  "verdict": review.get("verdict", "invalid"),
-                                 "nearest_neighbors": neighbors or [], "reason": reason,
-                                 "scores": scores})
+                                 "nearest_neighbors": ballot["neighbors"], "reason": reason,
+                                 "scores": ballot["scores"], "votes": tally})
                 exclusions.append(f"{proposal['name']}: {reason}")
     wave = {
         "format_version": 1,
