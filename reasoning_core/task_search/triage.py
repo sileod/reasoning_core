@@ -27,6 +27,8 @@ in the trial directory, so a re-run costs nothing for the trials already judged.
 import argparse
 import json
 import re
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -34,6 +36,12 @@ from .plan import load_plan
 from .validation import _review_source, _sample_sanity
 
 CACHE_NAME = "sample_sanity.retry.json"
+AUDIT_NAME = "prior_audit.n40.json"
+# The in-trial gameability audit runs at n=30, which is noisy right at the 0.40 ceiling:
+# wave0's n02 cleared it at n=30 and lost at n=40, which is how it reached promotion.
+# Forty is the number that decided then, and at four seconds a task it is nearly free.
+AUDIT_SAMPLES = 40
+AUDIT_CEILING = 0.4
 # The reviewer shares one per-minute token bucket with everything else pointed at the
 # provider, and a triage pass is not urgent. One call every few seconds keeps it under
 # the limit without the retry machinery having to get involved.
@@ -85,6 +93,31 @@ def review(trial_dir, trial, plan_trial):
     return verdict
 
 
+def audit(trial_dir, trial, plan_trial):
+    """Re-run the gameability audit at the sample size that decides, not the one that fits.
+
+    The wave runs this at n=30 inside a 45-second worker budget, where a task sitting
+    near the ceiling passes or fails mostly by luck. Nothing here is on a clock.
+    """
+    cached = trial_dir / AUDIT_NAME
+    if cached.is_file():
+        return json.loads(cached.read_text())
+    finished = subprocess.run(
+        [sys.executable, "-m", "reasoning_core.task_search.prior_audit",
+         "--path", plan_trial.owned_path, "--n", str(AUDIT_SAMPLES),
+         "--max-const", str(AUDIT_CEILING), "--max-shortcut", str(AUDIT_CEILING)],
+        cwd=trial["worktree"], capture_output=True, text=True, timeout=900,
+        # The audit needs no credentials, and the candidate source it imports is
+        # untrusted, so it gets an environment with nothing to spend.
+        env={"PATH": f"{Path(sys.executable).parent}:/usr/bin:/bin",
+             "PYTHONDONTWRITEBYTECODE": "1", "HOME": str(Path.home())},
+    )
+    tail = (finished.stdout or finished.stderr).strip().splitlines()
+    result = {"ok": finished.returncode == 0, "why": tail[-1] if tail else "no output"}
+    cached.write_text(json.dumps(result, indent=1))
+    return result
+
+
 def _task_name(trial):
     for path in trial.get("changed_paths") or []:
         parts = path.split("/")
@@ -93,9 +126,10 @@ def _task_name(trial):
     return trial["trial_id"]
 
 
-def draft(trial_dir, trial, verdict, source):
+def draft(trial_dir, trial, verdict, source, audited=None):
     steps = trial.get("steps") or {}
     return {
+        "audit": audited,
         "trial": trial["trial_id"],
         "name": _task_name(trial),
         "dir": str(trial_dir),
@@ -124,7 +158,7 @@ def render(groups):
     lines = []
     for proposal, drafts in sorted(groups.items()):
         best, *rest = pick(drafts)
-        mark = {"VALID": "take", None: "unreviewed", "INVALID": "drop"}[best["verdict"]]
+        mark = _mark(best)
         lines.append(f"{proposal:<6} {mark:<10} {best['trial']:<8} {best['name']:<46}"
                      f" {best['steps']}/{best['budget']}")
         for other in rest:
@@ -132,14 +166,22 @@ def render(groups):
                          f" {other['steps']}/{other['budget']} [{other['verdict']}]")
         if best["verdict"] == "INVALID":
             lines.append(f"{'':17}why: {best['why']}")
+        if best.get("audit") and not best["audit"]["ok"]:
+            lines.append(f"{'':17}audit: {best['audit']['why']}")
     return "\n".join(lines)
 
 
+def _mark(best):
+    """A gameable task does not ship however cleanly the reviewer read it."""
+    if best.get("audit") and not best["audit"]["ok"]:
+        return "gameable"
+    return {"VALID": "take", None: "unreviewed", "INVALID": "drop"}[best["verdict"]]
+
+
 def summarize(groups):
-    counts = {"take": 0, "unreviewed": 0, "drop": 0}
+    counts = {"take": 0, "unreviewed": 0, "drop": 0, "gameable": 0}
     for drafts in groups.values():
-        best = pick(drafts)[0]
-        counts[{"VALID": "take", None: "unreviewed", "INVALID": "drop"}[best["verdict"]]] += 1
+        counts[_mark(pick(drafts)[0])] += 1
     return counts
 
 
@@ -150,6 +192,9 @@ def main(argv=None):
                         help="the plan the wave ran, for each trial's assignment")
     parser.add_argument("--review", action="store_true",
                         help="run the semantic review for trials that never got one")
+    parser.add_argument("--audit", action="store_true",
+                        help="re-run the gameability audit at n=%d on each idea's pick"
+                             % AUDIT_SAMPLES)
     parser.add_argument("--limit", type=int, default=0,
                         help="review at most this many trials in one pass; 0 is all")
     parser.add_argument("--json", action="store_true")
@@ -170,7 +215,18 @@ def main(argv=None):
                 time.sleep(REVIEW_PAUSE_SECONDS)
             verdict, source, reviewed = review(trial_dir, trial, plan_trial), "triage", reviewed + 1
         groups.setdefault(proposal_of(trial["trial_id"]), []).append(
-            draft(trial_dir, trial, verdict, source))
+            (draft(trial_dir, trial, verdict, source), trial, plan_trial))
+
+    for name, entries in groups.items():
+        # Audit only the draft that would actually ship; the runner-up costs the same
+        # four seconds and nobody is going to promote it.
+        chosen = pick([entry[0] for entry in entries])[0]
+        groups[name] = [entry[0] for entry in entries]
+        if not args.audit:
+            continue
+        for row, trial, plan_trial in entries:
+            if row is chosen and plan_trial:
+                row["audit"] = audit(Path(row["dir"]), trial, plan_trial)
 
     if args.json:
         print(json.dumps({name: pick(drafts) for name, drafts in sorted(groups.items())},

@@ -71,7 +71,20 @@ def test_an_unreviewed_draft_is_reported_apart_from_a_cleared_one():
         "P003": [{"trial": "P003v1", "verdict": "INVALID", "exhausted": False}],
     }
 
-    assert summarize(groups) == {"take": 1, "unreviewed": 1, "drop": 1}
+    assert summarize(groups) == {"take": 1, "unreviewed": 1, "drop": 1, "gameable": 0}
+
+
+def test_a_gameable_pick_is_withheld_however_cleanly_the_reviewer_read_it():
+    """The in-trial audit runs at n=30, noisy right at the 0.40 ceiling.
+
+    wave0's n02 cleared it at n=30 and lost at n=40; the wider n is the one that
+    decides, and a semantic VALID says nothing about whether the answer can be guessed.
+    """
+    groups = {"P001": [{"trial": "P001v1", "verdict": "VALID", "exhausted": False,
+                        "audit": {"ok": False, "why": "constant guess +0.45"}}]}
+
+    assert summarize(groups)["gameable"] == 1
+    assert summarize(groups)["take"] == 0
 
 
 def test_a_cached_review_is_preferred_to_the_null_the_run_recorded(tmp_path):
