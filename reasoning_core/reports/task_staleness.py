@@ -36,13 +36,15 @@ def file_hash(path):
         ast.dump(_strip_docstrings(tree), include_attributes=False).encode()).hexdigest()[:16]
 
 
-def live(dev=False):
+def live(dev=False, generated=False):
     """task -> (current hash, source path, is_dev). Registry lookup only; nothing is instantiated.
 
     DevTasks are excluded from `list_tasks()` and so never generated, so they are off by default;
-    `--dev` includes them, flagged, for the rare case of auditing one before promoting it."""
+    `--dev` includes them, flagged, for the rare case of auditing one before promoting it. Landed
+    task-search output is off for the same reason and opts in the same way: a probe measuring one
+    needs its hash to know whether a cached cell still describes it."""
     import reasoning_core as rc
-    roster = set(rc.list_tasks())
+    roster = set(rc.list_tasks(include_generated=generated))
     names = roster | (set(getattr(rc, "DEV_DATASETS", {})) if dev else set())
     out = {}
     for name in sorted(names):

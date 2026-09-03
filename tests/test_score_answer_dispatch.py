@@ -14,7 +14,7 @@ class NoDeepcopy:
 def test_dispatch_decodes_string_metadata_without_deepcopying_the_row():
     entry = edict(
         answer="crate",
-        metadata=json.dumps({"_task": "belief_tracking"}),
+        metadata=json.dumps({"_task": "reference_tracking"}),
         unrelated_proxy=NoDeepcopy(),
     )
 

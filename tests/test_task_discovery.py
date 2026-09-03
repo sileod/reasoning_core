@@ -48,10 +48,19 @@ def test_mutated_tasks_are_discovered_but_hidden_by_default(tmp_path, monkeypatc
     assert reasoning_core.list_tasks(include_mutated=True) == ["core", "mutated_example"]
 
 
-def test_every_discoverable_task_has_a_literal_coverage_summary():
-    tasks, dev_tasks = _discover_tasks(TASKS_ROOT)
+def test_every_shipped_task_has_a_literal_coverage_summary():
+    """The summary feeds the coverage table, so it is owed by whatever the table covers.
 
-    for module_name, class_name in (*tasks.values(), *dev_tasks.values()):
+    Task-search output is discoverable before it is on the roster, and a landed wave is not
+    yet in any table -- it earns the summary requirement when it earns its place, which is
+    the same moment it joins `list_tasks()`.
+    """
+    tasks, dev_tasks = _discover_tasks(TASKS_ROOT)
+    shipped = set(reasoning_core.list_tasks()) | set(dev_tasks)
+
+    for name, (module_name, class_name) in {**tasks, **dev_tasks}.items():
+        if name not in shipped:
+            continue
         path = TASKS_ROOT.joinpath(*module_name.split(".")).with_suffix(".py")
         tree = ast.parse(path.read_text(), filename=str(path))
         node = next(node for node in ast.walk(tree)

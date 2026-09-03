@@ -232,7 +232,7 @@ def main():
     for old in [x for x in list(done) if x.count("|") == 1]:  # pre-multi-model cache was all NIM
         done[f"{old}|{PROVIDERS['nim']['model']}"] = {**done.pop(old), "model": PROVIDERS["nim"]["model"]}
     from reasoning_core.reports.task_staleness import live as live_hashes
-    now = {k: v[0] for k, v in live_hashes().items()}
+    now = {k: v[0] for k, v in live_hashes(generated=True).items()}
 
     def final(t, lv):
         # Cells written before hashes were stamped keep their old meaning: absent == current.

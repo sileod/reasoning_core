@@ -105,6 +105,19 @@ def strip_variant(target, name):
 CLAIMED = {name: module for name, (module, _) in _task_to_module_map.items()}
 
 
+def summary(node):
+    """The task's one-line coverage summary, if it declared a usable one."""
+    for item in node.body:
+        if (isinstance(item, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == "summary" for t in item.targets)
+                and isinstance(item.value, ast.Constant)
+                and isinstance(item.value.value, str)):
+            said = item.value.value
+            if said.strip() == said and said and "\n" not in said and "\r" not in said:
+                return said
+    return None
+
+
 def settle_name(target):
     """(name, problem) -- what the copy will answer to, which is what it declares minus the
     noise a trial leaves on it. The plan's directory name does not get a vote: older waves
@@ -117,12 +130,16 @@ def settle_name(target):
     if len(found) != 1:
         return None, f"defines {len(found)} tasks, not one"
     [(declared, (module, class_name))] = found.items()
+    path = target / f"{module.replace('.', '/')}.py"
+    lines = path.read_text().splitlines(keepends=True)
+    node = next(n for n in ast.walk(ast.parse("".join(lines)))
+                if isinstance(n, ast.ClassDef) and n.name == class_name)
+    if not summary(node):
+        # The coverage table is owed one line saying what the task asks. A draft that never
+        # wrote it cannot be promoted later without someone inventing it after the fact.
+        return None, "no coverage summary"
     name = NOISE.sub("", declared)
     if name != declared:
-        path = target / f"{module.replace('.', '/')}.py"
-        lines = path.read_text().splitlines(keepends=True)
-        node = next(n for n in ast.walk(ast.parse("".join(lines)))
-                    if isinstance(n, ast.ClassDef) and n.name == class_name)
         first = node.body[0]
         docstring = isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
         lines.insert(first.end_lineno if docstring else first.lineno - 1,
