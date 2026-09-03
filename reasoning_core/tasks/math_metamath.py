@@ -1028,5 +1028,12 @@ class MetamathCoreSelect(Task):
         # the gold letter scored 1.0: "reajrjrje9595!" beat gold "A". Require the
         # letter to stand alone, and take the last one, which is the choice a model
         # that reasoned before concluding actually settled on.
-        letters = re.findall(r"\b[A-D]\b", str(answer).upper())
+        #
+        # Standing alone is not enough once the text is uppercased: that turns every
+        # English article into a choice, and taking the last one lets prose after the
+        # conclusion overrule it, so "C, which is a valid rule" scored as A. The options
+        # are displayed capitalised and a model answering one writes it that way, so
+        # match the case it wrote -- folding only a reply that is nothing but a letter.
+        text = str(answer).strip().strip("`")
+        letters = re.findall(r"\b[A-D]\b", text.upper() if len(text) == 1 else text)
         return float(bool(letters) and letters[-1] == entry.answer)
