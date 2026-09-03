@@ -1,12 +1,18 @@
-"""Import the pre-pipeline candidate list as wave0, the reference proposal wave.
+"""Import the pre-pipeline candidate list as `external`, the reference proposal wave.
 
-WAVE1.md holds 80 task candidates written by hand, before there was a proposer: one name
-and one description each. They are a decent baseline, and a baseline is the thing the new
-pipeline has been missing. Importing them as an ordinary proposal wave puts them in the
-same format, the same archive and the same novelty catalog as generated waves, so a model
-wave and the hand-written wave can be run through identical plan generation, identical
-validation and identical scoring. If a proposed wave does not beat wave0, the proposer is
-not earning its calls.
+WAVE1.md holds 80 task candidates that came from outside this pipeline. Its own header says
+so -- `kind: generated_only`, with GALLERY.md and WAVE0.md listed as the novelty screen it
+was written against -- so some other model produced them and they were committed as a file.
+No proposer here called for them and no critic here reviewed them.
+
+The wave is named for that, not for a number. `wave0` used to mean both this and the
+unrelated implementation plan in wave0.yaml, whose tasks ship under tasks/generated/wave0/.
+
+Importing them as an ordinary proposal wave puts them in the same format, the same archive
+and the same novelty catalog as generated waves, so a proposed wave and this one go through
+identical plan generation, identical validation and identical scoring. It is a reference
+point, but read the comparison carefully: these 80 were accepted 80-for-80 without passing
+the critic a proposed wave has to pass, so beating them is not the same test.
 
 The descriptions need no rewriting: a WAVE1 description already is a one-line coverage
 spec, which is what a proposal summary is now.
@@ -52,7 +58,7 @@ def read_legacy_candidates(repo_root, source=LEGACY_SOURCE):
     return candidates
 
 
-def build_legacy_wave(repo_root, *, name="wave0", source=LEGACY_SOURCE):
+def build_legacy_wave(repo_root, *, name="external", source=LEGACY_SOURCE):
     """Build a proposal wave from the hand-written list, making no model calls."""
     repo_root = Path(repo_root).resolve()
     catalog = build_catalog(repo_root)

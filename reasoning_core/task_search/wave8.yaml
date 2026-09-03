@@ -1,6 +1,6 @@
 version: 1
 name: wave8
-proposal_wave: wave0
+proposal_wave: external
 defaults:
   base_ref: c6d7dca77fdc15ea1577d926b6996320c96a0121
 context_files:

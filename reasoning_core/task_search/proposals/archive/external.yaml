@@ -1,6 +1,6 @@
 format_version: 1
 kind: sft_task_proposals
-name: wave0
+name: external
 created_at: '2026-09-01T18:31:34.240182+00:00'
 objective:
   training_stage: sft

@@ -37,7 +37,7 @@ def _design_choice_section(trial):
     """The one approach this trial is told to take, or no bytes at all.
 
     Variants of a proposal differ only by seed today, so when one passes and its twin
-    fails -- 21 of the 80 wave0 proposals split exactly that way -- the records cannot
+    fails -- 21 of the 80 external proposals split exactly that way -- the records cannot
     say what the winner did differently. Naming the choice in the plan turns that noise
     into something readable. Unset is the normal case and renders nothing, so a plan
     without design choices produces the prompt it always did, byte for byte.

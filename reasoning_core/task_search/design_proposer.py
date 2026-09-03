@@ -3,7 +3,7 @@
 A proposal is deliberately thin -- a name and one sentence -- so the implementer decides
 everything else: what the inputs look like, what the answer is, where the difficulty
 comes from. Running a summary twice therefore samples that decision twice without ever
-recording it, and 21 of the 80 wave0 proposals had one variant pass while its twin
+recording it, and 21 of the 80 external proposals had one variant pass while its twin
 failed. The wave learns that implementation is noisy; it cannot learn which choice won.
 
 This asks a small model for N genuinely different approaches to one summary, so a wave

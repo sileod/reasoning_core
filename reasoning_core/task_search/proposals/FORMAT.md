@@ -78,7 +78,7 @@ A proposal is a name and a coverage summary, and nothing else:
       - id: task:graph_operations:GraphSuccessors
         relationship: different
         overlap: both query a graph-local result
-      - id: proposal:wave0:P014
+      - id: proposal:external:P014
         relationship: different
         overlap: both walk a directed structure
     substantive_difference: why this is not a rename or parameter change
@@ -106,7 +106,7 @@ review should still precede compilation into an executable plan.
 ## From proposals to a wave
 
 ```bash
-python -m reasoning_core.task_search plan proposals/archive/wave0.yaml \
+python -m reasoning_core.task_search plan proposals/archive/external.yaml \
   --name wave8 --variants 2
 ```
 
@@ -120,18 +120,22 @@ implementation, so the wave runs several and keeps what survives.
 must be a lowercase Python identifier because it becomes a package directory under
 `reasoning_core/tasks/generated/`.
 
-## wave0, the reference wave
+## external, the reference wave
 
 ```bash
 python -m reasoning_core.task_search import-legacy
 ```
 
-`wave0` is the 80 hand-written candidates from `WAVE1.md`, imported with no model calls:
-their descriptions were already one-line coverage specs. It exists to be beaten. A model
-wave and the hand-written wave go through identical plan generation, identical validation
-and identical scoring, so "the proposer earns its calls" is a measurable claim rather than
-an assumption. Imported proposals carry `novelty.source: legacy` and no scores, because no
-critic ever reviewed them.
+`external` is the 80 candidates from `WAVE1.md`, which came from outside this pipeline
+and were committed as a file; the import makes no model calls, because their descriptions
+were already one-line coverage specs. It exists to be beaten: a proposed wave and this one
+go through identical plan generation, identical validation and identical scoring, so "the
+proposer earns its calls" is a measurable claim rather than an assumption. Imported
+proposals carry `novelty.source: legacy` and no scores, because no critic ever reviewed
+them -- which is also why beating them is the easier half of the comparison.
+
+It is not `wave0`. The plan `wave0.yaml` is a different, earlier thing whose tasks ship
+under `reasoning_core/tasks/generated/wave0/`.
 
 If bounded generation rounds produce fewer accepted ideas than requested, the archive is
 still written with `objective.complete: false` and the command exits 2. This preserves

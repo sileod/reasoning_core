@@ -1,0 +1,1682 @@
+format_version: 1
+kind: sft_task_proposals
+name: wave10
+created_at: '2026-09-02T19:23:53.872890+00:00'
+objective:
+  training_stage: sft
+  requested: 60
+  accepted: 1
+  complete: false
+catalog:
+  sha256: 548bad67aa04d52e6bcee69b7d4013d93642618c611f793bffc014228dfba4df
+  entries: 498
+  sources:
+    gallery: 65
+    plan: 257
+    proposal: 81
+    task: 95
+generation:
+  provider: openrouter
+  model: nvidia/nemotron-3-ultra-550b-a55b:free
+  endpoint: https://openrouter.ai/api/v1/chat/completions
+  seed: 0
+  temperature: 1.0
+  reasoning_effort: high
+  calls:
+  - purpose: propose-round-1
+    request_sha256: b423eb85282f119251046ad27ca762f42505cdb09dd294547c9d975431651d07
+    response_sha256: cc7d727e1bd2d5d057d18c3ad3ce19686a2f03af7d98c72172d9343769fb5ee9
+    response_id: gen-1788375874-rCmox1RLc60dlyGzWYAp
+  - purpose: propose-round-2
+    request_sha256: 8579c053848f8c845c24c2b15ae900c840faea6ab1eef90de4339e7deaaa304d
+    response_sha256: 840da7122b34f18ecf8a1d735270a8739c8b4a1d5571fabef0000d1489dda2e3
+    response_id: gen-1788376037-GxdRi5JsYUnw8LmX366P
+  - purpose: propose-round-3
+    request_sha256: 75b0d2fd4d5823df21f4053b77a2f33c90b438eca3ab506a73ee85497907787d
+    response_sha256: 115dd1d4656dc5c42c63120d99e166bca373b5ce85e5949c8ad9ca6266fad73e
+    response_id: gen-1788376181-R8OuaCaBbRi5UN3bGii4
+  - purpose: propose-round-4
+    request_sha256: ef2d93ca85ab66ae56f7977a7e2502b41f53474302e58224deeb919e13149f87
+    response_sha256: 91ed1ea07aba1259f0a03231c583ebfcc541837dffbc30aa5243230f4dbfa6c6
+    response_id: gen-1788376395-eK60SeiJ5FvlTAOArxSC
+  - purpose: propose-round-5
+    request_sha256: 19d1df051837e51e524de76c00c795d4a814f691fcd78ab0b615090892635397
+    response_sha256: d1817845e1be19d87ebd54e473a764cf40a039df8ab1bca9412dfc910d4d7edd
+    response_id: gen-1788376620-rjdTJ5Z6ewJhfemyXMiB
+  - purpose: propose-round-6
+    request_sha256: d6a7b96560a80cfd0fcf4e8c64dca016ddf4276fda9dd918051d90e8bd54fcbe
+    response_sha256: d5306ec5f14c2f01f25a8832c1c3c742e1d7730cf7e4dcc009a545a79dbde454
+    response_id: gen-1788376782-WjBQ4cjVXg3XRO7EkVd6
+review:
+  provider: albert.etalab.gouv
+  model: deepseek-v4-flash
+  endpoint: https://albert.api.etalab.gouv.fr/v1/chat/completions
+  reasoning_effort: null
+  shared_with_generator: false
+  calls:
+  - purpose: critic-round-1-sample-1
+    request_sha256: 35bff724b3aea702737e7bb77b754fd48858ae65a658a6ce8f7dfc07bf0367a4
+    response_sha256: 7dd1eb81f47248e39ec6df2cae4575ae86e74707238a07973e7bddcd08ba4a19
+    response_id: chatcmpl-ae0b234db9c14abf
+  - purpose: critic-round-1-sample-2
+    request_sha256: 70d077296910436fe5424dbcb2d27401771b7508860edbf53292926dcc26eab5
+    response_sha256: bab17704b45ae772ca0ebdb83d1bd7a03244fcf39ddb9b9841fa24a7ea6ff2e9
+    response_id: chatcmpl-a2718a04843b1afa
+  - purpose: critic-round-1-sample-3
+    request_sha256: 2952083c144eed4f757d6f3f1eec587a4e38a5bfd320914821c281bb13f5a0a6
+    response_sha256: 07122947f74feccfc41eccdecc8c048ed4ec233111e9028169ec03feed203efb
+    response_id: chatcmpl-afcef1bee539e311
+  - purpose: critic-round-2-sample-1
+    request_sha256: 41ff471e083e87ada88aaf9e21f6412eaf086202ca5f50a148e1b1fc16cba618
+    response_sha256: bec534a3dc726b2c37ca6c979536b7782f35e15535194aa2b3b602c702113397
+    response_id: chatcmpl-97c4fde31df132e1
+  - purpose: critic-round-2-sample-2
+    request_sha256: 36eeb00c44fc186696cb5e8a5856281a040c187f58135b4307e592dd635c4da8
+    response_sha256: ffc62b999f3f8db87b5bdeb040a2584fca1f4c40283c66fa8f3da1128f3e2918
+    response_id: chatcmpl-bcdf3c31d6135692
+  - purpose: critic-round-2-sample-3
+    request_sha256: 57888e3ff18c367e82c0f4d103d869ce59ee8aa040a4001a60ae77adf4366b46
+    response_sha256: dfd9371494037ca52912e9b4ed8b2e8129cf45b854eb8694b7b5440514cb8d72
+    response_id: chatcmpl-8f5bc694ee3e3044
+  - purpose: critic-round-3-sample-1
+    request_sha256: fa1e166b4edad1320a8e1d44537bb19b7f88b83ffc6acd41011389c8d6ce6a15
+    response_sha256: c4e951ae2740e424ac44c46d21a350f62ead95afc6ee55ccb5f4c1b802aab635
+    response_id: chatcmpl-86fe866acb7a8915
+  - purpose: critic-round-3-sample-2
+    request_sha256: 7868edfc3a8241db9d73752daa25e1eaab2b8626ab7ff37a94ff396947af5aa5
+    response_sha256: a70d89799460fa5dd71d518ccb4b36ce2b81bdf28c7536737a09d32d06b71763
+    response_id: chatcmpl-90a13c28e0426930
+  - purpose: critic-round-3-sample-3
+    request_sha256: 3a3d6fec408c93d01d2112592428140a26f8335fe5c2c7bb03371253007560c9
+    response_sha256: cf34be39316a02042981b776bbe1825a555eb4a9e83adcb7b9efcbabf48dcdf5
+    response_id: chatcmpl-a1076c7b48b8254d
+  - purpose: critic-round-4-sample-1
+    request_sha256: 99b99caac77f72a26b72d9f64ddcd1f9f9741631f1b72e5afce424bf599d9ae8
+    response_sha256: c3f58b23327b45600cc79bad8898359b01dd93f599bc49fa84501784cb2115e5
+    response_id: chatcmpl-98e44d7b95cf05cd
+  - purpose: critic-round-4-sample-2
+    request_sha256: d7d1ce81b3b924c3c73a279beca389cd84d9ec565713c3d73622c42c2a409ad0
+    response_sha256: f2687b8e4ba442519db5cb982ab6cdbb0d9d4c207cc1ae6264c526eca4e2e3db
+    response_id: chatcmpl-b1bc44efcf7d6d92
+  - purpose: critic-round-4-sample-3
+    request_sha256: 39d5a6a09a2abd9ef95e364207dea153cec67e8489d627999201f32eb3b27617
+    response_sha256: a8c4a450f35f4df6764e9e6320b89ccb15b2f5f1c17fe62ac2ccb1391a3a54ff
+    response_id: chatcmpl-806ea7dba51b8649
+  - purpose: critic-round-5-sample-1
+    request_sha256: e154c8cda6ed5ebb5e85e3d955729e2a340e60170e2d8d1ad12b267f72d693ca
+    response_sha256: 15b94bbaa830ba08d0dcf19ac396eb5c65018d8c598863a28807a6a752d34eb7
+    response_id: chatcmpl-8e4e56e48e10b5e0
+  - purpose: critic-round-5-sample-2
+    request_sha256: 721c683b29a762d913d19dc254f3396aef49baeb1c0b9bd51058576a40f83a6c
+    response_sha256: 91b05ebee9f564e2cded4c9c00c1d8a950ed06cdc56d564c4bb4ee8e0bd2ca8e
+    response_id: chatcmpl-bb3a264d490d99ba
+  - purpose: critic-round-5-sample-3
+    request_sha256: afba35c857cf57bf1a45ff25226f92f1e48dd8650a03cea3663eb903308ae0e0
+    response_sha256: 648fcd0b7f3397f680929b63721a35d0825743dba39b232604d7e1ab80db72bf
+    response_id: chatcmpl-883732ecea23b612
+  - purpose: critic-round-6-sample-1
+    request_sha256: 555b896f81f7a2198c4df45dbed0c987eb302451480c3233f6e981fc4a1b5cd2
+    response_sha256: 223eed05bf07986e3217bb34b3342b7868e729a73f9e3738bff58b3ec1b13a8b
+    response_id: chatcmpl-8c5a4ec7b22242bc
+  - purpose: critic-round-6-sample-2
+    request_sha256: 21a9076ad32636ee1def8b3a5affac56c5c6c76e04760fa05220f73faa30d336
+    response_sha256: bc723413640c967df9fc6b394aea72e626fd9fd70503a7bb3f7119a285b44b11
+    response_id: chatcmpl-aded963fa603e023
+  - purpose: critic-round-6-sample-3
+    request_sha256: 45e54fd19ce299c346d64f798e4a46bc18435a6a78d1ef8233e1ce28f36c006e
+    response_sha256: fbdb67d085d80c1bb5b731b19a3a531c36c60a0eb9ff3d743176209a92ec7c01
+    response_id: chatcmpl-960094664232cabd
+proposals:
+- name: termination_ranking_function
+  summary: Given a single-loop program with linear integer arithmetic updates and a loop guard, synthesize
+    a linear ranking function proving termination and output its coefficients in canonical form.
+  id: P001
+  novelty:
+    verdict: novel
+    nearest_neighbors:
+    - id: gallery:function_manipulation
+      relationship: adjacent
+      overlap: Symbolic manipulation of mathematical expressions
+    - id: gallery:variable_elimination
+      relationship: adjacent
+      overlap: Solving constraints over integer arithmetic
+    - id: gallery:sequential_induction
+      relationship: different
+      overlap: Symbolic reasoning over sequences and recurrences
+    substantive_difference: Synthesis of linear ranking functions to prove loop termination is a distinct
+      verification task requiring construction of an arithmetic invariant, not present in existing catalog.
+    scores:
+      novelty: 4
+      sft_value: 4
+      feasibility: 4
+      clarity: 4
+    reason: Genuinely new cognitive operation for formal program verification with a concrete algorithmic
+      output.
+    votes: 3/3
+    dissent: []
+rejected:
+- name: lowest_common_ancestor
+  summary: Given a rooted tree and node pairs, output the LCA for each pair using binary lifting or Euler-tour
+    RMQ; trees vary in depth, branching, and query count.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P006
+    relationship: adjacent
+    overlap: tree traversal and ancestor queries
+  - id: proposal:wave0:P002
+    relationship: adjacent
+    overlap: tree/graph structural queries
+  - id: proposal:wave0:P015
+    relationship: different
+    overlap: tree structure manipulation
+  reason: 0/3 samples judged it novel; Classic LCA query, variant/duplicate of tree-query family.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: convex_hull
+  summary: Given a set of 2D integer points, output the convex hull vertices in counterclockwise order;
+    handle collinearities, duplicates, and degenerate cases via monotone chain or Graham scan.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P002
+    relationship: adjacent
+    overlap: graph/geometry algorithmic output (convex hull vs articulation points)
+  - id: proposal:wave0:P016
+    relationship: different
+    overlap: deterministic algorithmic output
+  - id: proposal:wave0:P066
+    relationship: different
+    overlap: combinatorial selection
+  reason: 0/3 samples judged it novel; Standard convex hull output matches category of deterministic algorithmic
+    geometry traces.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: lexicographic_topological_sort
+  summary: Given a DAG, output the lexicographically smallest topological order using Kahn's algorithm
+    with a min-heap; graphs vary in width, depth, and tiebreaking complexity.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P006
+    relationship: variant
+    overlap: topological order output, lexicographic tie-breaking alters output only
+  - id: proposal:wave0:P053
+    relationship: adjacent
+    overlap: deterministic DAG order resolution
+  - id: proposal:wave0:P054
+    relationship: adjacent
+    overlap: order resolution over DAG hierarchies
+  reason: 0/3 samples judged it novel; Duplicate/variant of existing topological_generation task.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: sparse_table_rmq
+  summary: Given an array and range queries, build a sparse table and answer each range minimum query
+    in O(1), breaking ties by leftmost index; arrays vary in length and value distribution.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P016
+    relationship: adjacent
+    overlap: array range query / index probing
+  - id: proposal:wave0:P013
+    relationship: adjacent
+    overlap: preprocessing structure for range queries (Fenwick)
+  - id: proposal:wave0:P009
+    relationship: adjacent
+    overlap: array structure manipulation/query
+  reason: 0/3 samples judged it novel; Standard RMQ preprocessing, variant of existing range-query array
+    tasks.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: difference_array_2d
+  summary: Given a 2D grid and rectangle updates or queries, apply the 2D difference array technique and
+    output final cell values or query results; operations mix range adds and point reads.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P013
+    relationship: adjacent
+    overlap: difference/prefix array technique for range updates
+  - id: proposal:wave0:P009
+    relationship: adjacent
+    overlap: array state update and final query
+  - id: proposal:wave0:P011
+    relationship: different
+    overlap: incremental state tracking
+  reason: 0/3 samples judged it novel; Variant of existing array-range-update trace tasks.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: aho_corasick_matching
+  summary: Given a pattern set and text, build the Aho-Corasick automaton with failure links and output
+    all match positions; patterns vary in overlap, prefix relations, and alphabet size.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P072
+    relationship: adjacent
+    overlap: string matching and failure links
+  - id: proposal:wave0:P071
+    relationship: adjacent
+    overlap: string preprocessing and indexing
+  - id: proposal:wave0:P070
+    relationship: adjacent
+    overlap: string pattern decoding/matching
+  reason: 0/3 samples judged it novel; Another string-matching automaton task in the same family as KMP
+    and prefix-code decoding.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: heavy_light_decomposition
+  summary: Given a tree with weighted edges and path queries, decompose via heavy-light and answer path
+    aggregates (sum, max, min) by climbing chain heads; queries vary in endpoint depth and LCA position.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P030
+    relationship: adjacent
+    overlap: decomposition scheme and query answering
+  - id: proposal:wave0:P006
+    relationship: adjacent
+    overlap: tree processing and path/order queries
+  - id: proposal:wave0:P002
+    relationship: adjacent
+    overlap: tree decomposition and aggregation queries
+  reason: 1/3 samples judged it novel; Variant of tree-decomposition query answering; close neighbor C002.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 1/3
+- name: centroid_decomposition
+  summary: Given a tree and distance-based queries, build the centroid decomposition and answer queries
+    by climbing the centroid tree; trees vary in balance, and queries include subtree counts and distance
+    thresholds.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P006
+    relationship: adjacent
+    overlap: tree structure processing and traversal-based queries
+  - id: proposal:wave0:P002
+    relationship: adjacent
+    overlap: graph/tree decomposition and answering structural queries
+  - id: proposal:wave0:P030
+    relationship: different
+    overlap: decomposition concept
+  reason: 0/3 samples judged it novel; Variant of tree-decomposition query answering with a standard algorithm,
+    not a novel reasoning operation.
+  scores:
+    novelty: 2
+    sft_value: 3
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: dsu_rollback
+  summary: Given a sequence of union, query, and rollback operations on a disjoint-set union, output connectivity
+    query results; rollbacks revert to prior snapshots, testing persistent DSU logic.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P014
+    relationship: variant
+    overlap: disjoint-set union with queries; C004 adds rollback undo
+  - id: proposal:wave0:P016
+    relationship: different
+    overlap: data structure state tracking
+  - id: proposal:wave0:P053
+    relationship: adjacent
+    overlap: binding/state resolution
+  reason: 0/3 samples judged it novel; Variant of union-find query tracing, just with rollback operations.
+  scores:
+    novelty: 2
+    sft_value: 3
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: sweep_line_intersection
+  summary: Given a set of line segments in the plane, run the Bentley-Ottmann sweep line algorithm and
+    report all intersection points or the first detected intersection; segments vary in slope, overlap,
+    and degeneracy.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P007
+    relationship: adjacent
+    overlap: geometric/graph intersection and structural detection
+  - id: proposal:wave0:P002
+    relationship: adjacent
+    overlap: geometry/graph degeneracy and intersect
+  - id: gallery:planar_geometry_relations
+    relationship: adjacent
+    overlap: geometric primitives and intersection relations
+  reason: 1/3 samples judged it novel; Classic geometry algorithm trace, variant of intersection/geometry
+    tasks.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 1/3
+- name: manacher_palindrome
+  summary: Given a string, compute the Manacher radius array for odd and even centers and output the longest
+    palindromic substring or all maximal palindrome bounds; strings vary in alphabet and repetition structure.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P072
+    relationship: adjacent
+    overlap: string radius/prefix array computation
+  - id: proposal:wave0:P071
+    relationship: adjacent
+    overlap: string structural arrays
+  - id: proposal:wave0:P068
+    relationship: different
+    overlap: string/bit algorithmic trace
+  reason: 0/3 samples judged it novel; Duplicate-like variant of string array construction tasks (Z-array,
+    KMP), differing only in palindrome focus.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: z_algorithm
+  summary: Given a string, compute its Z-array and use it for pattern matching or period detection; answer
+    queries for pattern occurrences, border lengths, or minimal period; strings vary in periodicity and
+    alphabet.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P072
+    relationship: adjacent
+    overlap: string algorithmic trace generation (Z-array vs KMP prefix values)
+  - id: proposal:wave0:P071
+    relationship: adjacent
+    overlap: string indexing / rank computation (Z-array vs suffix array rank)
+  - id: proposal:wave0:P016
+    relationship: different
+    overlap: index probing / algorithmic state
+  reason: 0/3 samples judged it novel; Same algorithmic-state-output operation as existing string pattern/period
+    tasks, only with a different string index array.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: modular_congruence_system
+  summary: Solve systems of linear congruences with coprime and non-coprime moduli; output the unique
+    solution modulo LCM or detect inconsistency.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE0:N2
+    relationship: same_operation
+    overlap: modular linear congruence systems
+  - id: plan:WAVE5:S51
+    relationship: same_operation
+    overlap: simultaneous congruences (non-coprime moduli)
+  - id: plan:WAVE2:S14
+    relationship: same_operation
+    overlap: simultaneous congruence solving
+  reason: 0/3 samples judged it novel; Duplicate of WAVE0:N2, WAVE2:S14, and WAVE5:S51.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/3
+- name: finite_field_polynomial_arithmetic
+  summary: Add, multiply, divide, and exponentiate polynomials over GF(p^k) given irreducible modulus;
+    output coefficients in canonical order.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE1:S8
+    relationship: same_operation
+    overlap: polynomial arithmetic over a small finite field
+  - id: plan:WAVE5:S54
+    relationship: variant
+    overlap: exact polynomial arithmetic over different fields
+  - id: task:arithmetics:Arithmetics
+    relationship: adjacent
+    overlap: arithmetic composition in a field-like setting
+  reason: 0/2 samples judged it novel; Same operation as WAVE1:S8 with only field-size parameter shift.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: continued_fraction_expansion
+  summary: Expand rationals into finite simple continued fractions; compute convergents; reconstruct rationals
+    from partial quotients.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE6:S61
+    relationship: same_operation
+    overlap: continued fraction expansion of rationals
+  - id: plan:WAVE3:S26
+    relationship: same_operation
+    overlap: continued-fraction reasoning over exact rationals
+  - id: plan:WAVE2:S16
+    relationship: variant
+    overlap: expansion-repair duality in formal-sequence manipulation
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE6:S61 and WAVE3:S26.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: first_order_unification
+  summary: Compute the most general unifier of two first-order terms with variables, constants, and function
+    symbols; output substitution or failure.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE3:S27
+    relationship: same_operation
+    overlap: first-order unification over small symbolic terms
+  - id: gallery:unification_entailment
+    relationship: variant
+    overlap: unification-based entailment vs MGU output
+  - id: gallery:lambda_reduction
+    relationship: adjacent
+    overlap: symbolic term substitution and normalization
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE3:S27.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: sprague_grundy_nimber
+  summary: Compute the Sprague-Grundy value of a sum of small impartial games given their move graphs;
+    output the nimber as integer.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE3:S31
+    relationship: same_operation
+    overlap: Sprague-Grundy reasoning over sums of impartial games
+  - id: gallery:game_forced_win
+    relationship: variant
+    overlap: impartial game analysis with different target output
+  - id: gallery:game_best_move
+    relationship: adjacent
+    overlap: game-state evaluation and minimax reasoning
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE3:S31.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: lexicographic_permutation_rank
+  summary: Rank a permutation or multiset word in lexicographic order and unrank an index to its sequence;
+    handle repeated elements.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE3:S32
+    relationship: same_operation
+    overlap: lexicographic ranking and unranking over permutations/multiset words
+  - id: plan:WAVE0:N6
+    relationship: adjacent
+    overlap: permutation manipulation and inversion
+  - id: gallery:pattern_induction
+    relationship: adjacent
+    overlap: sequence rank/unrank-style structured inference
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE3:S32.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: series_parallel_resistance
+  summary: Reduce a series-parallel resistor network to a single exact rational equivalent resistance
+    using composition rules.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE3:S30
+    relationship: same_operation
+    overlap: exact series-parallel reduction over resistor networks
+  - id: plan:WAVE6:S59
+    relationship: adjacent
+    overlap: interval/network reduction and composition
+  - id: gallery:rewrite_system
+    relationship: adjacent
+    overlap: term-rewrite normalization to canonical form
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE3:S30.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: weighted_edit_distance
+  summary: Compute minimum-cost edit script between strings under non-uniform insertion, deletion, substitution
+    costs; output cost and operations.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE1:S7
+    relationship: same_operation
+    overlap: edit distance under non-uniform operation costs
+  - id: plan:WAVE5:S50
+    relationship: same_operation
+    overlap: edit-script reconstruction between short strings
+  - id: plan:WAVE6:S58
+    relationship: same_operation
+    overlap: edit-script reconstruction retry
+  reason: 0/2 samples judged it novel; Duplicate of WAVE1:S7, WAVE5:S50, and WAVE6:S58.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: weighted_interval_selection
+  summary: Select maximum-weight subset of non-overlapping intervals from a weighted set; output chosen
+    indices in sorted order.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE6:S62
+    relationship: same_operation
+    overlap: weighted interval scheduling accepting jobs
+  - id: plan:WAVE6:S65
+    relationship: adjacent
+    overlap: selecting jobs under time/drop constraints
+  - id: gallery:dynamic_programming
+    relationship: adjacent
+    overlap: optimization and reconstruction via DP
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE6:S62.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: bracket_sequence_repair
+  summary: Insert the fewest typed brackets to balance a sequence; output the repaired string or insertion
+    positions.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE6:S63
+    relationship: same_operation
+    overlap: minimal insertions to balance bracket strings
+  - id: plan:WAVE2:S16
+    relationship: variant
+    overlap: minimum repair over typed bracket sequences
+  - id: gallery:constrained_continuation
+    relationship: adjacent
+    overlap: formal-string completion and repair
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE6:S63 and WAVE2:S16.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: polynomial_gcd_rational
+  summary: Compute the monic greatest common divisor of two polynomials over Q using Euclidean algorithm;
+    output coefficient list.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE5:S54
+    relationship: same_operation
+    overlap: exact polynomial GCD over rationals
+  - id: plan:WAVE1:S8
+    relationship: adjacent
+    overlap: exact polynomial arithmetic over fields
+  - id: task:math_scratch:MathScratchNormalize
+    relationship: adjacent
+    overlap: canonical normalization of symbolic expressions
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE5:S54.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: calendar_recurrence_expansion
+  summary: Expand a recurrence rule (frequency, interval, byday, bymonth, count, until) into the next
+    N occurrence timestamps.
+  verdict: duplicate
+  nearest_neighbors:
+  - id: plan:WAVE5:S55
+    relationship: same_operation
+    overlap: reasoning over calendar recurrence rules
+  - id: proposal:wave0:P076
+    relationship: variant
+    overlap: cron-style recurrence expansion to next timestamp
+  - id: proposal:wave0:P075
+    relationship: adjacent
+    overlap: calendar date/arithmetic
+  reason: 0/2 samples judged it novel; Direct duplicate of WAVE5:S55.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 1
+    clarity: 1
+  votes: 0/2
+- name: matroid_greedy_trace
+  summary: Given a matroid via independence oracle or circuit list and element weights, trace the greedy
+    algorithm's canonical selection order and output the maximum-weight independent set or its weight.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N12
+    relationship: variant
+    overlap: Minimum-spanning-tree greedy algorithm
+  - id: gallery:graph_successors
+    relationship: adjacent
+    overlap: Discrete structures and greedy selection
+  - id: gallery:fixpoint_iteration
+    relationship: adjacent
+    overlap: Iterative algorithm on finite structures
+  reason: 1/3 samples judged it novel; Essentially the same greedy algorithm as MST reasoning, only with
+    a more abstract matroid structure.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 2
+  votes: 1/3
+- name: persistent_segment_tree_query
+  summary: Given a persistent segment tree built from a sequence of point updates, answer a range aggregate
+    query on a specified historical version, outputting the exact aggregate value.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P013
+    relationship: variant
+    overlap: Tree-based range query data structures
+  - id: proposal:wave0:P025
+    relationship: adjacent
+    overlap: Ordered-query structures
+  - id: gallery:graph_successors
+    relationship: adjacent
+    overlap: Graph traversal and data structure queries
+  reason: 0/3 samples judged it novel; Same range-query operation as Fenwick tree query, just with persistence.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 2
+  votes: 0/3
+- name: simplex_pivot_trace
+  summary: Given a small linear program in standard form with a feasible basis, trace deterministic simplex
+    pivots under Bland's rule and output the optimal basis indices or the optimal value.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P016
+    relationship: adjacent
+    overlap: Deterministic algorithm trace and output
+  - id: gallery:backtracking_search
+    relationship: adjacent
+    overlap: Deterministic state search over a finite domain
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: Linear-program-like constraint optimization
+  reason: 0/3 samples judged it novel; A deterministic algorithm trace of linear programming, same cognitive
+    operation class as existing trace tasks.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 3
+  votes: 0/3
+- name: count_min_sketch_estimate
+  summary: Given a Count-Min sketch width, depth, hash functions, and a stream of updates, process the
+    stream and answer a point query with the estimated frequency and its deterministic error bound.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:set_expression
+    relationship: adjacent
+    overlap: Set operations and frequency counting
+  - id: proposal:wave0:P011
+    relationship: variant
+    overlap: Probabilistic data structure (Bloom filter)
+  - id: task:set_operations:CountElements
+    relationship: adjacent
+    overlap: Frequency estimation
+  reason: 0/3 samples judged it novel; Same kind of hash-based probabilistic structure simulation as Bloom
+    filter, just with frequency estimation.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 3
+  votes: 0/3
+- name: bisimulation_refinement
+  summary: Given a finite labeled transition system, compute the coarsest bisimulation partition via iterative
+    partition refinement and output the block identifier for a queried state.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:fixpoint_iteration
+    relationship: variant
+    overlap: Iterative partition refinement
+  - id: proposal:wave0:P024
+    relationship: adjacent
+    overlap: Relations and equivalence classes
+  - id: gallery:code_analysis
+    relationship: adjacent
+    overlap: Model checking and state-space reasoning
+  reason: 0/3 samples judged it novel; Bisimulation refinement is a partition-refinement fixpoint, already
+    the same operation as least-fixpoint iteration.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 2
+  votes: 0/3
+- name: symbolic_execution_path_condition
+  summary: Given a straight-line program with symbolic inputs and conditional branches, generate the path
+    condition for a target program point under a deterministic path exploration order and output the simplified
+    constraint.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:code_analysis
+    relationship: variant
+    overlap: Program analysis with control flow
+  - id: task:generated.variable_elimination:VariableElimination
+    relationship: adjacent
+    overlap: Symbolic constraint manipulation
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: Constraint solving and reasoning
+  reason: 1/3 samples judged it novel; Symbolic execution path-condition generation is an instance of
+    existing program analysis and constraint-solving.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 2
+  votes: 1/3
+- name: system_f_type_inference
+  summary: Given a System F term with explicit type abstractions and applications, reconstruct its principal
+    type through bidirectional type checking and output the type in normalized form with explicit forall
+    quantifiers.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N3
+    relationship: variant
+    overlap: Simple type inference for lambda calculus
+  - id: plan:WAVE3:S28
+    relationship: variant
+    overlap: Principal-type inference for a tiny lambda calculus
+  - id: gallery:lambda_reduction
+    relationship: adjacent
+    overlap: Lambda term manipulation and reduction
+  reason: 0/3 samples judged it novel; Same principal-type inference operation as existing lambda-type
+    inference tasks, only extended with System F constructs.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 3
+  votes: 0/3
+- name: presburger_quantifier_elimination
+  summary: Given a Presburger arithmetic formula with one block of existential quantifiers over linear
+    constraints, eliminate the quantifiers via Fourier-Motzkin or Cooper's method and output the quantifier-free
+    equivalent in DNF.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:variable_elimination
+    relationship: variant
+    overlap: Elimination of variables over linear arithmetic
+  - id: gallery:arithmetics
+    relationship: adjacent
+    overlap: Presburger arithmetic operations
+  - id: gallery:equation_system
+    relationship: adjacent
+    overlap: Solving linear constraints
+  reason: 0/3 samples judged it novel; Basically the same elimination operation as variable_elimination,
+    just with integer quantifiers.
+  scores:
+    novelty: 2
+    sft_value: 3
+    feasibility: 3
+    clarity: 3
+  votes: 0/3
+- name: cdcl_conflict_analysis
+  summary: Given a CNF formula, a partial assignment, and a conflicting clause, trace the conflict-driven
+    clause learning analysis at the first unique implication point and output the learned clause in canonical
+    literal order.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:boolean_propagation_search
+    relationship: variant
+    overlap: SAT-solving and logical propagation
+  - id: proposal:wave0:P031
+    relationship: adjacent
+    overlap: Logical conflict analysis
+  - id: gallery:code_analysis
+    relationship: adjacent
+    overlap: Program and logical analysis
+  reason: 0/3 samples judged it novel; Same logical reasoning operation as boolean propagation search,
+    just a more detailed conflict analysis.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 2
+  votes: 0/3
+- name: min_cost_flow_augmentation
+  summary: Given a capacitated directed graph with edge costs, a feasible flow, and residual network,
+    trace one iteration of the successive shortest path algorithm using reduced costs and output the augmenting
+    path or the updated flow value.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N7
+    relationship: variant
+    overlap: Global capacitated-flow reasoning
+  - id: gallery:graph_pathfinding
+    relationship: adjacent
+    overlap: Graph network path and flow reasoning
+  - id: plan:WAVE1:S12
+    relationship: variant
+    overlap: Maximum flow reasoning
+  reason: 0/3 samples judged it novel; Essentially the same flow reasoning as existing maximum-flow tasks,
+    just presented as an algorithm trace.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 2
+  votes: 0/3
+- name: gale_shapley_matching_trace
+  summary: Given strict preference lists for two equal-sized agent sets, trace the Gale-Shapley deferred
+    acceptance algorithm from a specified proposing side and output the final matching or a queried agent's
+    partner.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P066
+    relationship: variant
+    overlap: Stable matching and top trading cycles
+  - id: gallery:analogical_case_matching
+    relationship: different
+    overlap: Matching and assignment
+  - id: plan:WAVE3:S29
+    relationship: adjacent
+    overlap: Scheduling and matching algorithms
+  reason: 0/3 samples judged it novel; Same preference-based matching operation as top trading cycles,
+    just a different algorithm.
+  scores:
+    novelty: 1
+    sft_value: 2
+    feasibility: 3
+    clarity: 3
+  votes: 0/3
+- name: type_class_instance_search
+  summary: Resolve a wanted type class constraint through instance declarations with functional dependencies
+    and overlap rules; ranges over multi-parameter classes, fundep coverage, and ambiguity scenarios;
+    answer is the selected instance head or ambiguous/none.
+  verdict: invalid
+  closest_id: null
+  reason: summary must be 40-240 characters, got 251
+- name: tree_canonical_form
+  summary: Compute canonical string encoding of unlabeled rooted trees via recursive subtree sorting;
+    ranges over tree sizes, branching factors, and symmetry patterns; answer is the canonical form string.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE5:S52
+    relationship: same_operation
+    overlap: canonical naming of a rooted tree by recursive sorting
+  - id: proposal:wave0:P067
+    relationship: adjacent
+    overlap: canonical encoding using tree structure
+  - id: task:generated.wave0.n10_tree_reconstruction.tree_reconstruction:TreeReconstruction
+    relationship: different
+    overlap: tree representation and traversal
+  reason: 0/3 samples judged it novel; Exact duplicate of existing rooted-tree canonical naming operation;
+    only phrasing differs.
+  scores:
+    novelty: 1
+    sft_value: 3
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: graph_coloring_witness
+  summary: Produce a proper k-coloring or certify impossibility for small graphs; ranges over graph families
+    (cycles, trees, bipartite, random), k values, and constraint tightness; answer is coloring map or
+    none.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: graph coloring as CSP with exact assignment output
+  - id: proposal:wave0:P008
+    relationship: variant
+    overlap: graph property decision/certificate
+  - id: gallery:backtracking_search
+    relationship: adjacent
+    overlap: search for finite-domain solution with deterministic backtracking
+  reason: 0/3 samples judged it novel; Proper k-coloring is a standard CSP instance already in the constraint_satisfaction
+    gallery.
+  scores:
+    novelty: 1
+    sft_value: 3
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: matching_augmentation_path
+  summary: Find an augmenting path or confirm maximality for a given matching in general graphs, including
+    blossom contraction steps; ranges over matching sizes, blossom nesting, and graph density; answer
+    is vertex sequence or maximal.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N8
+    relationship: adjacent
+    overlap: bipartite matching reasoning as direct primitive
+  - id: gallery:graph_pathfinding
+    relationship: adjacent
+    overlap: path search/certificate construction on graphs
+  - id: gallery:dynamic_programming
+    relationship: different
+    overlap: structured optimization with exact state sequence
+  reason: 0/3 samples judged it novel; This is a known algorithmic primitive with minor generalization
+    from bipartite matching, not a new reasoning operation.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: circulation_feasibility_check
+  summary: Determine feasible circulation existence in networks with edge bounds and node demands via
+    flow reduction; ranges over demand patterns, bound tightness, and component structure; answer is feasible
+    or infeasible.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N7
+    relationship: adjacent
+    overlap: global capacitated flow feasibility
+  - id: plan:WAVE1:S12
+    relationship: adjacent
+    overlap: maximum-flow reasoning on small capacitated networks
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: feasibility check over bounded assignments
+  reason: 1/3 samples judged it novel; Classic circulation feasibility is a simple reformulation of flow
+    feasibility already proposed.
+  scores:
+    novelty: 1
+    sft_value: 3
+    feasibility: 4
+    clarity: 4
+  votes: 1/3
+- name: ltl_path_satisfaction
+  summary: Check whether all paths in a finite Kripke structure satisfy an LTL formula using automata-theoretic
+    or tableau reasoning; ranges over safety, liveness, and fairness patterns; answer is satisfied or
+    counterexample trace.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:code_analysis
+    relationship: adjacent
+    overlap: temporal-logic reasoning over finite program/system models
+  - id: task:logic_derivation:LogicDerivation
+    relationship: different
+    overlap: formal proof/verification reasoning
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: search over system states for satisfying configurations
+  reason: 1/3 samples judged it novel; Model-checking temporal logic on finite transition systems is already
+    represented in catalog code_analysis.
+  scores:
+    novelty: 2
+    sft_value: 3
+    feasibility: 4
+    clarity: 4
+  votes: 1/3
+- name: factor_graph_marginal
+  summary: Compute exact single-variable marginal in a discrete factor graph by variable elimination or
+    belief propagation; ranges over tree and loopy topologies, factor arities, and evidence configurations;
+    answer is the marginal probability table.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:most_probable_evidence
+    relationship: adjacent
+    overlap: exact inference over probabilistic graphical models
+  - id: task:probabilistic_reasoning:MostProbableEvidence
+    relationship: adjacent
+    overlap: exact probability computation and marginal-like outputs
+  - id: gallery:variable_elimination
+    relationship: variant
+    overlap: deterministic variable elimination over symbolic/structured factors
+  reason: 0/3 samples judged it novel; Marginal inference is close to existing most_probable_evidence
+    and variable_elimination operations.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 4
+    clarity: 4
+  votes: 0/3
+- name: critical_pair_completion
+  summary: Generate all critical pairs from a term rewrite system under a reduction order and test local
+    confluence; ranges over rule arities, overlap patterns, and order types; answer is the critical pair
+    set or confluent.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:rewrite_system
+    relationship: adjacent
+    overlap: term rewrite normalization and reduction-order behavior
+  - id: task:math_scratch:MathScratchEntailment
+    relationship: adjacent
+    overlap: equivalence/completion analysis over terminating rewrite systems
+  - id: task:math_scratch:MathScratchNormalize
+    relationship: adjacent
+    overlap: canonical normal forms under rewrite systems
+  reason: 0/3 samples judged it novel; Critical-pair completion is a rewrite-theoretic variant of existing
+    rewrite-system equivalence/termination operations.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: loop_invariant_check
+  summary: Verify whether a candidate loop invariant is inductive and implies the postcondition for a
+    while loop with linear arithmetic; ranges over invariant strength, loop complexity, and counterexample
+    types; answer is valid or a violating state.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave10:P001
+    relationship: variant
+    overlap: loop invariant/ranking verification in linear-arithmetic programs
+  - id: task:code_analysis:CodeAnalysis
+    relationship: adjacent
+    overlap: formal analysis of finite-program semantics
+  - id: gallery:logic_derivation
+    relationship: different
+    overlap: verification-style reasoning and proof obligations
+  reason: 1/3 samples judged it novel; Overlaps with termination_ranking_function and code_analysis; only
+    output direction differs.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 4
+    clarity: 4
+  votes: 1/3
+- name: dnf_model_count
+  summary: Count satisfying assignments of a Boolean formula in DNF or small CNF via inclusion-exclusion
+    or component decomposition; ranges over clause overlap structures, variable counts, and formula classes;
+    answer is the exact model count.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:boolean_propagation_search
+    relationship: adjacent
+    overlap: Boolean formula satisfaction search and exact count/witness output
+  - id: gallery:combinatorics_formula
+    relationship: adjacent
+    overlap: exact counting over combinatorial structures
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: exact constraint solution counting/assignment
+  reason: 0/3 samples judged it novel; Exact model counting on Boolean formulas is adjacent to existing
+    Boolean search/counting operations and lacks a genuinely new cognitive primitive.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: stable_matching_with_ties
+  summary: Compute a weakly stable matching for bipartite preferences with ties and incomplete lists via
+    iterative proposal and tie-breaking; ranges over tie density, list completeness, and side imbalance;
+    answer is the matching pairs.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P066
+    relationship: adjacent
+    overlap: matching-like allocation over preferences
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: satisfying pairings under preference constraints
+  - id: proposal:wave0:P065
+    relationship: variant
+    overlap: deterministic tie-breaking in preference-based selection
+  reason: 0/3 samples judged it novel; Classic stable matching algorithm with tie handling is a parameter
+    variation of existing preference-allocation operations.
+  scores:
+    novelty: 1
+    sft_value: 3
+    feasibility: 4
+    clarity: 4
+  votes: 0/3
+- name: topological_sort_count
+  summary: Count linear extensions of a finite poset or DAG using recursive decomposition or dynamic programming
+    over ideals; ranges over width, height, series-parallel structure, and diamond patterns; answer is
+    the exact count.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P006
+    relationship: adjacent
+    overlap: topological order reasoning on DAG/poset
+  - id: gallery:combinatorics_formula
+    relationship: adjacent
+    overlap: exact counting over combinatorial orders/structures
+  - id: gallery:dynamic_programming
+    relationship: adjacent
+    overlap: count solutions via DP over partial orders/ideals
+  reason: 0/3 samples judged it novel; Counting topological orders is adjacent to existing topological_generation
+    and DP counting operations.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 4
+    clarity: 4
+  votes: 0/3
+- name: streaming_hyperloglog_merge
+  summary: Merge HyperLogLog sketches from distributed streams, estimate union cardinality, and verify
+    merge commutativity across register arrays.
+  verdict: variant
+  nearest_neighbors: []
+  reason: 0/3 samples judged it novel; critic did not return three valid catalog neighbors; While the
+    specific data structure is new, the operation is deterministic merge and aggregation, a common pattern
+    in catalog tasks.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: vcg_auction_outcome
+  summary: Compute VCG allocation and payments for single-minded or additive bidders over combinatorial
+    items, output winner set and payment vector.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P020
+    relationship: adjacent
+    overlap: deterministic combinatorial outcome computation from finite algebraic/economic input
+  - id: proposal:wave0:P054
+    relationship: adjacent
+    overlap: deterministic combinatorial outcome computation from finite preference structures
+  - id: gallery:most_probable_outcome
+    relationship: different
+    overlap: outputs a structured outcome but uses probabilistic inference
+  reason: 0/3 samples judged it novel; A new domain-specific rule application that fits the established
+    pattern of deterministic combinatorial outcome generation, not a novel cognitive operation.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: differential_privacy_accountant
+  summary: Compose Gaussian or Laplace mechanisms with given sensitivities, track RDP or advanced composition
+    budget, output final epsilon-delta.
+  verdict: variant
+  nearest_neighbors: []
+  reason: 0/3 samples judged it novel; critic did not return three valid catalog neighbors; Shares the
+    exact-rule-evaluation and bookkeeping operation of existing catalog tasks, only the parameters are
+    differential privacy mechanisms.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: crdt_state_merge
+  summary: Apply G-Counter, PN-Counter, LWW-Register, or OR-Set merge operations to replicated states,
+    output merged state and verify convergence.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:fixpoint_iteration
+    relationship: adjacent
+    overlap: applies idempotent merge/update operations repeatedly to reach a stable state
+  - id: proposal:wave0:P004
+    relationship: adjacent
+    overlap: applies a well-defined state-merging process to structured data
+  - id: proposal:wave0:P068
+    relationship: adjacent
+    overlap: computes a canonical result by applying a fixed algebraic operation to a structured input
+  reason: 0/3 samples judged it novel; Operates as a standard state-merge simulation, already covered
+    by the catalog's exact state-transition tasks.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: session_type_projection
+  summary: Project a global multiparty session type onto a participant endpoint, check duality, and output
+    the local type or error.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:fixpoint_iteration
+    relationship: adjacent
+    overlap: applies monotone projection/rule iterations to compute a fixpoint-like local type
+  - id: gallery:typed_relation_extraction
+    relationship: adjacent
+    overlap: projects structured information and outputs a structured local object
+  - id: proposal:wave9:P001
+    relationship: adjacent
+    overlap: infers a minimal local structure from a global specification
+  reason: 1/3 samples judged it novel; A domain-specific type projection that reuses the catalog's fixpoint
+    and structured-inference operations.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 1/3
+- name: fair_division_protocol
+  summary: Execute cut-and-choose (Dubins-Spanier), Even-Paz halving, or Selfridge-Conway for 3 agents,
+    output envy-free allocation.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P066
+    relationship: variant
+    overlap: deterministic allocation of items to agents with preferences, outputting the assignment
+  - id: proposal:wave0:P062
+    relationship: adjacent
+    overlap: iterative elimination/round-based allocation protocol with traceable outcome
+  - id: gallery:constraint_satisfaction
+    relationship: adjacent
+    overlap: finds a solution satisfying fairness/constraint conditions on finite objects
+  reason: 0/3 samples judged it novel; The fair-division protocol is a domain-specific instance of the
+    catalog's allocation and protocol simulation tasks.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: online_bipartite_matching
+  summary: Given offline vertices and online arrivals in random order, execute Ranking algorithm, output
+    matched pairs and unmatched vertices.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N8
+    relationship: adjacent
+    overlap: direct bipartite matching and online assignment as a reasoning primitive
+  - id: proposal:wave0:P066
+    relationship: adjacent
+    overlap: deterministic allocation with preference order and fixed tie-breaking
+  - id: proposal:wave0:P062
+    relationship: adjacent
+    overlap: simulates an elimination/allocation process and outputs the final assignment
+  reason: 0/3 samples judged it novel; The catalog already includes bipartite matching and deterministic
+    allocation simulations; this only changes the order and algorithm details.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: schwartz_zippel_identity
+  summary: Evaluate two arithmetic circuits at shared random points over a finite field, decide polynomial
+    identity with bounded error.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE1:S8
+    relationship: adjacent
+    overlap: exact arithmetic over finite fields with polynomial objects
+  - id: task:mutated.wave0.m03_arithmetic_dags.dag_arithmetics:DagArithmetics
+    relationship: adjacent
+    overlap: evaluates arithmetic circuit-style expressions
+  - id: gallery:sequential_induction
+    relationship: different
+    overlap: works with polynomial expressions and exact symbolic rules
+  reason: 0/3 samples judged it novel; Couples known finite-field arithmetic with standard circuit evaluation,
+    presenting a randomized variant of existing arithmetic tasks.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: parametric_search_trace
+  summary: Given a monotone decision oracle, simulate binary search on parameter space, output optimal
+    value and oracle call trace.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P016
+    relationship: variant
+    overlap: simulates deterministic binary search and outputs the probe/trace sequence
+  - id: proposal:wave0:P017
+    relationship: adjacent
+    overlap: traces a deterministic search through an implicit index structure
+  - id: gallery:backtracking_search
+    relationship: adjacent
+    overlap: deterministic search with explicit step-by-step trace
+  reason: 0/3 samples judged it novel; This is a parameterized variant of the existing binary_search_probes
+    task, adding only an oracle abstraction.
+  scores:
+    novelty: 1
+    sft_value: 1
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: flow_path_decomposition
+  summary: Decompose a feasible edge flow into path and cycle flows, output canonical path multiset with
+    flow values.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N7
+    relationship: adjacent
+    overlap: flow reasoning on capacitated networks with exact decomposition and verification
+  - id: task:generated.wave0.n07_max_flow_min_cut.max_flow_min_cut:MaxFlowMinCut
+    relationship: adjacent
+    overlap: computes exact network flow structures and verifies properties
+  - id: gallery:logic_derivation
+    relationship: different
+    overlap: produces a canonical decomposition/trace from a feasible configuration
+  reason: 0/3 samples judged it novel; The catalog already has capacitated flow reasoning; this adds a
+    canonical decomposition output without changing the core operation.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: treewidth_elimination_order
+  summary: Compute min-fill or min-degree elimination ordering for a graph, output fill edges added and
+    maximum clique size.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:variable_elimination
+    relationship: variant
+    overlap: executes a deterministic elimination strategy and reports a compact derived structure
+  - id: task:mutated.wave0.m08_elimination_depth.elimination_depth_chain:EliminationDepthChain
+    relationship: adjacent
+    overlap: solves a problem through controlled elimination steps and produces an exact answer
+  - id: proposal:wave0:P008
+    relationship: adjacent
+    overlap: computes a graph-theoretic invariant by a deterministic algorithm
+  reason: 0/3 samples judged it novel; The catalog already covers deterministic elimination strategies
+    and graph invariants; this combines them without a new operation.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 0/3
+- name: online_multiplicative_weights
+  summary: Maintain expert weights under multiplicative updates for a sequence of loss vectors, output
+    final distribution and cumulative regret bound.
+  verdict: variant
+  nearest_neighbors: []
+  reason: 1/3 samples judged it novel; critic did not return three valid catalog neighbors; The core operation
+    is a standard iterative update and final aggregate, already present in many catalog tasks.
+  scores:
+    novelty: 2
+    sft_value: 2
+    feasibility: 4
+    clarity: 3
+  votes: 1/3
+- name: dominance_frontier_computation
+  summary: Compute dominance frontiers on a control-flow graph for SSA phi insertion; answer the frontier
+    set for each block.
+  verdict: novel
+  nearest_neighbors:
+  - id: proposal:wave0:P006
+    relationship: adjacent
+    overlap: Graph sets defined by iterative reachability/ordering (topological generation vs. dominance
+      frontiers)
+  - id: gallery:fixpoint_iteration
+    relationship: variant
+    overlap: Monotone set propagation over graph nodes
+  - id: proposal:wave0:P079
+    relationship: different
+    overlap: Graph reachability sets for compiler/analysis (build rebuild vs. frontiers)
+  reason: 0/3 samples judged it novel; novel verdict contradicted its nearest-neighbor labels; No catalog
+    task computes dominance frontiers; its dependence on dominator trees distinguishes it from reachability
+    or generic fixpoint propagation.
+  scores:
+    novelty: 4
+    sft_value: 4
+    feasibility: 5
+    clarity: 5
+  votes: 0/3
+- name: reaching_definitions_analysis
+  summary: Perform forward reaching-definitions data-flow analysis on a CFG with gen/kill sets; answer
+    the reaching set at a query point.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:fixpoint_iteration
+    relationship: same_operation
+    overlap: Monotone fixpoint/dataflow propagation over graph nodes
+  - id: plan:WAVE0:N11
+    relationship: variant
+    overlap: Forward static analysis on CFGs (interval vs. reaching definitions)
+  - id: gallery:code_analysis
+    relationship: adjacent
+    overlap: Static program analysis with temporal queries
+  reason: 0/3 samples judged it novel; Reaching definitions is a well-known dataflow analysis already
+    encompassed by the catalog's fixpoint iteration and interval analysis.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 5
+    clarity: 5
+  votes: 0/3
+- name: constant_propagation_sccp
+  summary: Execute sparse conditional constant propagation on SSA-form code; answer the lattice value
+    (constant, top, bottom) for a queried variable.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:fixpoint_iteration
+    relationship: same_operation
+    overlap: Monotone lattice/fixpoint propagation with symbolic values
+  - id: proposal:wave0:P073
+    relationship: variant
+    overlap: Dataflow-like propagation over dimensions/values to lattice conclusions
+  - id: gallery:code_analysis
+    relationship: adjacent
+    overlap: Static analysis of toy programs
+  reason: 0/3 samples judged it novel; Sparse conditional constant propagation is a parameterized instance
+    of the catalog's fixpoint iteration.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: instruction_scheduling_list
+  summary: Schedule a DAG of instructions under resource constraints using list scheduling with a priority
+    heuristic; answer the issue cycle for each instruction.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE6:S60
+    relationship: same_operation
+    overlap: Schedule DAG nodes into execution batches under dependency constraints
+  - id: plan:WAVE1:S3
+    relationship: variant
+    overlap: Critical path scheduling over precedence DAG with timing outputs
+  - id: proposal:wave0:P050
+    relationship: different
+    overlap: Process scheduling outputting execution timing/order
+  reason: 0/3 samples judged it novel; List scheduling with resource constraints is a parameterized variant
+    of the catalog's dependency-graph batching.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: miller_rabin_witness
+  summary: Run Miller-Rabin primality test with given bases; output composite or probably-prime plus the
+    first witness or None.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P072
+    relationship: adjacent
+    overlap: Exact deterministic algorithm on numeric/string input returning a witness/None
+  - id: proposal:wave0:P052
+    relationship: variant
+    overlap: First offending element or None under deterministic rule evaluation
+  - id: proposal:wave0:P041
+    relationship: different
+    overlap: Decide a property and return the unique witness (chosen value vs. primality witness)
+  reason: 0/3 samples judged it novel; The operation of returning the first satisfying witness or None
+    is already represented in the catalog.
+  scores:
+    novelty: 2
+    sft_value: 3
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: rsa_crt_decryption
+  summary: Decrypt an RSA ciphertext using Chinese Remainder Theorem with given primes and exponents;
+    output the recovered plaintext integer.
+  verdict: variant
+  nearest_neighbors:
+  - id: gallery:lambda_reduction
+    relationship: different
+    overlap: term rewriting but not number-theoretic
+  - id: gallery:arithmetics
+    relationship: adjacent
+    overlap: modular arithmetic
+  - id: proposal:wave0:P068
+    relationship: adjacent
+    overlap: polynomial/remainder computation
+  reason: 1/3 samples judged it novel; RSA-CRT is a variant of modular arithmetic operations.
+  scores:
+    novelty: 2
+    sft_value: 3
+    feasibility: 5
+    clarity: 5
+  votes: 1/3
+- name: suffix_automaton_construction
+  summary: Build a suffix automaton online for a given string; answer the number of states or a specific
+    transition after each extension.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE0:N4
+    relationship: same_operation
+    overlap: Explicit state machine construction/execution with transition reporting
+  - id: task:generated.wave0.n04_finite_automaton_execution.n04_finite_automaton_execution:FiniteAutomatonExecution
+    relationship: variant
+    overlap: State and transition counts in finite automata
+  - id: gallery:constrained_continuation
+    relationship: different
+    overlap: String processing with deterministic construction
+  reason: 0/3 samples judged it novel; Building and executing an automaton to report state counts is a
+    parameter change over explicit finite-automaton execution.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: rolling_hash_rabin_karp
+  summary: Find pattern occurrences in text using polynomial rolling hash with modular verification; output
+    all match start indices.
+  verdict: variant
+  nearest_neighbors:
+  - id: proposal:wave0:P072
+    relationship: same_operation
+    overlap: String matching by exact pattern algorithms returning match positions/index values
+  - id: proposal:wave0:P071
+    relationship: variant
+    overlap: Suffix array and KMP are catalog string matching/naming algorithms
+  - id: proposal:wave0:P077
+    relationship: different
+    overlap: Enumerate matching indices from deterministic state
+  reason: 0/3 samples judged it novel; Rabin-Karp is a storage/algorithm variant of the catalog's KMP
+    and suffix-array string matching.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: tree_isomorphism_ahu
+  summary: Compute the AHU canonical form of rooted or unrooted trees by recursive child-label sorting;
+    answer the canonical string or isomorphism verdict.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE5:S52
+    relationship: same_operation
+    overlap: Canonical naming of rooted trees by recursive sorting of child labels
+  - id: proposal:wave0:P023
+    relationship: adjacent
+    overlap: Structural isomorphism/canonical form via recursive label comparison
+  - id: proposal:wave0:P002
+    relationship: different
+    overlap: Tree/graph canonical forms report vertex sets rather than isomorphism
+  reason: 0/3 samples judged it novel; Canonical AHU tree form is the same structural canonization operation
+    as the existing 'canonical naming of a rooted tree' plan.
+  scores:
+    novelty: 2
+    sft_value: 4
+    feasibility: 5
+    clarity: 5
+  votes: 0/3
+- name: bankers_algorithm
+  summary: Execute the Banker's algorithm safety check on a resource allocation state; answer whether
+    the state is safe and a safe sequence if so.
+  verdict: novel
+  nearest_neighbors:
+  - id: plan:WAVE1:S4
+    relationship: adjacent
+    overlap: Stateful resource accounting over a transaction/request stream
+  - id: proposal:wave0:P031
+    relationship: variant
+    overlap: Deadlock/schedule safety decision with canonical answer
+  - id: proposal:wave0:P038
+    relationship: different
+    overlap: Concurrent system safety verification
+  reason: 0/3 samples judged it novel; novel verdict contradicted its nearest-neighbor labels; No catalog
+    task simulates a banker's safety algorithm with safe-sequence output; it is a distinct resource-safety
+    operation.
+  scores:
+    novelty: 4
+    sft_value: 4
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: selinger_join_ordering
+  summary: Compute the optimal join order for a query graph using Selinger dynamic programming with a
+    given cost model; answer the optimal plan cost or tree.
+  verdict: variant
+  nearest_neighbors:
+  - id: plan:WAVE1:S6
+    relationship: same_operation
+    overlap: Bounded discrete optimization over a combinatorial configuration (optimal join order)
+  - id: proposal:wave0:P026
+    relationship: adjacent
+    overlap: Join/meet type reasoning over a finite lattice
+  - id: plan:WAVE6:S62
+    relationship: different
+    overlap: Weighted selection optimization with exact cost
+  reason: 0/3 samples judged it novel; Optimal join ordering via DP is a bounded discrete optimization
+    variant already planned in the catalog.
+  scores:
+    novelty: 2
+    sft_value: 3
+    feasibility: 5
+    clarity: 4
+  votes: 0/3
+- name: elliptic_curve_scalar_mul
+  summary: Perform scalar multiplication on an elliptic curve via double-and-add; output the resulting
+    point coordinates in affine form.
+  verdict: novel
+  nearest_neighbors:
+  - id: proposal:wave0:P022
+    relationship: adjacent
+    overlap: Finite algebraic recursive operations (coset multiplication vs. scalar multiplication)
+  - id: proposal:wave0:P020
+    relationship: variant
+    overlap: Exact group/repeated operation over a finite set
+  - id: gallery:function_manipulation
+    relationship: different
+    overlap: Symbolic manipulation with exact algebraic outputs
+  reason: 1/3 samples judged it novel; novel verdict contradicted its nearest-neighbor labels; The catalog
+    lacks any elliptic curve or double-and-add operation, making this a distinct arithmetic procedure.
+  scores:
+    novelty: 4
+    sft_value: 4
+    feasibility: 5
+    clarity: 4
+  votes: 1/3

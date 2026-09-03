@@ -121,7 +121,7 @@ def test_plan_rejects_overlapping_owned_paths(tmp_path):
 def test_a_plan_records_which_proposal_wave_it_implements(tmp_path):
     """One set of ideas can be implemented many times, so the two names are not one name.
 
-    wave8 was two implementation runs of the eighty wave0 proposals. The plan said so and
+    wave8 was two implementation runs of the eighty external proposals. The plan said so and
     load_plan dropped it, so every run record claimed only `wave: wave8` and comparing one
     proposal wave against another meant remembering by hand which plan came from where.
     """
@@ -135,9 +135,9 @@ def test_a_plan_records_which_proposal_wave_it_implements(tmp_path):
         "    validation: [check-a]\n"
     )
     plan = tmp_path / "plan.yaml"
-    plan.write_text("version: 1\nname: wave0_r2\nproposal_wave: wave0\n" + body)
-    assert load_plan(plan).proposal_wave == "wave0"
-    assert load_plan(plan).name == "wave0_r2"
+    plan.write_text("version: 1\nname: external_r2\nproposal_wave: external\n" + body)
+    assert load_plan(plan).proposal_wave == "external"
+    assert load_plan(plan).name == "external_r2"
 
     # Plans written before the field existed stay loadable and report it as unrecorded.
     older = tmp_path / "older.yaml"

@@ -35,8 +35,8 @@ class SearchPlan:
     # Two different things used to share one name. `name` is the implementation wave --
     # one attempt at building tasks, repeatable with new seeds against the same ideas.
     # `proposal_wave` is where the ideas came from. wave8 was two implementation runs of
-    # the eighty wave0 proposals and no run record said so, which made "how did the
-    # legacy list do against kimi's" unanswerable from the records alone. Empty means a
+    # the eighty `external` proposals and no run record said so, which made "how did the
+    # external list do against a proposed one" unanswerable from the records alone. Empty means a
     # plan written before the field existed, and `check` reports it as unrecorded.
     proposal_wave: str = ""
     # Hashed at load, not at record time: editing the plan mid-wave would otherwise

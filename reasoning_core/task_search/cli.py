@@ -94,7 +94,7 @@ def _parser():
         "import-legacy",
         help="archive the hand-written candidate list as a reference proposal wave",
     )
-    legacy.add_argument("--name", default="wave0")
+    legacy.add_argument("--name", default="external")
     legacy.add_argument("--source", default=LEGACY_SOURCE)
     legacy.add_argument("--output")
     build = subparsers.add_parser(
@@ -106,7 +106,7 @@ def _parser():
         required=True,
         help="name of the implementation wave, which is not the proposal wave it runs: "
              "one set of ideas can be implemented repeatedly. Convention: "
-             "<proposal_wave>_r<n>, e.g. wave0_r2",
+             "<proposal_wave>_r<n>, e.g. external_r2",
     )
     build.add_argument(
         "--variants",

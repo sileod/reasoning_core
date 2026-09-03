@@ -20,7 +20,7 @@ ROOT = Path(__file__).parents[1]
 def wave(count=2, variants_of=("alpha_task", "beta_task")):
     return {
         "kind": "sft_task_proposals",
-        "name": "wave0",
+        "name": "external",
         "proposals": [
             {"id": f"P{index:03d}", "name": name,
              "summary": f"Generate {name} instances over varied structures and answer one value."}
@@ -43,7 +43,7 @@ def test_legacy_descriptions_are_already_coverage_summaries():
 def test_legacy_wave_imports_without_a_model_call():
     imported = build_legacy_wave(ROOT)
 
-    assert imported["name"] == "wave0"
+    assert imported["name"] == "external"
     assert imported["generation"]["provider"] == "legacy"
     assert imported["generation"]["calls"] == []
     assert len(imported["proposals"]) == 80
@@ -90,13 +90,13 @@ def test_a_generated_plan_loads_in_the_runner(tmp_path):
     assert loaded.base_ref == "abc123"
     assert len(loaded.trials) == 4
     assert set(loaded.queues) == {"v1", "v2", "pilot"}
-    assert yaml.safe_load(path.read_text())["proposal_wave"] == "wave0"
+    assert yaml.safe_load(path.read_text())["proposal_wave"] == "external"
 
 
 def test_a_plan_name_must_be_an_importable_package_segment():
     """owned_path becomes a module path: a dash there fails the contract audit, not the run."""
     with pytest.raises(ValueError, match="importable|identifier"):
-        build_plan(wave(), name="wave0-run1")
+        build_plan(wave(), name="external-run1")
 
 
 def test_plan_generation_refuses_a_wave_that_is_not_a_proposal_wave():
