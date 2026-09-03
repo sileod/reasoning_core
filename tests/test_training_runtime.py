@@ -342,7 +342,7 @@ def test_paper_battery_is_ordered_data_not_engine_logic(tmp_path):
             "output_key": "new_nll", "limit": 7,
         }],
     }))
-    custom = load_battery_manifest(manifest)
+    custom = load_battery_manifest(manifest, tmp_path)
     assert custom.max_length == 99
     assert custom.legs == (
         EvalLeg("new_leg", str(tmp_path / "new.jsonl"), "qa_nll", "new_nll", 7),
