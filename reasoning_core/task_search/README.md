@@ -22,10 +22,10 @@ Install a Harness Link version that provides the `hlink` frontend, then validate
 render, or run a plan:
 
 ```bash
-python -m reasoning_core.task_search check reasoning_core/task_search/wave0.yaml
-python -m reasoning_core.task_search render reasoning_core/task_search/wave0.yaml N1
-python -m reasoning_core.task_search run reasoning_core/task_search/wave0.yaml \
-  --harness opencode --model openai/gpt-oss-120b --provider nim --trial N1
+python -m reasoning_core.task_search check reasoning_core/task_search/wave8.yaml
+python -m reasoning_core.task_search render reasoning_core/task_search/wave8.yaml P001v1
+python -m reasoning_core.task_search run reasoning_core/task_search/wave8.yaml \
+  --harness opencode --model deepseek-v4-flash --provider albert --trial P001v1
 ```
 
 `--provider` is optional. Harness Link owns harness discovery, provider adaptation,

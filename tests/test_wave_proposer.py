@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,7 @@ from reasoning_core.task_search.wave_proposer import (
 
 
 ROOT = Path(__file__).parents[1]
+VARIANT = re.compile(r"_v\d+$")
 
 
 def proposal(name="fresh_operation"):
@@ -50,16 +52,34 @@ def test_catalog_includes_gallery_plans_and_tasks():
     sources = catalog_record(entries)["sources"]
 
     assert sources["gallery"] >= 60
-    assert sources["plan"] >= 100
-    assert sources["task"] >= 60
+    assert sources["plan"] >= 90
+    assert sources["proposal"] >= 80
     assert any(entry.name == "graph_pathfinding" for entry in entries)
 
 
-def test_catalog_uses_task_coverage_summaries_for_novelty():
-    entries = {entry.entry_id: entry for entry in build_catalog(ROOT)}
+def test_the_catalog_names_each_idea_once():
+    """The catalog is a prompt, so a repeat is paid for on every proposal call.
 
-    csp = entries["task:constraint_satisfaction:ConstraintSatisfaction"]
-    arithmetic = entries["task:arithmetics:Arithmetics"]
+    Each shipped task was also a gallery line, each `external` proposal was also two
+    wave8 plan trials, and the trials arrived under names -- `..._v1`, `..._v2` -- that
+    no proposal would ever collide with. That was 499 entries for 278 ideas.
+    """
+    entries = build_catalog(ROOT)
+    names = [entry.name for entry in entries]
+
+    assert len(names) == len(set(names))
+    assert not [name for name in names if VARIANT.search(name)]
+    assert not any(entry.entry_id.startswith("plan:wave8:") for entry in entries), (
+        "wave8 fanned the external eighty into drafts; the ideas are already catalogued")
+
+
+def test_catalog_uses_task_coverage_summaries_for_novelty():
+    # By name, not by entry id: a shipped task is also a gallery line, the catalog now
+    # keeps one of the two, and the summary is the same either way -- which is the point.
+    entries = {entry.name: entry for entry in build_catalog(ROOT)}
+
+    csp = entries["constraint_satisfaction"]
+    arithmetic = entries["arithmetics"]
     assert csp.summary == (
         "Solve query-aware assignment, graph, scheduling, grid, set, and numeric CSPs.")
     assert arithmetic.summary == (

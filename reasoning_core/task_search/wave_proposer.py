@@ -170,6 +170,9 @@ def _instruction_summary(instruction, fallback):
     return _one_line(fallback)
 
 
+_VARIANT_SUFFIX = re.compile(r"_v\d+$")
+
+
 def _plan_entries(repo_root):
     root = Path(repo_root) / "reasoning_core" / "task_search"
     entries = []
@@ -184,6 +187,11 @@ def _plan_entries(repo_root):
             name = _snake(idea.split(" (", 1)[0])
             if not name:
                 name = _snake(Path(str(trial.get("owned_path", "task"))).name)
+            # A plan fans one idea into N drafts, so the trial name carries a variant
+            # suffix. The idea is what novelty is about: without this, wave8 put
+            # `strongly_connected_component_v1` and `_v2` in the catalog and no proposal
+            # of `strongly_connected_component` would ever match either one.
+            name = _VARIANT_SUFFIX.sub("", name)
             entries.append(CatalogEntry(
                 f"plan:{wave}:{trial.get('id', name)}", name,
                 _instruction_summary(trial.get("instruction", ""), idea), "plan"))
@@ -213,12 +221,21 @@ def _proposal_entries(repo_root):
 
 def build_catalog(repo_root):
     """Build deterministic novelty memory from tasks, plans and archived proposals."""
+    # Best account of an idea first, because the first one seen under a name is the one
+    # kept: the gallery line, then the shipped task (whose coverage summary is where that
+    # gallery line came from, so the two say the same thing), then the proposal someone
+    # wrote, then a plan trial, which is only an attempt at the idea and describes itself
+    # the worst. Gallery leads so that entry ids stay what archived waves already cite.
     entries = (_gallery_entries(repo_root) + _task_entries(repo_root)
-               + _plan_entries(repo_root) + _proposal_entries(repo_root))
+               + _proposal_entries(repo_root) + _plan_entries(repo_root))
+    # Keyed by name, not by entry_id: one task is in the gallery and in the task scan,
+    # and one idea is in its plan and in the proposal wave it came from. Those are the
+    # same idea three times over, and the catalog is a prompt -- every repeat is paid for
+    # on each proposal call and tells the proposer nothing it was not already told.
     unique = {}
     for entry in entries:
-        unique[entry.entry_id] = entry
-    return tuple(unique[key] for key in sorted(unique))
+        unique.setdefault(entry.name, entry)
+    return tuple(entry for _, entry in sorted(unique.items()))
 
 
 def catalog_record(entries):
