@@ -171,6 +171,8 @@ class MyTask(Task):
 - Prompt is as concise as possible while allowing meaningful zero-shot solvability.
 - Answers should be short and canonical, valid SFT targets.
 - Metadata is ideally sufficient for offline debugging (instance params, optional `cot` entry).
+- Every metadata value must be JSON-serializable: the collection writer has no fallback
+  encoder, so an object here passes generation and fails mid-collection.
 - If a task uses labeled prompt blocks, store them as a plain JSON-serializable
   `metadata.payload` mapping and render them with `render_payload(metadata.payload)`.
   Do not store renderer/helper objects in metadata.

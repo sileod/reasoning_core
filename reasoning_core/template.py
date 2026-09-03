@@ -609,7 +609,16 @@ class Task(ProceduralDataset):
 
     def _check_validation_examples(self, x, ys, n_samples):
         assert isinstance(x, Entry), f"Generated example must be of type Entry, got {type(x)}"
-        json.dumps(dict(x.metadata))
+        try:
+            json.dumps(dict(x.metadata))
+        except TypeError as bad:
+            # Still a TypeError, which is what the writer raises and what callers catch.
+            # Only the message changes: raised bare this said "Object of type Entity is
+            # not JSON serializable" and named neither metadata nor the task, and the
+            # writer has no fallback encoder, so such a task fails mid-collection.
+            raise TypeError(
+                f"{type(self).__name__}.metadata must be JSON-serializable: {bad}. "
+                "Store plain values and keep helper objects out of metadata.") from bad
         assert self.score_answer(x.answer, x)==1, "The generated answer must be correct"
         assert x.prompt, "Generated example must have a non-empty prompt"
         assert len({y.prompt for y in ys})!=1 or n_samples==1, "Examples should not be identical"
