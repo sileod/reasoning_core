@@ -33,7 +33,7 @@ from .wave_proposer import (
 )
 
 
-LEGACY_SOURCE = "reasoning_core/task_search/WAVE1.md"
+LEGACY_SOURCE = "reasoning_core/task_search/plans/WAVE1.md"
 
 
 def _fenced_yaml(text):

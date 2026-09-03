@@ -22,7 +22,7 @@ catalog assembled from:
 
 - shipped `Task` and `DevTask` classes;
 - the descriptions in `GALLERY.md`;
-- every executable `task_search/wave*.yaml` plan (retired plans in `.legacy/` are not
+- every executable `task_search/plans/wave*.yaml` plan (retired plans in `plans/.legacy/` are not
   scanned: an idea that still matters lives on as a task or as a proposal);
 - every prior proposal wave in `proposals/archive/`.
 

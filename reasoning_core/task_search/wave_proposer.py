@@ -174,7 +174,7 @@ _VARIANT_SUFFIX = re.compile(r"_v\d+$")
 
 
 def _plan_entries(repo_root):
-    root = Path(repo_root) / "reasoning_core" / "task_search"
+    root = Path(repo_root) / "reasoning_core" / "task_search" / "plans"
     entries = []
     for path in sorted(root.glob("wave*.yaml")):
         try:

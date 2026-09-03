@@ -15,6 +15,8 @@ trials. Proposal generation remains a separate subsystem in `wave_proposer.py`.
 - `implementation_runner.py` creates worktrees, launches Harness Link, validates candidates, retries
   explicit infrastructure failures, and writes run records.
 - `cli.py` contains argument parsing and command dispatch.
+- `plans/` holds the `wave*.yaml` plans and the idea documents they came from;
+  `proposals/` holds proposal waves and the archive a plan is generated from.
 
 ## Run a wave
 
@@ -22,9 +24,9 @@ Install a Harness Link version that provides the `hlink` frontend, then validate
 render, or run a plan:
 
 ```bash
-python -m reasoning_core.task_search check reasoning_core/task_search/wave8.yaml
-python -m reasoning_core.task_search render reasoning_core/task_search/wave8.yaml P001v1
-python -m reasoning_core.task_search run reasoning_core/task_search/wave8.yaml \
+python -m reasoning_core.task_search check reasoning_core/task_search/plans/wave8.yaml
+python -m reasoning_core.task_search render reasoning_core/task_search/plans/wave8.yaml P001v1
+python -m reasoning_core.task_search run reasoning_core/task_search/plans/wave8.yaml \
   --harness opencode --model deepseek-v4-flash --provider albert --trial P001v1
 ```
 

@@ -56,7 +56,7 @@ from reasoning_core.task_search.validation import (
 
 
 ROOT = Path(__file__).parents[1]
-PLAN = ROOT / "reasoning_core" / "task_search" / "wave0.yaml"
+PLAN = ROOT / "reasoning_core" / "task_search" / "plans" / "wave0.yaml"
 
 
 # A prompt of realistic length, because the gate now measures prompt text as well as
