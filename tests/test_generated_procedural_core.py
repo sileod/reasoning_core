@@ -13,8 +13,12 @@ TASKS = [
 ]
 
 
-def test_generated_tasks_are_discovered():
-    assert set(TASKS) <= set(list_tasks())
+def test_generated_tasks_are_discovered_but_not_in_the_default_roster():
+    # Landing a wave must not silently redefine what list_tasks() means: these are
+    # addressable by name for the influence pipeline and the probes, and join the roster
+    # only once influence has judged them worth it.
+    assert set(TASKS) <= set(list_tasks(include_generated=True))
+    assert not set(TASKS) & set(list_tasks())
 
 
 def test_generated_tasks_smoke():

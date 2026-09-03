@@ -99,6 +99,14 @@ _mutated_task_names = {
     task_name for task_name, (module_name, _) in _task_to_module_map.items()
     if module_name.split(".", 1)[0] == "mutated"
 }
+# Task-search output. It is discoverable and importable the moment it lands, so that the
+# influence pipeline and the probes can address it by name, but it stays out of the default
+# roster until it has earned a place there. Landing a wave must not silently redefine what
+# `list_tasks()` means.
+_generated_task_names = {
+    task_name for task_name, (module_name, _) in _task_to_module_map.items()
+    if module_name.split(".", 1)[0] == "generated"
+}
 
 DATASETS = {
     task_name: _PrettyLazy(task_name, module_name)
@@ -150,10 +158,13 @@ DEPRECATED = ['symbolic_arithmetics', 'graph_node_centrality']
 # count_elements absorbed into set_expression's multiset Count(x, S) mode (toyish standalone; zero-shot 1.0)
 ignored = DEPRECATED + ['reasonining_gym', 'count_elements']
 
-def list_tasks(include_mutated=False):
+def list_tasks(include_mutated=False, include_generated=False):
+    """The shipped roster. `include_generated=True` adds the task-search waves."""
     return [
         k for k in DATASETS.keys()
-        if k not in ignored and (include_mutated or k not in _mutated_task_names)
+        if k not in ignored
+        and (include_mutated or k not in _mutated_task_names)
+        and (include_generated or k not in _generated_task_names)
     ]
 
 
