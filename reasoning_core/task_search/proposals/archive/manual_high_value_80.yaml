@@ -1,0 +1,583 @@
+format_version: 1
+kind: sft_task_proposals
+name: manual_high_value_80
+created_at: '2026-09-03T11:48:00+00:00'
+objective:
+  training_stage: sft
+  requested: 80
+  accepted: 80
+  complete: true
+catalog:
+  sha256: 548bad67aa04d52e6bcee69b7d4013d93642618c611f793bffc014228dfba4df
+  entries: 498
+  sources:
+    gallery: 65
+    plan: 257
+    proposal: 81
+    task: 95
+generation:
+  provider: legacy
+  source: manual high-value roster-gap review against shipped/generated GALLERY roster; task_search proposals intentionally excluded from ideation
+  calls: []
+proposals:
+- name: bayesian_conditioning
+  summary: Compute exact posterior probabilities in small discrete Bayesian networks from CPTs and observed evidence, returning one queried marginal as a reduced fraction.
+  id: P001
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-001
+- name: hidden_state_filtering
+  summary: Execute exact sum-product filtering in finite hidden-state models across observation sequences, returning a queried posterior state probability.
+  id: P002
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-002
+- name: markov_chain_distribution
+  summary: Propagate exact probability mass through finite Markov chains for a stated number of steps, returning a queried state or event probability.
+  id: P003
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-003
+- name: probability_tree_marginal
+  summary: Evaluate branching sequential random processes with conditional transitions, replacement or state changes, returning an exact event probability.
+  id: P004
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-004
+- name: conditional_expectation
+  summary: Compute exact conditional expectations over finite joint distributions after restricting to stated observations or events.
+  id: P005
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-005
+- name: expected_utility_choice
+  summary: Evaluate decisions with probabilistic outcomes and signed utilities, returning the maximizing action or its exact expected utility.
+  id: P006
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-006
+- name: diagnostic_test_selection
+  summary: Compare finite diagnostic tests under a stated ambiguity or information score and return the test with the best expected outcome.
+  id: P007
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-007
+- name: causal_intervention
+  summary: Execute do-interventions in finite acyclic structural causal models and return the resulting target value or interventional probability.
+  id: P008
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-008
+- name: counterfactual_twin_model
+  summary: Perform abduction, intervention, and prediction in deterministic finite structural causal models, returning a queried counterfactual value.
+  id: P009
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-009
+- name: d_separation
+  summary: Determine conditional independence in causal DAGs by active-path reasoning through chains, forks, colliders, and conditioned descendants.
+  id: P010
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-010
+- name: strongly_connected_components
+  summary: Partition directed graphs into strongly connected components and return the canonical component containing a queried node or the full partition.
+  id: P011
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-011
+- name: topological_layering
+  summary: Repeatedly remove current zero-indegree nodes from a DAG under deterministic tie rules, returning a queried layer, round, or canonical order.
+  id: P012
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-012
+- name: minimum_spanning_tree
+  summary: Execute deterministic minimum-spanning-tree construction on weighted undirected graphs with ties, returning selected edges or total weight.
+  id: P013
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-013
+- name: maximum_flow
+  summary: Execute a canonical augmenting-path maximum-flow procedure on integer-capacity networks, returning the final flow value or a queried cut membership.
+  id: P014
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-014
+- name: bipartite_matching
+  summary: Construct a canonical maximum bipartite matching through ordered augmenting paths, returning matched pairs or the partner of a queried vertex.
+  id: P015
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-015
+- name: articulation_bridges
+  summary: Compute DFS low-link information in undirected graphs and return articulation vertices, bridge edges, or a queried connectivity consequence.
+  id: P016
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-016
+- name: transitive_reduction
+  summary: Remove redundant edges from directed acyclic graphs while preserving reachability, returning the unique transitive reduction or a queried edge status.
+  id: P017
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-017
+- name: dominator_analysis
+  summary: Compute dominator sets and immediate dominators in directed control-flow graphs from a designated entry node, returning a queried dominator relation.
+  id: P018
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-018
+- name: union_find_trace
+  summary: Execute union-find operations under stated union-by-rank and path-compression rules, returning connectivity or canonical parent and rank state.
+  id: P019
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-019
+- name: interval_sweep
+  summary: Execute ordered endpoint sweeps over intervals to compute peak overlap, covered regions, active sets, or a canonical merged interval result.
+  id: P020
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-020
+- name: lexical_scope_resolution
+  summary: Resolve identifier uses through nested lexical scopes with shadowing and local declarations, returning the exact defining binding for each query.
+  id: P021
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-021
+- name: hindley_milner_inference
+  summary: Infer principal types for small functional expressions with application, abstraction, tuples, and let-polymorphism, returning a canonical type.
+  id: P022
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-022
+- name: alias_mutation_tracking
+  summary: Track aliases among mutable lists or records through assignment, mutation, and rebinding, returning a queried final value or reference relation.
+  id: P023
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-023
+- name: exception_control_flow
+  summary: Execute nested try, handler, finally, return, and raise semantics with state mutation, returning the final value or uncaught exception.
+  id: P024
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-024
+- name: call_stack_trace
+  summary: Trace nested function calls and recursion with local parameters and return values, returning a queried stack-frame value at a specified event.
+  id: P025
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-025
+- name: closure_capture_resolution
+  summary: Track lexical captures through closure creation, later rebinding, and invocation, returning the value observed through the captured environment.
+  id: P026
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-026
+- name: dataflow_liveness
+  summary: Compute live-in and live-out variable sets over control-flow graphs using standard backward dataflow equations and a stated iteration schedule.
+  id: P027
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-027
+- name: reaching_definitions
+  summary: Propagate reaching-definition sets through branched control flow and loops, returning the assignments that can reach a queried program point.
+  id: P028
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-028
+- name: program_slice_dependencies
+  summary: Follow explicit data and control dependencies backward from a queried output, returning the canonical minimal relevant statement set.
+  id: P029
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-029
+- name: abstract_interval_analysis
+  summary: Execute interval abstract interpretation through arithmetic, branches, joins, and stated loop widening, returning a queried abstract value.
+  id: P030
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-030
+- name: relational_join_execution
+  summary: Execute inner, left, semi, and anti joins on small keyed relations with repeated keys, then return a specified projection or exact aggregate.
+  id: P031
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-031
+- name: groupby_aggregation
+  summary: Partition rows by one or more keys and compute exact grouped count, sum, minimum, or maximum values followed by filtering and ordering.
+  id: P032
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-032
+- name: window_function_execution
+  summary: Compute partitioned ordered running totals, ranks, lag or lead values, or bounded-window aggregates for a queried table row.
+  id: P033
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-033
+- name: pivot_unpivot_transform
+  summary: Reshape records between long and wide forms under explicit aggregation and missing-value rules, returning requested output records or cells.
+  id: P034
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-034
+- name: spreadsheet_formula_dependency
+  summary: Evaluate spreadsheet formulas over a dependency graph after stated cell edits, including ranges and references, returning requested cell values.
+  id: P035
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-035
+- name: spreadsheet_reference_copy
+  summary: Copy spreadsheet formulas across rows and columns while transforming relative, absolute, and mixed references, returning the resulting formula.
+  id: P036
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-036
+- name: data_lineage_trace
+  summary: Follow records through filters, joins, aggregations, and transformations to return the source records contributing to a requested output.
+  id: P037
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-037
+- name: schema_migration_execution
+  summary: Apply ordered field rename, split, merge, default, and type-conversion operations to structured records, returning the canonical migrated record.
+  id: P038
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-038
+- name: hierarchical_rollup
+  summary: Aggregate exact values through explicit parent-child hierarchies with exclusions or overrides, returning requested subtotals or rolled-up values.
+  id: P039
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-039
+- name: query_plan_execution
+  summary: Execute compact relational-algebra plans containing filter, projection, join, grouping, and sorting operators, returning an exact result projection.
+  id: P040
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-040
+- name: cache_replacement_trace
+  summary: Execute LRU, LFU, or FIFO cache accesses with inserts and evictions under explicit tie rules, returning hits, misses, or final cache state.
+  id: P041
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-041
+- name: memory_allocator_trace
+  summary: Simulate first-fit or best-fit allocation, freeing, splitting, and adjacent-block coalescing, returning allocation addresses or final block layout.
+  id: P042
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-042
+- name: event_queue_simulation
+  summary: Execute timestamped discrete events whose handlers schedule later events under stated priority rules, returning a queried terminal system state.
+  id: P043
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-043
+- name: round_robin_scheduling
+  summary: Simulate process arrivals and CPU bursts under fixed-quantum round-robin scheduling, returning a queried execution, waiting, or completion result.
+  id: P044
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-044
+- name: rate_limit_token_bucket
+  summary: Process timestamped requests through exact token-bucket refill and consumption rules, returning accepted requests or the final token balance.
+  id: P045
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-045
+- name: filesystem_path_resolution
+  summary: Resolve relative paths through dot segments and symbolic links under stated root and link rules, returning the canonical target or error state.
+  id: P046
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-046
+- name: routing_longest_prefix
+  summary: Apply longest-prefix routing with metric and tie rules to binary or IP-like destination prefixes, returning the selected next hop.
+  id: P047
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-047
+- name: version_vector_causality
+  summary: Execute local, send, and receive events using vector clocks, then return event ordering relations or the final clock at a queried process.
+  id: P048
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-048
+- name: transaction_serializability
+  summary: Build conflict-precedence relations from interleaved transaction reads and writes, returning serializability and a canonical serial order when one exists.
+  id: P049
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-049
+- name: deadlock_detection
+  summary: Track resource ownership and waits to construct a wait-for relation, returning the deadlocked process set or a canonical safe sequence.
+  id: P050
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-050
+- name: minimal_unsat_core
+  summary: Find the lexicographically canonical subset-minimal inconsistent subset of small Boolean or finite-domain constraints.
+  id: P051
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-051
+- name: truth_maintenance_revision
+  summary: Maintain derived facts with explicit justification sets as premises are added or retracted, returning the facts that remain supported.
+  id: P052
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-052
+- name: argumentation_grounded_extension
+  summary: Compute the grounded extension of abstract argumentation graphs by iterating attack and defense relations to a fixed point.
+  id: P053
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-053
+- name: finite_model_quantifiers
+  summary: Evaluate first-order formulas with nested universal and existential quantifiers over explicit finite relations and functions, returning the truth value.
+  id: P054
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-054
+- name: three_valued_logic_propagation
+  summary: Evaluate rule networks or circuits under True, False, and Unknown semantics, returning a queried propagated value after nested operations.
+  id: P055
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-055
+- name: temporal_logic_monitoring
+  summary: Evaluate finite-trace temporal formulas with next, eventually, always, and until at a queried trace position, returning the truth value.
+  id: P056
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-056
+- name: nfa_subset_construction
+  summary: Determinize finite automata by epsilon closure and subset construction, returning canonical DFA states or a requested transition.
+  id: P057
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-057
+- name: dfa_minimization
+  summary: Execute deterministic automaton partition refinement, returning canonical equivalence classes or a requested minimized transition.
+  id: P058
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-058
+- name: grammar_first_follow
+  summary: Compute FIRST and FOLLOW sets for context-free grammars with nullable and mutually recursive productions, returning a requested canonical set.
+  id: P059
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-059
+- name: ll1_predictive_parsing
+  summary: Execute deterministic LL(1) stack parsing from a supplied parse table, returning the production trace or exact failure point.
+  id: P060
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-060
+- name: modular_constraint_solver
+  summary: Combine modular congruence constraints including non-coprime moduli, returning inconsistency or the canonical residue and modulus solution.
+  id: P061
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-061
+- name: polynomial_euclidean_algorithm
+  summary: Execute exact polynomial division and the Euclidean algorithm over integers or finite fields, returning a canonical remainder or monic gcd.
+  id: P062
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-062
+- name: dimensional_analysis
+  summary: Propagate physical dimension vectors through formulas and equations, returning a missing dimension or identifying a dimensionally inconsistent expression.
+  id: P063
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-063
+- name: rational_interval_arithmetic
+  summary: Propagate exact rational intervals through arithmetic operations and intersections, returning the tight resulting interval or the empty set.
+  id: P064
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-064
+- name: coordinate_frame_composition
+  summary: Compose discrete translations, rotations, and reflections between named coordinate frames, returning a queried point or vector in the target frame.
+  id: P065
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-065
+- name: three_dimensional_orientation
+  summary: Track labeled axes or faces through sequences of discrete 3D rotations, returning final orientation, adjacency, or relative direction.
+  id: P066
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-066
+- name: calendar_recurrence_execution
+  summary: Generate occurrences from explicit recurrence, exclusion, and adjustment rules, returning the nth valid date or a count in a bounded interval.
+  id: P067
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-067
+- name: critical_path_analysis
+  summary: Compute earliest and latest times, slack, and critical activities in precedence networks with durations, returning a requested scheduling quantity.
+  id: P068
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-068
+- name: ledger_reconciliation
+  summary: Apply ordered debits, credits, holds, reversals, and settlement rules across accounts, returning exact balances or an unmatched transaction.
+  id: P069
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-069
+- name: exact_rounding_pipeline
+  summary: Execute multi-stage fixed-point calculations with explicit truncation, floor, ceiling, or half-even rules, returning the exact final value.
+  id: P070
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-070
+- name: diff_patch_application
+  summary: Apply ordered context-aware insertion, deletion, and replacement hunks to text or token sequences, returning the exact resulting content.
+  id: P071
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-071
+- name: nested_template_expansion
+  summary: Expand templates with nested variables, defaults, conditional fragments, and escaping under explicit substitution rules, returning exact expanded text.
+  id: P072
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-072
+- name: configuration_precedence_resolution
+  summary: Merge defaults, inherited settings, environment overrides, local overrides, and deletion markers to return one effective configuration.
+  id: P073
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-073
+- name: access_control_policy_evaluation
+  summary: Resolve inherited allow and deny permissions, group membership, and explicit exceptions under a stated precedence policy, returning effective access.
+  id: P074
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-074
+- name: packet_fragment_reassembly
+  summary: Reassemble indexed or offset message fragments under explicit overlap and missing-fragment rules, returning the reconstructed payload or error state.
+  id: P075
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-075
+- name: protocol_state_machine_trace
+  summary: Execute event-driven protocol transitions with guards, retries, and timeouts, returning the state or emitted action after a supplied event trace.
+  id: P076
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-076
+- name: consensus_log_commit
+  summary: Track replicated log terms, indexes, acknowledgements, and majority rules in a simplified consensus protocol, returning committed entries or commit index.
+  id: P077
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-077
+- name: two_phase_commit_trace
+  summary: Follow prepare, vote, commit, and abort messages with stated coordinator or participant failures, returning final participant states.
+  id: P078
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-078
+- name: quorum_read_write_resolution
+  summary: Evaluate versioned reads and writes across replicas with explicit quorum sizes and tie rules, returning the value visible to a queried operation.
+  id: P079
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-079
+- name: three_way_merge_resolution
+  summary: Perform deterministic base, left, and right sequence merging, distinguishing independent edits from conflicts and returning merged text or conflict spans.
+  id: P080
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: HV-080
+rejected: []
