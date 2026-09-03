@@ -42,6 +42,11 @@ AUDIT_NAME = "prior_audit.n40.json"
 # Forty is the number that decided then, and at four seconds a task it is nearly free.
 AUDIT_SAMPLES = 40
 AUDIT_CEILING = 0.4
+# The worker's audit stops sampling a level after 45 seconds, so a slow generator can be
+# judged on whatever n it reached by then rather than on the n that was asked for.
+# Triage is not on a clock. (The n prior_audit reports is smaller than this anyway: it is
+# the balanced subset, after the shipping label cap discards the skew.)
+AUDIT_BUDGET_SECONDS = 600
 # The reviewer shares one per-minute token bucket with everything else pointed at the
 # provider, and a triage pass is not urgent. One call every few seconds keeps it under
 # the limit without the retry machinery having to get involved.
@@ -105,7 +110,8 @@ def audit(trial_dir, trial, plan_trial):
     finished = subprocess.run(
         [sys.executable, "-m", "reasoning_core.task_search.prior_audit",
          "--path", plan_trial.owned_path, "--n", str(AUDIT_SAMPLES),
-         "--max-const", str(AUDIT_CEILING), "--max-shortcut", str(AUDIT_CEILING)],
+         "--max-const", str(AUDIT_CEILING), "--max-shortcut", str(AUDIT_CEILING),
+         "--budget-seconds", str(AUDIT_BUDGET_SECONDS)],
         cwd=trial["worktree"], capture_output=True, text=True, timeout=900,
         # The audit needs no credentials, and the candidate source it imports is
         # untrusted, so it gets an environment with nothing to spend.
@@ -131,6 +137,7 @@ def draft(trial_dir, trial, verdict, source, audited=None):
     return {
         "audit": audited,
         "trial": trial["trial_id"],
+        "run": trial_dir.parent.name,
         "name": _task_name(trial),
         "dir": str(trial_dir),
         "verdict": verdict.get("verdict"),
@@ -151,7 +158,15 @@ RANK = {"VALID": 0, None: 1, "INVALID": 2}
 
 
 def pick(drafts):
-    return sorted(drafts, key=lambda d: (RANK.get(d["verdict"], 1), d["exhausted"], d["trial"]))
+    # Newest run last, so a re-run of the same trial id wins the tie: it is the one whose
+    # worktree the rest of the wave was measured against.
+    return sorted(drafts, key=lambda d: (RANK.get(d["verdict"], 1), d["exhausted"],
+                                         d["trial"], _newest(d)))
+
+
+def _newest(row):
+    """Later run first among otherwise equal drafts."""
+    return tuple(-ord(character) for character in row.get("run", ""))
 
 
 def render(groups):

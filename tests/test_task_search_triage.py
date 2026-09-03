@@ -99,5 +99,15 @@ def test_a_cached_review_is_preferred_to_the_null_the_run_recorded(tmp_path):
     assert (verdict["verdict"], source) == ("INVALID", "triage")
 
 
+def test_a_trial_id_rerun_in_a_later_run_is_the_one_taken():
+    """Two runs of the same wave each produce a P008v1, and they are not the same task."""
+    drafts = [
+        {"trial": "P008v1", "run": "20260901T191036Z", "verdict": "VALID", "exhausted": False},
+        {"trial": "P008v1", "run": "20260901T193327Z", "verdict": "VALID", "exhausted": False},
+    ]
+
+    assert pick(drafts)[0]["run"] == "20260901T193327Z"
+
+
 def test_drafts_of_one_idea_group_together():
     assert proposal_of("P001v1") == proposal_of("P001v2") == "P001"
