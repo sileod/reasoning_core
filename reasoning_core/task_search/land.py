@@ -166,8 +166,14 @@ def check(name, module, timeout=300):
 def landable(wave_root, plan_path):
     """(mark, row, plan_trial) per idea, best draft first, in idea order."""
     plan_trials = {trial.trial_id: trial for trial in load_plan(plan_path).trials}
+    found = successes(wave_root)
+    if not found:
+        # Pointing this at one run inside a wave instead of at the wave finds nothing and
+        # says so as "0 landed", which reads like a wave with nothing worth taking.
+        raise SystemExit(f"no successful trials under {wave_root} "
+                         "(it wants the wave directory, not one run inside it)")
     groups = {}
-    for trial_dir, trial in successes(wave_root):
+    for trial_dir, trial in found:
         verdict, source = _recorded_verdict(trial_dir, trial)
         groups.setdefault(proposal_of(trial["trial_id"]), []).append(
             (draft(trial_dir, trial, verdict, source), trial))
