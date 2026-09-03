@@ -9,7 +9,7 @@ from functools import cache
 from types import MappingProxyType
 from typing import Mapping
 
-from reasoning_core.template import Config, Entry, Task, edict, stochastic_rounding as sround
+from reasoning_core.template import Config, DevTask, Entry, Task, edict, stochastic_rounding as sround
 
 
 AGENT_NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Heidi"]
@@ -619,7 +619,7 @@ def _join(items):
     return ", ".join(items[:-1]) + f", and {items[-1]}"
 
 
-class BeliefTracking(Task):
+class BeliefTracking(DevTask):
     summary = "Track ordered beliefs through observation and communication."
     config_cls = BeliefTrackingConfig
 
