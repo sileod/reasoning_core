@@ -1,6 +1,6 @@
 format_version: 1
 kind: sft_task_proposals
-name: wave9
+name: nemotron_1
 created_at: '2026-09-02T15:53:10.961502+00:00'
 objective:
   training_stage: sft
