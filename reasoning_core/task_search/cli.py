@@ -33,6 +33,10 @@ def _archive_path(repo_root, name):
             / f"{name}.yaml")
 
 
+def _plan_path(repo_root, name):
+    return repo_root / "reasoning_core" / "task_search" / "plans" / f"{name}.yaml"
+
+
 def _parser():
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -301,7 +305,7 @@ def main(argv=None):
         output = (
             Path(args.output)
             if args.output
-            else repo_root / "reasoning_core" / "task_search" / f"{args.name}.yaml"
+            else _plan_path(repo_root, args.name)
         )
         write_plan(output, plan)
         print(

@@ -1,0 +1,1460 @@
+version: 1
+name: wave9
+proposal_wave: manual_high_value_80
+defaults:
+  base_ref: b366ec4ed96bfbc3a7672692aa48c0a2a9d1a276
+context_files:
+- AGENTS.md
+- TASK_AUTHORING_GUIDE.md
+- reasoning_core/task_search/CONTEXT.md
+- reasoning_core/task_search/AUTHORING_RULES.md
+queues:
+  v1:
+  - P001v1
+  - P002v1
+  - P003v1
+  - P004v1
+  - P005v1
+  - P006v1
+  - P007v1
+  - P008v1
+  - P009v1
+  - P010v1
+  - P011v1
+  - P012v1
+  - P013v1
+  - P014v1
+  - P015v1
+  - P016v1
+  - P017v1
+  - P018v1
+  - P019v1
+  - P020v1
+  - P021v1
+  - P022v1
+  - P023v1
+  - P024v1
+  - P025v1
+  - P026v1
+  - P027v1
+  - P028v1
+  - P029v1
+  - P030v1
+  - P031v1
+  - P032v1
+  - P033v1
+  - P034v1
+  - P035v1
+  - P036v1
+  - P037v1
+  - P038v1
+  - P039v1
+  - P040v1
+  - P041v1
+  - P042v1
+  - P043v1
+  - P044v1
+  - P045v1
+  - P046v1
+  - P047v1
+  - P048v1
+  - P049v1
+  - P050v1
+  - P051v1
+  - P052v1
+  - P053v1
+  - P054v1
+  - P055v1
+  - P056v1
+  - P057v1
+  - P058v1
+  - P059v1
+  - P060v1
+  - P061v1
+  - P062v1
+  - P063v1
+  - P064v1
+  - P065v1
+  - P066v1
+  - P067v1
+  - P068v1
+  - P069v1
+  - P070v1
+  - P071v1
+  - P072v1
+  - P073v1
+  - P074v1
+  - P075v1
+  - P076v1
+  - P077v1
+  - P078v1
+  - P079v1
+  - P080v1
+  pilot:
+  - P001v1
+  - P002v1
+  - P003v1
+  - P004v1
+  - P005v1
+  - P006v1
+trials:
+- id: P001v1
+  hypothesis: HV-001
+  idea: bayesian_conditioning (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/bayesian_conditioning
+  instruction: |-
+    Author a new task from scratch: bayesian_conditioning.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute exact posterior probabilities in small discrete Bayesian networks from CPTs and observed evidence, returning one queried marginal as a reduced fraction.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/bayesian_conditioning
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/bayesian_conditioning
+- id: P002v1
+  hypothesis: HV-002
+  idea: hidden_state_filtering (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/hidden_state_filtering
+  instruction: |-
+    Author a new task from scratch: hidden_state_filtering.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute exact sum-product filtering in finite hidden-state models across observation sequences, returning a queried posterior state probability.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/hidden_state_filtering
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/hidden_state_filtering
+- id: P003v1
+  hypothesis: HV-003
+  idea: markov_chain_distribution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/markov_chain_distribution
+  instruction: |-
+    Author a new task from scratch: markov_chain_distribution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Propagate exact probability mass through finite Markov chains for a stated number of steps, returning a queried state or event probability.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/markov_chain_distribution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/markov_chain_distribution
+- id: P004v1
+  hypothesis: HV-004
+  idea: probability_tree_marginal (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/probability_tree_marginal
+  instruction: |-
+    Author a new task from scratch: probability_tree_marginal.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Evaluate branching sequential random processes with conditional transitions, replacement or state changes, returning an exact event probability.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/probability_tree_marginal
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/probability_tree_marginal
+- id: P005v1
+  hypothesis: HV-005
+  idea: conditional_expectation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/conditional_expectation
+  instruction: |-
+    Author a new task from scratch: conditional_expectation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute exact conditional expectations over finite joint distributions after restricting to stated observations or events.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/conditional_expectation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/conditional_expectation
+- id: P006v1
+  hypothesis: HV-006
+  idea: expected_utility_choice (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/expected_utility_choice
+  instruction: |-
+    Author a new task from scratch: expected_utility_choice.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Evaluate decisions with probabilistic outcomes and signed utilities, returning the maximizing action or its exact expected utility.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/expected_utility_choice
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/expected_utility_choice
+- id: P007v1
+  hypothesis: HV-007
+  idea: diagnostic_test_selection (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/diagnostic_test_selection
+  instruction: |-
+    Author a new task from scratch: diagnostic_test_selection.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compare finite diagnostic tests under a stated ambiguity or information score and return the test with the best expected outcome.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/diagnostic_test_selection
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/diagnostic_test_selection
+- id: P008v1
+  hypothesis: HV-008
+  idea: causal_intervention (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/causal_intervention
+  instruction: |-
+    Author a new task from scratch: causal_intervention.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute do-interventions in finite acyclic structural causal models and return the resulting target value or interventional probability.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/causal_intervention
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/causal_intervention
+- id: P009v1
+  hypothesis: HV-009
+  idea: counterfactual_twin_model (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/counterfactual_twin_model
+  instruction: |-
+    Author a new task from scratch: counterfactual_twin_model.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Perform abduction, intervention, and prediction in deterministic finite structural causal models, returning a queried counterfactual value.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/counterfactual_twin_model
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/counterfactual_twin_model
+- id: P010v1
+  hypothesis: HV-010
+  idea: d_separation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/d_separation
+  instruction: |-
+    Author a new task from scratch: d_separation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Determine conditional independence in causal DAGs by active-path reasoning through chains, forks, colliders, and conditioned descendants.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/d_separation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/d_separation
+- id: P011v1
+  hypothesis: HV-011
+  idea: strongly_connected_components (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/strongly_connected_components
+  instruction: |-
+    Author a new task from scratch: strongly_connected_components.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Partition directed graphs into strongly connected components and return the canonical component containing a queried node or the full partition.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/strongly_connected_components
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/strongly_connected_components
+- id: P012v1
+  hypothesis: HV-012
+  idea: topological_layering (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/topological_layering
+  instruction: |-
+    Author a new task from scratch: topological_layering.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Repeatedly remove current zero-indegree nodes from a DAG under deterministic tie rules, returning a queried layer, round, or canonical order.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/topological_layering
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/topological_layering
+- id: P013v1
+  hypothesis: HV-013
+  idea: minimum_spanning_tree (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/minimum_spanning_tree
+  instruction: |-
+    Author a new task from scratch: minimum_spanning_tree.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute deterministic minimum-spanning-tree construction on weighted undirected graphs with ties, returning selected edges or total weight.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/minimum_spanning_tree
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/minimum_spanning_tree
+- id: P014v1
+  hypothesis: HV-014
+  idea: maximum_flow (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/maximum_flow
+  instruction: |-
+    Author a new task from scratch: maximum_flow.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute a canonical augmenting-path maximum-flow procedure on integer-capacity networks, returning the final flow value or a queried cut membership.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/maximum_flow
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/maximum_flow
+- id: P015v1
+  hypothesis: HV-015
+  idea: bipartite_matching (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/bipartite_matching
+  instruction: |-
+    Author a new task from scratch: bipartite_matching.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Construct a canonical maximum bipartite matching through ordered augmenting paths, returning matched pairs or the partner of a queried vertex.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/bipartite_matching
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/bipartite_matching
+- id: P016v1
+  hypothesis: HV-016
+  idea: articulation_bridges (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/articulation_bridges
+  instruction: |-
+    Author a new task from scratch: articulation_bridges.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute DFS low-link information in undirected graphs and return articulation vertices, bridge edges, or a queried connectivity consequence.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/articulation_bridges
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/articulation_bridges
+- id: P017v1
+  hypothesis: HV-017
+  idea: transitive_reduction (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/transitive_reduction
+  instruction: |-
+    Author a new task from scratch: transitive_reduction.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Remove redundant edges from directed acyclic graphs while preserving reachability, returning the unique transitive reduction or a queried edge status.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/transitive_reduction
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/transitive_reduction
+- id: P018v1
+  hypothesis: HV-018
+  idea: dominator_analysis (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/dominator_analysis
+  instruction: |-
+    Author a new task from scratch: dominator_analysis.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute dominator sets and immediate dominators in directed control-flow graphs from a designated entry node, returning a queried dominator relation.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/dominator_analysis
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/dominator_analysis
+- id: P019v1
+  hypothesis: HV-019
+  idea: union_find_trace (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/union_find_trace
+  instruction: |-
+    Author a new task from scratch: union_find_trace.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute union-find operations under stated union-by-rank and path-compression rules, returning connectivity or canonical parent and rank state.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/union_find_trace
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/union_find_trace
+- id: P020v1
+  hypothesis: HV-020
+  idea: interval_sweep (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/interval_sweep
+  instruction: |-
+    Author a new task from scratch: interval_sweep.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute ordered endpoint sweeps over intervals to compute peak overlap, covered regions, active sets, or a canonical merged interval result.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/interval_sweep
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/interval_sweep
+- id: P021v1
+  hypothesis: HV-021
+  idea: lexical_scope_resolution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/lexical_scope_resolution
+  instruction: |-
+    Author a new task from scratch: lexical_scope_resolution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Resolve identifier uses through nested lexical scopes with shadowing and local declarations, returning the exact defining binding for each query.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/lexical_scope_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/lexical_scope_resolution
+- id: P022v1
+  hypothesis: HV-022
+  idea: hindley_milner_inference (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/hindley_milner_inference
+  instruction: |-
+    Author a new task from scratch: hindley_milner_inference.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Infer principal types for small functional expressions with application, abstraction, tuples, and let-polymorphism, returning a canonical type.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/hindley_milner_inference
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/hindley_milner_inference
+- id: P023v1
+  hypothesis: HV-023
+  idea: alias_mutation_tracking (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/alias_mutation_tracking
+  instruction: |-
+    Author a new task from scratch: alias_mutation_tracking.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Track aliases among mutable lists or records through assignment, mutation, and rebinding, returning a queried final value or reference relation.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/alias_mutation_tracking
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/alias_mutation_tracking
+- id: P024v1
+  hypothesis: HV-024
+  idea: exception_control_flow (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/exception_control_flow
+  instruction: |-
+    Author a new task from scratch: exception_control_flow.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute nested try, handler, finally, return, and raise semantics with state mutation, returning the final value or uncaught exception.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/exception_control_flow
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/exception_control_flow
+- id: P025v1
+  hypothesis: HV-025
+  idea: call_stack_trace (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/call_stack_trace
+  instruction: |-
+    Author a new task from scratch: call_stack_trace.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Trace nested function calls and recursion with local parameters and return values, returning a queried stack-frame value at a specified event.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/call_stack_trace
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/call_stack_trace
+- id: P026v1
+  hypothesis: HV-026
+  idea: closure_capture_resolution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/closure_capture_resolution
+  instruction: |-
+    Author a new task from scratch: closure_capture_resolution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Track lexical captures through closure creation, later rebinding, and invocation, returning the value observed through the captured environment.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/closure_capture_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/closure_capture_resolution
+- id: P027v1
+  hypothesis: HV-027
+  idea: dataflow_liveness (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/dataflow_liveness
+  instruction: |-
+    Author a new task from scratch: dataflow_liveness.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute live-in and live-out variable sets over control-flow graphs using standard backward dataflow equations and a stated iteration schedule.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/dataflow_liveness
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/dataflow_liveness
+- id: P028v1
+  hypothesis: HV-028
+  idea: reaching_definitions (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/reaching_definitions
+  instruction: |-
+    Author a new task from scratch: reaching_definitions.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Propagate reaching-definition sets through branched control flow and loops, returning the assignments that can reach a queried program point.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/reaching_definitions
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/reaching_definitions
+- id: P029v1
+  hypothesis: HV-029
+  idea: program_slice_dependencies (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/program_slice_dependencies
+  instruction: |-
+    Author a new task from scratch: program_slice_dependencies.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Follow explicit data and control dependencies backward from a queried output, returning the canonical minimal relevant statement set.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/program_slice_dependencies
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/program_slice_dependencies
+- id: P030v1
+  hypothesis: HV-030
+  idea: abstract_interval_analysis (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/abstract_interval_analysis
+  instruction: |-
+    Author a new task from scratch: abstract_interval_analysis.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute interval abstract interpretation through arithmetic, branches, joins, and stated loop widening, returning a queried abstract value.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/abstract_interval_analysis
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/abstract_interval_analysis
+- id: P031v1
+  hypothesis: HV-031
+  idea: relational_join_execution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/relational_join_execution
+  instruction: |-
+    Author a new task from scratch: relational_join_execution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute inner, left, semi, and anti joins on small keyed relations with repeated keys, then return a specified projection or exact aggregate.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/relational_join_execution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/relational_join_execution
+- id: P032v1
+  hypothesis: HV-032
+  idea: groupby_aggregation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/groupby_aggregation
+  instruction: |-
+    Author a new task from scratch: groupby_aggregation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Partition rows by one or more keys and compute exact grouped count, sum, minimum, or maximum values followed by filtering and ordering.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/groupby_aggregation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/groupby_aggregation
+- id: P033v1
+  hypothesis: HV-033
+  idea: window_function_execution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/window_function_execution
+  instruction: |-
+    Author a new task from scratch: window_function_execution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute partitioned ordered running totals, ranks, lag or lead values, or bounded-window aggregates for a queried table row.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/window_function_execution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/window_function_execution
+- id: P034v1
+  hypothesis: HV-034
+  idea: pivot_unpivot_transform (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/pivot_unpivot_transform
+  instruction: |-
+    Author a new task from scratch: pivot_unpivot_transform.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Reshape records between long and wide forms under explicit aggregation and missing-value rules, returning requested output records or cells.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/pivot_unpivot_transform
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/pivot_unpivot_transform
+- id: P035v1
+  hypothesis: HV-035
+  idea: spreadsheet_formula_dependency (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/spreadsheet_formula_dependency
+  instruction: |-
+    Author a new task from scratch: spreadsheet_formula_dependency.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Evaluate spreadsheet formulas over a dependency graph after stated cell edits, including ranges and references, returning requested cell values.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/spreadsheet_formula_dependency
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/spreadsheet_formula_dependency
+- id: P036v1
+  hypothesis: HV-036
+  idea: spreadsheet_reference_copy (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/spreadsheet_reference_copy
+  instruction: |-
+    Author a new task from scratch: spreadsheet_reference_copy.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Copy spreadsheet formulas across rows and columns while transforming relative, absolute, and mixed references, returning the resulting formula.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/spreadsheet_reference_copy
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/spreadsheet_reference_copy
+- id: P037v1
+  hypothesis: HV-037
+  idea: data_lineage_trace (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/data_lineage_trace
+  instruction: |-
+    Author a new task from scratch: data_lineage_trace.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Follow records through filters, joins, aggregations, and transformations to return the source records contributing to a requested output.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/data_lineage_trace
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/data_lineage_trace
+- id: P038v1
+  hypothesis: HV-038
+  idea: schema_migration_execution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/schema_migration_execution
+  instruction: |-
+    Author a new task from scratch: schema_migration_execution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply ordered field rename, split, merge, default, and type-conversion operations to structured records, returning the canonical migrated record.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/schema_migration_execution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/schema_migration_execution
+- id: P039v1
+  hypothesis: HV-039
+  idea: hierarchical_rollup (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/hierarchical_rollup
+  instruction: |-
+    Author a new task from scratch: hierarchical_rollup.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Aggregate exact values through explicit parent-child hierarchies with exclusions or overrides, returning requested subtotals or rolled-up values.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/hierarchical_rollup
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/hierarchical_rollup
+- id: P040v1
+  hypothesis: HV-040
+  idea: query_plan_execution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/query_plan_execution
+  instruction: |-
+    Author a new task from scratch: query_plan_execution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute compact relational-algebra plans containing filter, projection, join, grouping, and sorting operators, returning an exact result projection.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/query_plan_execution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/query_plan_execution
+- id: P041v1
+  hypothesis: HV-041
+  idea: cache_replacement_trace (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/cache_replacement_trace
+  instruction: |-
+    Author a new task from scratch: cache_replacement_trace.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute LRU, LFU, or FIFO cache accesses with inserts and evictions under explicit tie rules, returning hits, misses, or final cache state.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/cache_replacement_trace
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/cache_replacement_trace
+- id: P042v1
+  hypothesis: HV-042
+  idea: memory_allocator_trace (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/memory_allocator_trace
+  instruction: |-
+    Author a new task from scratch: memory_allocator_trace.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Simulate first-fit or best-fit allocation, freeing, splitting, and adjacent-block coalescing, returning allocation addresses or final block layout.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/memory_allocator_trace
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/memory_allocator_trace
+- id: P043v1
+  hypothesis: HV-043
+  idea: event_queue_simulation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/event_queue_simulation
+  instruction: |-
+    Author a new task from scratch: event_queue_simulation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute timestamped discrete events whose handlers schedule later events under stated priority rules, returning a queried terminal system state.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/event_queue_simulation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/event_queue_simulation
+- id: P044v1
+  hypothesis: HV-044
+  idea: round_robin_scheduling (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/round_robin_scheduling
+  instruction: |-
+    Author a new task from scratch: round_robin_scheduling.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Simulate process arrivals and CPU bursts under fixed-quantum round-robin scheduling, returning a queried execution, waiting, or completion result.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/round_robin_scheduling
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/round_robin_scheduling
+- id: P045v1
+  hypothesis: HV-045
+  idea: rate_limit_token_bucket (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/rate_limit_token_bucket
+  instruction: |-
+    Author a new task from scratch: rate_limit_token_bucket.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Process timestamped requests through exact token-bucket refill and consumption rules, returning accepted requests or the final token balance.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/rate_limit_token_bucket
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/rate_limit_token_bucket
+- id: P046v1
+  hypothesis: HV-046
+  idea: filesystem_path_resolution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/filesystem_path_resolution
+  instruction: |-
+    Author a new task from scratch: filesystem_path_resolution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Resolve relative paths through dot segments and symbolic links under stated root and link rules, returning the canonical target or error state.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/filesystem_path_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/filesystem_path_resolution
+- id: P047v1
+  hypothesis: HV-047
+  idea: routing_longest_prefix (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/routing_longest_prefix
+  instruction: |-
+    Author a new task from scratch: routing_longest_prefix.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply longest-prefix routing with metric and tie rules to binary or IP-like destination prefixes, returning the selected next hop.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/routing_longest_prefix
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/routing_longest_prefix
+- id: P048v1
+  hypothesis: HV-048
+  idea: version_vector_causality (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/version_vector_causality
+  instruction: |-
+    Author a new task from scratch: version_vector_causality.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute local, send, and receive events using vector clocks, then return event ordering relations or the final clock at a queried process.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/version_vector_causality
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/version_vector_causality
+- id: P049v1
+  hypothesis: HV-049
+  idea: transaction_serializability (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/transaction_serializability
+  instruction: |-
+    Author a new task from scratch: transaction_serializability.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Build conflict-precedence relations from interleaved transaction reads and writes, returning serializability and a canonical serial order when one exists.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/transaction_serializability
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/transaction_serializability
+- id: P050v1
+  hypothesis: HV-050
+  idea: deadlock_detection (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/deadlock_detection
+  instruction: |-
+    Author a new task from scratch: deadlock_detection.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Track resource ownership and waits to construct a wait-for relation, returning the deadlocked process set or a canonical safe sequence.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/deadlock_detection
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/deadlock_detection
+- id: P051v1
+  hypothesis: HV-051
+  idea: minimal_unsat_core (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/minimal_unsat_core
+  instruction: |-
+    Author a new task from scratch: minimal_unsat_core.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Find the lexicographically canonical subset-minimal inconsistent subset of small Boolean or finite-domain constraints.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/minimal_unsat_core
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/minimal_unsat_core
+- id: P052v1
+  hypothesis: HV-052
+  idea: truth_maintenance_revision (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/truth_maintenance_revision
+  instruction: |-
+    Author a new task from scratch: truth_maintenance_revision.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Maintain derived facts with explicit justification sets as premises are added or retracted, returning the facts that remain supported.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/truth_maintenance_revision
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/truth_maintenance_revision
+- id: P053v1
+  hypothesis: HV-053
+  idea: argumentation_grounded_extension (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/argumentation_grounded_extension
+  instruction: |-
+    Author a new task from scratch: argumentation_grounded_extension.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute the grounded extension of abstract argumentation graphs by iterating attack and defense relations to a fixed point.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/argumentation_grounded_extension
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/argumentation_grounded_extension
+- id: P054v1
+  hypothesis: HV-054
+  idea: finite_model_quantifiers (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/finite_model_quantifiers
+  instruction: |-
+    Author a new task from scratch: finite_model_quantifiers.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Evaluate first-order formulas with nested universal and existential quantifiers over explicit finite relations and functions, returning the truth value.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/finite_model_quantifiers
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/finite_model_quantifiers
+- id: P055v1
+  hypothesis: HV-055
+  idea: three_valued_logic_propagation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/three_valued_logic_propagation
+  instruction: |-
+    Author a new task from scratch: three_valued_logic_propagation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Evaluate rule networks or circuits under True, False, and Unknown semantics, returning a queried propagated value after nested operations.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/three_valued_logic_propagation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/three_valued_logic_propagation
+- id: P056v1
+  hypothesis: HV-056
+  idea: temporal_logic_monitoring (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/temporal_logic_monitoring
+  instruction: |-
+    Author a new task from scratch: temporal_logic_monitoring.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Evaluate finite-trace temporal formulas with next, eventually, always, and until at a queried trace position, returning the truth value.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/temporal_logic_monitoring
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/temporal_logic_monitoring
+- id: P057v1
+  hypothesis: HV-057
+  idea: nfa_subset_construction (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/nfa_subset_construction
+  instruction: |-
+    Author a new task from scratch: nfa_subset_construction.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Determinize finite automata by epsilon closure and subset construction, returning canonical DFA states or a requested transition.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/nfa_subset_construction
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/nfa_subset_construction
+- id: P058v1
+  hypothesis: HV-058
+  idea: dfa_minimization (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/dfa_minimization
+  instruction: |-
+    Author a new task from scratch: dfa_minimization.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute deterministic automaton partition refinement, returning canonical equivalence classes or a requested minimized transition.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/dfa_minimization
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/dfa_minimization
+- id: P059v1
+  hypothesis: HV-059
+  idea: grammar_first_follow (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/grammar_first_follow
+  instruction: |-
+    Author a new task from scratch: grammar_first_follow.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute FIRST and FOLLOW sets for context-free grammars with nullable and mutually recursive productions, returning a requested canonical set.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/grammar_first_follow
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/grammar_first_follow
+- id: P060v1
+  hypothesis: HV-060
+  idea: ll1_predictive_parsing (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/ll1_predictive_parsing
+  instruction: |-
+    Author a new task from scratch: ll1_predictive_parsing.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute deterministic LL(1) stack parsing from a supplied parse table, returning the production trace or exact failure point.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/ll1_predictive_parsing
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/ll1_predictive_parsing
+- id: P061v1
+  hypothesis: HV-061
+  idea: modular_constraint_solver (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/modular_constraint_solver
+  instruction: |-
+    Author a new task from scratch: modular_constraint_solver.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Combine modular congruence constraints including non-coprime moduli, returning inconsistency or the canonical residue and modulus solution.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/modular_constraint_solver
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/modular_constraint_solver
+- id: P062v1
+  hypothesis: HV-062
+  idea: polynomial_euclidean_algorithm (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/polynomial_euclidean_algorithm
+  instruction: |-
+    Author a new task from scratch: polynomial_euclidean_algorithm.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute exact polynomial division and the Euclidean algorithm over integers or finite fields, returning a canonical remainder or monic gcd.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/polynomial_euclidean_algorithm
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/polynomial_euclidean_algorithm
+- id: P063v1
+  hypothesis: HV-063
+  idea: dimensional_analysis (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/dimensional_analysis
+  instruction: |-
+    Author a new task from scratch: dimensional_analysis.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Propagate physical dimension vectors through formulas and equations, returning a missing dimension or identifying a dimensionally inconsistent expression.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/dimensional_analysis
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/dimensional_analysis
+- id: P064v1
+  hypothesis: HV-064
+  idea: rational_interval_arithmetic (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/rational_interval_arithmetic
+  instruction: |-
+    Author a new task from scratch: rational_interval_arithmetic.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Propagate exact rational intervals through arithmetic operations and intersections, returning the tight resulting interval or the empty set.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/rational_interval_arithmetic
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/rational_interval_arithmetic
+- id: P065v1
+  hypothesis: HV-065
+  idea: coordinate_frame_composition (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/coordinate_frame_composition
+  instruction: |-
+    Author a new task from scratch: coordinate_frame_composition.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compose discrete translations, rotations, and reflections between named coordinate frames, returning a queried point or vector in the target frame.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/coordinate_frame_composition
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/coordinate_frame_composition
+- id: P066v1
+  hypothesis: HV-066
+  idea: three_dimensional_orientation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/three_dimensional_orientation
+  instruction: |-
+    Author a new task from scratch: three_dimensional_orientation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Track labeled axes or faces through sequences of discrete 3D rotations, returning final orientation, adjacency, or relative direction.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/three_dimensional_orientation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/three_dimensional_orientation
+- id: P067v1
+  hypothesis: HV-067
+  idea: calendar_recurrence_execution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/calendar_recurrence_execution
+  instruction: |-
+    Author a new task from scratch: calendar_recurrence_execution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Generate occurrences from explicit recurrence, exclusion, and adjustment rules, returning the nth valid date or a count in a bounded interval.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/calendar_recurrence_execution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/calendar_recurrence_execution
+- id: P068v1
+  hypothesis: HV-068
+  idea: critical_path_analysis (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/critical_path_analysis
+  instruction: |-
+    Author a new task from scratch: critical_path_analysis.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Compute earliest and latest times, slack, and critical activities in precedence networks with durations, returning a requested scheduling quantity.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/critical_path_analysis
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/critical_path_analysis
+- id: P069v1
+  hypothesis: HV-069
+  idea: ledger_reconciliation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/ledger_reconciliation
+  instruction: |-
+    Author a new task from scratch: ledger_reconciliation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply ordered debits, credits, holds, reversals, and settlement rules across accounts, returning exact balances or an unmatched transaction.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/ledger_reconciliation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/ledger_reconciliation
+- id: P070v1
+  hypothesis: HV-070
+  idea: exact_rounding_pipeline (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/exact_rounding_pipeline
+  instruction: |-
+    Author a new task from scratch: exact_rounding_pipeline.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute multi-stage fixed-point calculations with explicit truncation, floor, ceiling, or half-even rules, returning the exact final value.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/exact_rounding_pipeline
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/exact_rounding_pipeline
+- id: P071v1
+  hypothesis: HV-071
+  idea: diff_patch_application (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/diff_patch_application
+  instruction: |-
+    Author a new task from scratch: diff_patch_application.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply ordered context-aware insertion, deletion, and replacement hunks to text or token sequences, returning the exact resulting content.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/diff_patch_application
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/diff_patch_application
+- id: P072v1
+  hypothesis: HV-072
+  idea: nested_template_expansion (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/nested_template_expansion
+  instruction: |-
+    Author a new task from scratch: nested_template_expansion.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Expand templates with nested variables, defaults, conditional fragments, and escaping under explicit substitution rules, returning exact expanded text.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/nested_template_expansion
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/nested_template_expansion
+- id: P073v1
+  hypothesis: HV-073
+  idea: configuration_precedence_resolution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/configuration_precedence_resolution
+  instruction: |-
+    Author a new task from scratch: configuration_precedence_resolution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Merge defaults, inherited settings, environment overrides, local overrides, and deletion markers to return one effective configuration.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/configuration_precedence_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/configuration_precedence_resolution
+- id: P074v1
+  hypothesis: HV-074
+  idea: access_control_policy_evaluation (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/access_control_policy_evaluation
+  instruction: |-
+    Author a new task from scratch: access_control_policy_evaluation.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Resolve inherited allow and deny permissions, group membership, and explicit exceptions under a stated precedence policy, returning effective access.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/access_control_policy_evaluation
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/access_control_policy_evaluation
+- id: P075v1
+  hypothesis: HV-075
+  idea: packet_fragment_reassembly (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/packet_fragment_reassembly
+  instruction: |-
+    Author a new task from scratch: packet_fragment_reassembly.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Reassemble indexed or offset message fragments under explicit overlap and missing-fragment rules, returning the reconstructed payload or error state.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/packet_fragment_reassembly
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/packet_fragment_reassembly
+- id: P076v1
+  hypothesis: HV-076
+  idea: protocol_state_machine_trace (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/protocol_state_machine_trace
+  instruction: |-
+    Author a new task from scratch: protocol_state_machine_trace.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Execute event-driven protocol transitions with guards, retries, and timeouts, returning the state or emitted action after a supplied event trace.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/protocol_state_machine_trace
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/protocol_state_machine_trace
+- id: P077v1
+  hypothesis: HV-077
+  idea: consensus_log_commit (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/consensus_log_commit
+  instruction: |-
+    Author a new task from scratch: consensus_log_commit.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Track replicated log terms, indexes, acknowledgements, and majority rules in a simplified consensus protocol, returning committed entries or commit index.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/consensus_log_commit
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/consensus_log_commit
+- id: P078v1
+  hypothesis: HV-078
+  idea: two_phase_commit_trace (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/two_phase_commit_trace
+  instruction: |-
+    Author a new task from scratch: two_phase_commit_trace.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Follow prepare, vote, commit, and abort messages with stated coordinator or participant failures, returning final participant states.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/two_phase_commit_trace
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/two_phase_commit_trace
+- id: P079v1
+  hypothesis: HV-079
+  idea: quorum_read_write_resolution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/quorum_read_write_resolution
+  instruction: |-
+    Author a new task from scratch: quorum_read_write_resolution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Evaluate versioned reads and writes across replicas with explicit quorum sizes and tie rules, returning the value visible to a queried operation.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/quorum_read_write_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/quorum_read_write_resolution
+- id: P080v1
+  hypothesis: HV-080
+  idea: three_way_merge_resolution (draw 1 of 1)
+  changes: new task in reasoning_core/tasks/generated/wave9/three_way_merge_resolution
+  instruction: |-
+    Author a new task from scratch: three_way_merge_resolution.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Perform deterministic base, left, and right sequence merging, distinguishing independent edits from conflicts and returning merged text or conflict spans.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave9/three_way_merge_resolution
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave9/three_way_merge_resolution
