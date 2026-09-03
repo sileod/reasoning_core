@@ -52,7 +52,7 @@ class DifferentiableEvalLoss:
     skipped_examples: int = 0
 
 
-def load_eval_suite(path, eos_token, name=None, limit=None):
+def load_eval_suite(path, eos_token, name=None, limit=None, keep=None):
     examples = []
     with Path(path).expanduser().open() as file:
         for line in file:
@@ -77,6 +77,11 @@ def load_eval_suite(path, eos_token, name=None, limit=None):
             ))
             if limit and len(examples) >= limit:
                 break
+    if keep is not None:
+        if keep and max(keep) >= len(examples):
+            raise ValueError(
+                f"{path}: keep index {max(keep)} but only {len(examples)} examples after limit")
+        examples = [examples[index] for index in keep]
     return EvalSuite(name or Path(path).stem, tuple(examples))
 
 
