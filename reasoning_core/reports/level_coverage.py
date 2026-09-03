@@ -159,6 +159,9 @@ def _ratio(by_level):
     return by_level[ks[-1]] / by_level[ks[0]]
 
 
+ZS_MODEL = "meta/llama-3.3-70b-instruct"   # the model the "70B solve" column names
+
+
 def summarize(data, want, zs=None, bc=None):
     zs = zs or {}
     bc = bc or {}
@@ -182,9 +185,14 @@ def summarize(data, want, zs=None, bc=None):
                      "r_tok": r_tok, "r_tim": r_tim,
                      "cost": (bc.get(task) or {}).get("s_per_row"),
                      "waste": (bc.get(task) or {}).get("waste"),
+                     # Only this model: the column says "70B solve" and means it. The probe
+                     # cache is keyed task|level|model and also holds deepseek-v4-flash cells,
+                     # which measure something else entirely (answering with no reasoning at
+                     # all). Cells predating the model key were all 70B, hence the default.
                      "solve": {int(k.split("|")[1]): v["solve_rate"]
                                for k, v in zs.items()
-                               if k.split("|")[0] == task and v.get("status") == "ok"},
+                               if k.split("|")[0] == task and v.get("status") == "ok"
+                               and v.get("model", ZS_MODEL) == ZS_MODEL},
                      "dup": {int(k): v for k, v in
                              (data.get("dup_by_level", {}).get(task) or {}).items()},
                      "boiler": {int(k): v for k, v in
