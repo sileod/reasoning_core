@@ -132,3 +132,7 @@ reasoning_core/reports/build/
 
 # per-example eval sidecars: ~260KB/arm, never for the public origin.
 per_example/
+
+# battery legs unpacked at eval time (paper_battery default target); regenerable from
+# eval_data/battery_legs.zip, and never for the public origin.
+/evals/
