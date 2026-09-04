@@ -31,6 +31,7 @@ tiers throttle hard: keep --workers at 1-2 and make repeated passes.
 """
 from __future__ import annotations
 import argparse, json, math, os, pathlib, random, sys, threading, time, urllib.request
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 
 TERSE = ("Answer the question. Reply with ONLY the final answer, no working, no punctuation "
@@ -179,7 +180,12 @@ def _examples(rc, task_name, n, level, seed):
     return t, out
 
 
-def probe_rows(name, level, rows, p, k):
+# A cell is prepared, then measured. The split is not cosmetic: preparing is where the task
+# generator runs, and `template`'s runaway-generator deadline is a signal, so it only ever
+# fires on the main thread. Run a generator in a worker and a task that never terminates
+# never gets stopped -- it holds `_GEN` and the whole probe wedges, which is how a pass over
+# 133 tasks spent three hours pinned at 90% CPU on `market_clearing` without writing a cell.
+def prepare_rows(name, level, rows, p):
     """Score SHIPPED rows. Probing the data we actually ship makes the solve rate a statement about
     the dataset, not about re-running the generator today (and it needs no generator deps)."""
     import reasoning_core as rc
@@ -188,23 +194,26 @@ def probe_rows(name, level, rows, p, k):
     try:
         t = rc.get_task(name)
     except Exception as e:
-        return {**base, "status": f"task:{type(e).__name__}", "n": 0}
+        return None, {**base, "status": f"task:{type(e).__name__}", "n": 0}
     base["behavior_hash"] = t.behavior_hash()
-    cases = [(r["prompt"], Entry(r["metadata"], answer=r["answer"])) for r in rows]
-    return _measure(t, cases, p, k, base)
+    return (t, [(r["prompt"], Entry(r["metadata"], answer=r["answer"])) for r in rows], base), None
 
 
-def probe_cell(name, level, n, seed, p, k):
-    """Solve rate for ONE (task, level)."""
+def prepare_cell(name, level, n, seed, p):
+    """Draw ONE (task, level), on the main thread. Returns (ready, finished): one of them."""
     base = {"task": name, "level": level, "model": p["model"]}
     try:
         t, ex = examples(name, n, level, seed)
-    except Exception as e:
-        return {**base, "status": f"gen:{type(e).__name__}", "n": 0}
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as e:
+        # The deadline raises a BaseException on purpose, so that a generator cannot swallow
+        # its own timeout. Here it is a verdict about the task like any other.
+        return None, {**base, "status": f"gen:{type(e).__name__}", "n": 0}
     if not ex:
-        return {**base, "status": "no-examples", "n": 0}
+        return None, {**base, "status": "no-examples", "n": 0}
     base["behavior_hash"] = t.behavior_hash()
-    return _measure(t, ex, p, k, base)
+    return (t, ex, base), None
 
 
 def main():
@@ -254,15 +263,31 @@ def main():
     print(f"[zeroshot] {p['model']} levels {a.levels} n={a.n} -- {len(jobs)} cells to probe, "
           f"{sum(1 for r in mine if r.get('status') == 'ok')} ok")
     k = key(p)
+
+    def record(r):
+        done[f"{r['task']}|{r['level']}|{r['model']}"] = r
+        out.write_text(json.dumps(done, indent=1, sort_keys=True))   # checkpoint every cell
+        sr = f"{r['solve_rate']:.0%}" if r.get("solve_rate") is not None else r["status"]
+        fmt = "" if r.get("format_ok", 1) == 1 else f"  format {r['format_ok']:.0%}"
+        print(f"  {r['task']:32} L{r['level']}  {sr}{fmt}", flush=True)
+
     with ThreadPoolExecutor(max_workers=a.workers) as pool:
-        run = ((lambda j: probe_rows(j[0], j[1], cells[(j[0], j[1])][:a.n], p, k)) if cells
-               else (lambda j: probe_cell(j[0], j[1], a.n, a.seed, p, k)))
-        for r in pool.map(run, jobs):
-            done[f"{r['task']}|{r['level']}|{r['model']}"] = r
-            out.write_text(json.dumps(done, indent=1, sort_keys=True))   # checkpoint every cell
-            sr = f"{r['solve_rate']:.0%}" if r.get("solve_rate") is not None else r["status"]
-            fmt = "" if r.get("format_ok", 1) == 1 else f"  format {r['format_ok']:.0%}"
-            print(f"  {r['task']:32} L{r['level']}  {sr}{fmt}", flush=True)
+        prepare = ((lambda j: prepare_rows(j[0], j[1], cells[(j[0], j[1])][:a.n], p)) if cells
+                   else (lambda j: prepare_cell(j[0], j[1], a.n, a.seed, p)))
+        # One cell is drawn while the ones before it are still out with the provider, and the
+        # window is bounded so the queue cannot run far ahead of what the workers can score.
+        inflight = deque()
+        for job in jobs:
+            ready, finished = prepare(job)
+            if finished is not None:
+                record(finished)
+                continue
+            t, ex, base = ready
+            inflight.append(pool.submit(_measure, t, ex, p, k, base))
+            while len(inflight) > a.workers:
+                record(inflight.popleft().result())
+        while inflight:
+            record(inflight.popleft().result())
     ok = sum(1 for r in done.values() if r.get("status") == "ok" and r.get("model") == p["model"])
     print(f"[zeroshot] {ok} cells ok for {p['model']} -> {out}")
 
