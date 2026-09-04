@@ -103,10 +103,10 @@ def test_entry_iteration_obeys_mapping_contract():
     assert dict(entry) == entry.to_dict()
 
 
-def test_entry_from_dict_accepts_json_metadata_without_pickle_fallback():
+def test_entry_from_dict_accepts_only_json_metadata_strings():
     assert Entry.from_dict({"metadata": '{"x": 1}', "answer": "yes"}).metadata.x == 1
     with pytest.raises(ValueError):
-        Entry.from_dict({"metadata": "b64:not-json", "answer": "no"})
+        Entry.from_dict({"metadata": "not-json", "answer": "no"})
 
 
 @pytest.mark.parametrize("candidate", [None, Entry({}, "answer")])

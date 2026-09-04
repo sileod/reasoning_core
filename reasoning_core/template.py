@@ -365,7 +365,7 @@ class Task(ProceduralDataset):
         # Strict JSON round-trip: production writers do not provide a fallback encoder.
         rt = copy.copy(x)
         rt.metadata = edict(json.loads(json.dumps(dict(x.metadata))))
-        assert self.score_answer(x.answer, rt) == 1, "score_answer must survive serialize/deserialize round-trip"
+        assert self.score_answer(x.answer, rt) == 1, "score_answer must survive a JSON round-trip"
         from reasoning_core import score_answer as dispatch_score
         wire = edict({**x.to_dict(), "metadata": json.dumps(dict(x.metadata))})
         assert dispatch_score(x.answer, wire) == 1, "score_answer must survive JSON metadata dispatch"
