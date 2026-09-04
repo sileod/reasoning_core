@@ -49,8 +49,10 @@ def outside_generated(target):
 # drawn at the bottom and the top of its ladder, and scoring its own answer. Run out of
 # process, because discovery is computed once at import and this runs right after a copy.
 CHECK = """
-import sys
+import sys, time
 import reasoning_core as rc
+# Seconds one generate_example call may take before the task counts as unusable.
+DRAW_BUDGET = 20
 name, module = sys.argv[1], sys.argv[2]
 if name not in rc.list_tasks(include_generated=True):
     print("not discovered"); raise SystemExit(1)
@@ -58,12 +60,25 @@ found = rc._task_to_module_map[name][0]
 if found != module and not found.startswith(module + "."):
     print(f"the name is already taken by {found}"); raise SystemExit(1)
 task = rc.get_task(name)
-for level in (0, 6):
-    example = task.generate_example(level=level)
-    if not example.prompt:
-        print(f"empty prompt at level {level}"); raise SystemExit(1)
-    if task.score_answer(example.answer, example) != 1:
-        print(f"own answer does not score 1 at level {level}"); raise SystemExit(1)
+# Three draws, and the middle level too. One draw at each end let three generators
+# through that fail only sometimes or only when the level is high: market_clearing and
+# minimal_unsat_core run past any sane deadline at level 6, max_flow_min_cut finds no
+# admissible example on roughly one draw in three, bgp_best_path throws an IndexError on
+# some seeds. Each is caught by drawing more than once.
+for level in (0, 3, 6):
+    for draw in range(3):
+        started = time.monotonic()
+        example = task.generate_example(level=level)
+        spent = time.monotonic() - started
+        # Every healthy generated task draws in well under a second; the broken ones take
+        # tens of seconds or never stop. A task nobody can sample is not a usable task,
+        # however correct it is, so slowness is a refusal and not a warning.
+        if spent > DRAW_BUDGET:
+            print(f"level {level} draw {draw} took {spent:.0f}s"); raise SystemExit(1)
+        if not example.prompt:
+            print(f"empty prompt at level {level}"); raise SystemExit(1)
+        if task.score_answer(example.answer, example) != 1:
+            print(f"own answer does not score 1 at level {level}"); raise SystemExit(1)
 """
 
 
@@ -155,8 +170,13 @@ def owned_dir(row, plan_trial):
 
 def check(name, module, timeout=300):
     """None if the landed task loads, draws and scores, under its own name; else why not."""
-    done = subprocess.run([sys.executable, "-c", CHECK, name, module],
-                          capture_output=True, text=True, timeout=timeout)
+    try:
+        done = subprocess.run([sys.executable, "-c", CHECK, name, module],
+                              capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # A generator that never returns used to take the landing pass down with it. It is
+        # a verdict about the one task, like every other thing this function reports.
+        return f"did not finish its draws in {timeout}s"
     if done.returncode == 0:
         return None
     said = done.stdout.strip() or done.stderr.strip()
