@@ -97,6 +97,21 @@ queues:
   - P004v1
   - P005v1
   - P006v1
+  # The twelve v1 trials that never once reached success -- almost all of them lost the
+  # harness rather than the idea, so they are worth a second draw at a fresh seed.
+  retry:
+  - P007v1
+  - P008v1
+  - P010v1
+  - P022v1
+  - P024v1
+  - P033v1
+  - P046v1
+  - P047v1
+  - P061v1
+  - P062v1
+  - P071v1
+  - P077v1
 trials:
 - id: P001v1
   hypothesis: HV-001
