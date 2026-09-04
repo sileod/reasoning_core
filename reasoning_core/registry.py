@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 from collections.abc import Mapping
+from difflib import get_close_matches
 from pathlib import Path
 
 from appdirs import user_cache_dir
@@ -207,8 +208,13 @@ def match_task_name(name, include_dev=False):
     names += list(COLLECTIONS)
     normalized = str(name).replace("_", "").lower()
     matches = [candidate for candidate in names if candidate.replace("_", "").lower() == normalized]
-    assert len(matches) == 1, f"Could not uniquely identify task {name} in {names}"
-    return matches[0]
+    if len(matches) == 1:
+        return matches[0]
+    if matches:
+        raise ValueError(f"Ambiguous task name {name!r}: {matches}")
+    suggestions = get_close_matches(str(name), names, n=3)
+    hint = f" Did you mean {', '.join(suggestions)}?" if suggestions else ""
+    raise ValueError(f"Unknown task {name!r}.{hint}")
 
 
 def get_task(name, *args, **kwargs):
@@ -254,15 +260,6 @@ def score_answer(answer, entry):
             )
         return reasoning_gym_scorer(entry["metadata"]["source_dataset"])(answer, entry)
     return get_score_answer_fn(task_name)(answer, entry)
-
-
-def generate_dataset(num_samples=100, tasks=None, batch_size=4):
-    """Generate a balanced mixture from the requested task names."""
-    names = list(tasks or list_tasks())
-    rows = []
-    for index in range(0, num_samples, batch_size):
-        rows.extend(get_task(names[(index // batch_size) % len(names)]).generate_balanced_batch(batch_size))
-    return rows[:num_samples]
 
 
 def register_to_reasoning_gym():

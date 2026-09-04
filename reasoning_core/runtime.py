@@ -1,20 +1,17 @@
 """Low-level execution, provenance, tokenization, and cache support."""
 
 import ast
-import base64
 import copy
 import ctypes
 import functools
 import hashlib
 import os
-import pickle
 import signal
 import subprocess
 import sys
 import threading
 import time
 import warnings
-from io import BytesIO
 
 from appdirs import user_cache_dir
 
@@ -108,27 +105,6 @@ def validation_store():
         os.path.join(user_cache_dir("reasoning_core"), "validation"),
     )
     return NfsDict(name="examples", base_dir=base_dir, serializer="json")
-
-
-def _parquet_safe(value):
-    import pandas as pd
-    try:
-        pd.DataFrame([value]).to_parquet(BytesIO(), index=False)
-        return True
-    except Exception:
-        return False
-
-
-def serialize(data):
-    if _parquet_safe(data):
-        return data
-    return "b64:" + base64.b64encode(pickle.dumps(data)).decode()
-
-
-def deserialize(value):
-    if isinstance(value, str) and value.startswith("b64:"):
-        return pickle.loads(base64.b64decode(value[4:].encode()))
-    return value
 
 
 class TimeoutException(TimeoutError):

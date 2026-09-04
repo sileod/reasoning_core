@@ -52,11 +52,15 @@ def run_task(name, idx, level, out_path, batch_size, max_tokens):
     t0 = time.perf_counter()
     try:
         T = get_task(name)
-        T.timeout = 20 * (1 + level) ** 2
         random.seed(None)
         np.random.seed(None)
 
-        examples = T.generate_balanced_batch(batch_size=batch_size, max_tokens=max_tokens, level=level)
+        examples = T.generate_balanced_batch(
+            batch_size=batch_size,
+            max_tokens=max_tokens,
+            level=level,
+            timeout=20 * (1 + level) ** 2,
+        )
         dt = time.perf_counter() - t0
 
         if not examples:

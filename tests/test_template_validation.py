@@ -103,6 +103,12 @@ def test_entry_iteration_obeys_mapping_contract():
     assert dict(entry) == entry.to_dict()
 
 
+def test_entry_from_dict_accepts_json_metadata_without_pickle_fallback():
+    assert Entry.from_dict({"metadata": '{"x": 1}', "answer": "yes"}).metadata.x == 1
+    with pytest.raises(ValueError):
+        Entry.from_dict({"metadata": "b64:not-json", "answer": "no"})
+
+
 @pytest.mark.parametrize("candidate", [None, Entry({}, "answer")])
 def test_generate_example_raises_after_rejection_exhaustion(candidate):
     task = RejectingTask(candidate)
@@ -112,3 +118,20 @@ def test_generate_example_raises_after_rejection_exhaustion(candidate):
         task.generate_example(max_tokens=1)
 
     assert task.index == 1_000
+
+
+def test_generate_example_timeout_policy_has_one_owner(monkeypatch):
+    deadlines = []
+
+    def capture(seconds, attempts=10):
+        deadlines.append(seconds)
+        return lambda function: function
+
+    monkeypatch.setattr(template, "timeout_retry", capture)
+    task = ConstantLabelTask()
+    task.config.apply_difficulty = lambda level: None
+    task.generate_example(level=2, max_tokens=0)
+    task.generate_example(level=2, max_tokens=0, timeout=7)
+
+    assert deadlines == [30, 7]
+    assert task.timeout == 10

@@ -97,6 +97,11 @@ def test_get_task_imports_only_its_module():
     subprocess.run([sys.executable, "-c", code], check=True, cwd=TASKS_ROOT.parents[1])
 
 
+def test_unknown_task_is_a_runtime_error_with_suggestion():
+    with pytest.raises(ValueError, match="Unknown task.*arithmetics"):
+        reasoning_core.match_task_name("arithmtics")
+
+
 def test_incremental_discovery_cache_reparses_only_changed_files(tmp_path, monkeypatch):
     root = tmp_path / "tasks"
     root.mkdir()

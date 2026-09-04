@@ -22,12 +22,10 @@ from .runtime import (
     TimeoutException,
     _stable_dump,
     _strip_docstrings,
-    deserialize,
     generator_commit as _generator_commit,
     generator_version as _generator_version,
     load_tokenizer as _load_tokenizer,
     module_behavior_hash as _module_behavior_hash,
-    serialize,
     timeout_retry,
     validation_store as _validation_store,
 )
@@ -92,7 +90,9 @@ class Entry(Mapping):
         
     @classmethod
     def from_dict(cls, d):
-        metadata = deserialize(d.get("metadata", d.get("data", {})))
+        metadata = d.get("metadata", d.get("data", {}))
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
         return cls(metadata=metadata, answer=d.get("answer"), cot=d.get("cot"))
         
     def __repr__(self):
@@ -184,7 +184,6 @@ class Task(ProceduralDataset):
             config = config_cls()
         self.config=copy.deepcopy(config)
         self.timeout = timeout
-        self.base_timeout = timeout
         self.cls_name = self.__class__.__name__
         self.task_name = prepr_task_name(self.__class__.task_name)
         for k,v in kwa.items():
@@ -468,9 +467,10 @@ class Task(ProceduralDataset):
             for k, v in saved.items():
                 setattr(self.config, k, v)
 
-    def generate_example(self, level=None, max_tokens=8192, payload_shuffle_prob=0.0, **kwargs):
-        self.timeout = int(self.base_timeout * (1+level)) if level else int(self.base_timeout)
-        @timeout_retry(self.timeout)
+    def generate_example(self, level=None, max_tokens=8192, payload_shuffle_prob=0.0,
+                         timeout=None, **kwargs):
+        deadline = timeout if timeout is not None else self.timeout * (1 + level if level else 1)
+        @timeout_retry(int(deadline))
         def inner():
             t0=time.time()
             if level is not None:
