@@ -119,8 +119,8 @@ class EquationBalancingConfig(Config):
     min_counter: int = 2
 
     def apply_difficulty(self, level):
-        self.n_species = float(int(self.get_true_value('n_species') + 0.7 * level))
-        self.max_counter = float(int(self.get_true_value('max_counter') + 0.4 * level))
+        self.n_species = int(self.n_species + 0.7 * level)
+        self.max_counter = int(self.max_counter + 0.4 * level)
 
 
 class EquationBalancing(Task):
@@ -129,8 +129,8 @@ class EquationBalancing(Task):
 
     def generate_entry(self):
         for _ in range(600):
-            n_species = max(4, min(8, int(self.config.get_true_value('n_species'))))
-            max_counter = max(2, min(6, int(self.config.get_true_value('max_counter'))))
+            n_species = max(4, min(8, self.config.n_species))
+            max_counter = max(2, min(6, self.config.max_counter))
             n_react = random.randint(2, n_species - 2)
             signs = [1] * n_react + [-1] * (n_species - n_react)
 

@@ -2,7 +2,8 @@ import json
 
 from easydict import EasyDict as edict
 
-from reasoning_core import get_task, list_tasks, match_task_name, score_answer
+from reasoning_core import generate_dataset, get_task, list_tasks, match_task_name, score_answer
+from reasoning_core import registry
 from reasoning_core.template import Entry
 from reasoning_core.generation_worker import run_task, serialize_example
 
@@ -63,3 +64,16 @@ def test_native_row_keeps_its_task():
     row = serialize_example(example)
 
     assert row["task"] == "arithmetics"
+
+
+def test_generate_dataset_uses_the_task_instance_directly(monkeypatch):
+    class FakeTask:
+        def generate_balanced_batch(self, batch_size):
+            return [Entry({}, str(i)) for i in range(batch_size)]
+
+    task = FakeTask()
+    monkeypatch.setattr(registry, "get_task", lambda name: task)
+
+    rows = generate_dataset(num_samples=3, tasks=["fake"], batch_size=2)
+
+    assert [row.answer for row in rows] == ["0", "1", "0"]

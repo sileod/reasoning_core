@@ -64,7 +64,7 @@ def benchmark_cell(task_name, level, samples, max_tokens):
             answer_tokens.append(int(example.metadata.get("_answer_tokens", 0)))
             deduplication_keys.append(example.metadata.get("_deduplication_key"))
             prompts.append(example.prompt)
-        except BaseException as exc:
+        except Exception as exc:
             errors.append(f"{type(exc).__name__}: {exc}")
             break
 
@@ -104,7 +104,7 @@ def benchmark_cell(task_name, level, samples, max_tokens):
 def _cell_worker(queue, args):
     try:
         queue.put(benchmark_cell(*args))
-    except BaseException as exc:
+    except Exception as exc:
         queue.put({
             "task": args[0], "level": args[1], "status": "error",
             "requested": args[2], "successes": 0, "valid_scores": 0,

@@ -84,11 +84,9 @@ def audit(task, level, n, deadline):
             # per-example timeout, which is how a level nobody can generate at shows
             # up here -- the speed gate only ever times the default config.
             entries.append(task.generate_example())
-        # BaseException, not Exception: template raises its per-example TimeoutException
-        # from a signal handler and it does not descend from Exception.
         except (KeyboardInterrupt, SystemExit):
             raise
-        except BaseException as exc:
+        except Exception as exc:
             error = f"{type(exc).__name__}: {exc}".strip().splitlines()[0][:120]
             break
         if time.time() > deadline:

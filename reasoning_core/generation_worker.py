@@ -78,8 +78,7 @@ def run_task(name, idx, level, out_path, batch_size, max_tokens):
         (Path(out_path) / f'{name}-{idx}.jsonl').write_text(payload)
         log_batch(out_path, name, level, dt, len(examples), 'OK')
         return True, 'OK'
-    except BaseException as e:
-        # Catch BaseException to handle TimeoutException (inherits from BaseException)
+    except Exception as e:
         log_batch(out_path, name, level, time.perf_counter() - t0, 0, 'ERR:' + type(e).__name__)
         return False, f'ERR: {type(e).__name__}: {e}'
 
@@ -146,9 +145,7 @@ def main(args):
                     else:
                         with open(error_log, 'a') as f: 
                             f.write(f"Worker {args.id} | {task_str}: {msg}\n")
-                except BaseException as e:
-                    # Catch ALL exceptions including TimeoutException (inherits BaseException)
-                    # to prevent worker death - just log and continue to next job
+                except Exception as e:
                     with open(error_log, 'a') as f: 
                         f.write(f"Worker {args.id} | {task_str}: CRASH: {type(e).__name__}: {e}\n")
                 finally:

@@ -7,7 +7,7 @@ from nltk.parse.generate import generate as nltk_generate
 from nltk import CFG, ChartParser
 from nltk.parse.earleychart import EarleyChartParser
 import sys
-from reasoning_core.template import Task, DevTask, Entry, Config
+from reasoning_core.template import Task, DevTask, Entry, Config, stochastic_rounding as sround
 import random
 from pathlib import Path
 from nltk.data import path as nltk_path
@@ -552,12 +552,13 @@ class ParsingDerivationConfig(GrammarConfig):
     def apply_difficulty(self, level):
         super().apply_difficulty(level)
         self.target_num_rules += level
-        self.min_prod_depth += .5 * level
+        self.min_prod_depth = sround(self.min_prod_depth + .5 * level)
         self.max_prod_depth += level
 
 
 class ParsingDerivation(Task):
     summary = "Determine the derivation production rule sequence parsing a given string."
+    task_version = 2
     def __init__(self, config=None):
         super().__init__(config=config or ParsingDerivationConfig())
         self.config.perturbation_rate = 0.0
@@ -1044,11 +1045,11 @@ class ConstrainedContinuationConfig(GrammarConfig):
     max_slot_checks: int = 32
 
     def apply_difficulty(self, level):
-        self.n_types += level / 3
+        self.n_types = sround(self.n_types + level / 3)
         self.n_terminals += min(level, 3)
         self.min_num_rules += level
         self.max_num_rules += level
-        self.max_k += level / 3
+        self.max_k = sround(self.max_k + level / 3)
         self.max_options += 10 * level
         self.max_tokens += 2 * level
 
@@ -1056,6 +1057,7 @@ class ConstrainedContinuationConfig(GrammarConfig):
 class ConstrainedContinuation(Task):
     """Recover a unique fixed-length span inside a grammar-constrained sentence."""
     summary = "Complete a uniquely determined fixed-length span using a formal grammar."
+    task_version = 2
     config_cls = ConstrainedContinuationConfig
 
     def __init__(self, config=None):

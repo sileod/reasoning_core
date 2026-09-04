@@ -15,7 +15,7 @@ def test_all_tasks_validate():
             print(f"{time.time() - t0:.5f}")
         except KeyboardInterrupt:
             raise
-        except BaseException as e:
+        except Exception as e:
             print(f"EXCEPTION: {e}")
             failed.append(t)
 

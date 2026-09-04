@@ -385,7 +385,7 @@ def test_prior_audit_reports_a_level_the_generator_cannot_reach():
 
     A generated subset-optimisation task passed all eleven gates and could not produce
     a single level 6 example: its search blew template's per-example timeout, which is
-    raised from a signal handler and does not descend from Exception.
+    raised from a signal handler.
     """
 
     class DiesAtDepth:
@@ -400,8 +400,8 @@ def test_prior_audit_reports_a_level_the_generator_cannot_reach():
     report = prior_audit.audit(DiesAtDepth(), 6, 20, time.time() + 20)
     assert report["n"] == 0 and "Boom" in report["error"]
 
-class selfcheck_timeout(BaseException):
-    """Stands in for template.TimeoutException, which is not an Exception either."""
+class selfcheck_timeout(TimeoutError):
+    """Stands in for template.TimeoutException."""
 
     def __str__(self):
         return "Boom"

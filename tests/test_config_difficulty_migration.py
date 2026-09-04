@@ -28,6 +28,8 @@ MIGRATED_CONFIGS = [
     ("reasoning_core.tasks.formal_analogies", "AnalogicalCaseMatchingConfig"),
     ("reasoning_core.tasks.game_playing", "GameBestMoveConfig"),
     ("reasoning_core.tasks.grammar", "GrammarConfig"),
+    ("reasoning_core.tasks.grammar", "ParsingDerivationConfig"),
+    ("reasoning_core.tasks.grammar", "ConstrainedContinuationConfig"),
     ("reasoning_core.tasks.grammar", "StressContinuationConfig"),
     ("reasoning_core.tasks.graph_operations", "GraphReasoningConfig"),
     ("reasoning_core.tasks.graph_operations", "GraphSuccessorsConfig"),
@@ -65,6 +67,17 @@ MIGRATED_CONFIGS = [
 def test_stochastic_rounding_matches_config_template_rule():
     assert sround(3.0) == 3
     assert sround(3.25) in {3, 4}
+
+
+def test_config_does_not_implicitly_round_integer_fields():
+    @dataclass
+    class PlainConfig(Config):
+        n: int = 1
+
+    config = PlainConfig()
+    config.n = 1.5
+
+    assert config.n == 1.5
 
 
 def test_arithmetics_apply_difficulty_target_values():

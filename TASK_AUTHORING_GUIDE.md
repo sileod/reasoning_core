@@ -78,7 +78,6 @@ Base `Config` protected fields:
 - `seed`: RNG seed (do not use it. do not seed anything explictly unless it is requested.)
 
 Important behavior:
-- Int-typed fields (except `level/size/seed`) are tracked internally as floats and stochastically rounded on read.
 - `set_level(level)` resets to the base config and applies difficulty from that base state.
 - `apply_difficulty(level)` is the preferred explicit difficulty knob.
 - Deprecated/legacy configs may still rely on `update(c)` through the base compatibility fallback; do not add `update(c)` to active task configs.
@@ -128,7 +127,7 @@ class MyTaskConfig(Config):
     depth: int = 3
 
     def apply_difficulty(self, level):
-        # Use shared stochastic rounding for int-typed difficulty fields.
+        # Use explicit stochastic rounding where fractional scaling is useful.
         self.n_vars = sround(self.n_vars + level)
         self.depth = sround(self.depth + level)
 

@@ -1,15 +1,6 @@
 import wrapt
-import ctypes
 import json
 import time
-import functools
-import ast
-import hashlib
-import pickle, base64
-import threading
-import subprocess
-import warnings
-import sys
 from easydict import EasyDict as edict
 from collections import Counter
 from collections.abc import Mapping
@@ -18,32 +9,28 @@ try:
 except ImportError:
     ProceduralDataset = object
 from dataclasses import dataclass, fields, field, asdict
-from typing import Any
-from types import SimpleNamespace
 import random
 import copy
 import math
-import signal
 from difflib import SequenceMatcher
 from contextlib import contextmanager
 from contextvars import ContextVar
-from inflection import underscore
-from appdirs import user_cache_dir
-import os
 import xxhash
 from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
-
-# Lazily imported so `from reasoning_core.template import Task` works in an authoring environment
-# installed with `pip install -e . --no-deps` plus requirements/task-authoring.txt. Each of these is
-# used once or twice and none is needed to establish that a generator obeys the core contract.
-def _tiktoken():
-    import tiktoken
-    return tiktoken
-
-
-def _psutil():
-    import psutil
-    return psutil
+from .registry import _REGISTRY, prepr_task_name, register_dataset
+from .runtime import (
+    TimeoutException,
+    _stable_dump,
+    _strip_docstrings,
+    deserialize,
+    generator_commit as _generator_commit,
+    generator_version as _generator_version,
+    load_tokenizer as _load_tokenizer,
+    module_behavior_hash as _module_behavior_hash,
+    serialize,
+    timeout_retry,
+    validation_store as _validation_store,
+)
 
 
 def tqdm(iterable=None, *a, **k):
@@ -63,121 +50,8 @@ class _NullBar:
 
 
 
-#template.py
-
-_REGISTRY = dict()
 _ROUNDING_SEED = ContextVar("reasoning_core_rounding_seed", default=None)
 _ROUNDING_SEED_UNSET = object()
-
-
-@functools.lru_cache(maxsize=None)
-def _generator_version(package_name):
-    module = sys.modules.get(package_name)
-    version = getattr(module, "__version__", None)
-    if version:
-        return version
-
-    try:
-        from importlib.metadata import version as package_version
-
-        return package_version(package_name)
-    except Exception:
-        return None
-
-
-@functools.lru_cache(maxsize=1)
-def _generator_commit():
-    for name in ("SOURCE_COMMIT", "GIT_COMMIT", "COMMIT_SHA", "GITHUB_SHA"):
-        value = os.environ.get(name)
-        if value:
-            return value
-
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],
-            cwd=os.path.dirname(os.path.dirname(__file__)),
-            stderr=subprocess.DEVNULL,
-            text=True,
-            timeout=1,
-        ).strip()
-    except Exception:
-        return None
-
-
-def _strip_docstrings(node):
-    node = copy.deepcopy(node)
-    for n in ast.walk(node):
-        body = getattr(n, "body", None)
-        if (isinstance(body, list) and body and isinstance(body[0], ast.Expr) and
-                isinstance(body[0].value, ast.Constant) and
-                isinstance(body[0].value.value, str)):
-            del body[0]
-    return node
-
-
-def _stable_dump(node):
-    """Canonical AST text that does NOT change with the Python version.
-
-    `ast.dump` is version-dependent -- 3.12 added fields such as `type_params` -- so the same file
-    bytes hashed differently on the generation fleet (3.10) and a dev box (3.12), and every task read
-    as permanently drifted no matter how synced the code was. Emitting only fields that carry
-    content, dropping None and empty collections, makes the two agree while keeping the whitespace,
-    comment and docstring insensitivity that the AST form exists for.
-    """
-    if isinstance(node, ast.AST):
-        parts = []
-        for f in node._fields:
-            v = getattr(node, f, None)
-            if v is None or (isinstance(v, (list, tuple)) and not v):
-                continue
-            parts.append(f"{f}={_stable_dump(v)}")
-        return f"{type(node).__name__}({', '.join(parts)})"
-    if isinstance(node, (list, tuple)):
-        return "[" + ", ".join(_stable_dump(x) for x in node) + "]"
-    return repr(node)
-
-
-@functools.lru_cache(maxsize=None)
-def _module_behavior_hash(module_name):
-    module = sys.modules.get(module_name)
-    path = getattr(module, "__file__", None)
-    if not path or not path.endswith(".py"):
-        return None
-    try:
-        with open(path, encoding="utf-8") as f:
-            tree = ast.parse(f.read(), filename=path)
-        canonical = _stable_dump(_strip_docstrings(tree))
-        return hashlib.sha1(canonical.encode()).hexdigest()[:16]
-    except Exception:
-        return None
-
-
-@functools.lru_cache(maxsize=1)
-def _validation_store():
-    from nfsdict import NfsDict
-    base_dir = os.environ.get("RC_VALIDATE_CACHE_DIR",
-                              os.path.join(user_cache_dir("reasoning_core"), "validation"))
-    return NfsDict(name="examples", base_dir=base_dir, serializer="json")
-
-
-def _parquet_safe(x):
-    import pandas as pd
-    from io import BytesIO
-    try:
-        pd.DataFrame([x]).to_parquet(BytesIO(), index=False)
-        return True
-    except Exception:
-        return False
-
-def serialize(data):
-    if _parquet_safe(data):
-        return data
-    return "b64:" + base64.b64encode(pickle.dumps(data)).decode()
-
-def deserialize(s):
-    if isinstance(s, str) and s.startswith("b64:"):
-        return pickle.loads(base64.b64decode(s[4:].encode()))
-    return s
 
 
 def seed():
@@ -188,80 +62,12 @@ def seed():
 
 
 def stochastic_rounding(value, seed=_ROUNDING_SEED_UNSET):
-    """Round a float to a nearby int using the shared Config rounding rule."""
+    """Explicitly round a float to a nearby int."""
     if seed is _ROUNDING_SEED_UNSET:
         seed = _ROUNDING_SEED.get()
     floor_val = int(value)
     return floor_val + (1 if random.Random(seed).random() < (value - floor_val) else 0)
 
-
-
-
-class TimeoutException(BaseException): pass
-
-_RETRYABLE = (TimeoutException, subprocess.SubprocessError)
-
-def timeout_retry(seconds=15, attempts=10):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            on_main = threading.current_thread() is threading.main_thread()
-            if not on_main:
-                warnings.warn(
-                    "timeout_retry: signal-based timeout unavailable off the main thread; "
-                    "call will run without a timeout guard.",
-                    stacklevel=3,
-                )
-
-            def handler(signum, frame):
-                module = frame.f_globals.get("__name__", "") if frame else ""
-                if module == "ctypes" or module.startswith("z3"):
-                    signal.alarm(1)
-                    return
-                raise TimeoutException()
-
-            for attempt in range(1, attempts + 1):
-                if on_main:
-                    old_handler = signal.signal(signal.SIGALRM, handler)
-                    signal.alarm(seconds)
-                try:
-                    result = func(*args, **kwargs)
-                    if on_main:
-                        signal.alarm(0)
-                    return result
-                except BaseException as e:
-                    converted_timeout = (
-                        isinstance(e, ctypes.ArgumentError)
-                        and "TimeoutException" in str(e)
-                    )
-                    if not isinstance(e, _RETRYABLE) and not converted_timeout:
-                        raise
-                    if on_main:
-                        signal.alarm(0)
-                    
-                    # --- CRITICAL: Kill external subprocesses (vampire/udocker) ---
-                    try:
-                        children = _psutil().Process().children(recursive=True)
-                        for child in children:
-                            child.kill()
-                        _psutil().wait_procs(children, timeout=1)
-                    except: pass 
-                    # --------------------------------------------------------------
-
-                    if attempt == attempts:
-                        if converted_timeout:
-                            raise TimeoutException() from e
-                        raise
-                    time.sleep(0.5)
-                finally:
-                    if on_main:
-                        signal.alarm(0)   # ALWAYS cancel — else a leaked alarm from a non-retryable
-                                          # exception path fires later at an arbitrary point (e.g. inside
-                                          # logging), raising TimeoutException(BaseException) past callers'
-                                          # `except Exception` and crashing the whole generation loop.
-                        signal.signal(signal.SIGALRM, old_handler)
-        return wrapper
-    return decorator
 
 
 
@@ -300,7 +106,7 @@ class Entry(Mapping):
     def __getitem__(self,k):
         return getattr(self,k)
     def __iter__(self):
-        yield from self.to_dict().items()
+        return iter(self.to_dict())
     def keys(self):
         return self.to_dict().keys()
     def __len__(self):
@@ -308,13 +114,6 @@ class Entry(Mapping):
 
 
 Problem = Entry
-        
-def register_dataset(name, dataset_cls):
-    _REGISTRY[name] = dataset_cls
-
-
-def prepr_task_name(name):
-    return underscore(name)
 
 
 def render_payload(payload):
@@ -366,23 +165,6 @@ class Payload(dict):
         if p and "payload" in metadata:
             metadata.payload = cls.maybe_shuffle_mapping(metadata.payload, p)
 
-
-@functools.lru_cache(maxsize=1)
-def _load_tokenizer():
-    cache_dir = user_cache_dir("reasoning_core")  # ~/.cache/reasoning_core on Linux
-    os.makedirs(cache_dir, exist_ok=True)
-    os.environ.setdefault("TIKTOKEN_CACHE_DIR", cache_dir)
-
-    class _WhitespaceTokenizerFallback:
-        """Minimal tokenizer fallback when tiktoken assets are unavailable."""
-        def encode(self, text):
-            return str(text).split()
-
-    try:
-        return _tiktoken().get_encoding("o200k_base")
-    except Exception:
-        return _WhitespaceTokenizerFallback()
-    
 
 class Task(ProceduralDataset):
     config_cls = None
@@ -525,7 +307,7 @@ class Task(ProceduralDataset):
             before = tuple(self._answer_reservoir)
             try:
                 generated = self.generate_example()
-            except (Exception, TimeoutException):
+            except Exception:
                 break
             inspect((generated.answer,))
             stale = stale + 1 if tuple(self._answer_reservoir) == before else 0
@@ -726,6 +508,11 @@ class Task(ProceduralDataset):
                     if max_tokens and len(self.tokenizer.encode(_cot + problem.answer)) > max_tokens:
                         continue
                     break
+                else:
+                    raise RuntimeError(
+                        f"{self.task_name}: failed to generate an admissible example "
+                        "after 1000 attempts"
+                    )
                 
                 problem.task = self.task_name
 
@@ -838,93 +625,27 @@ class DevTask(Task):
 
 @dataclass
 class Config:
-    """
-    Base config providing transparent stochastic rounding.
-
-    A subclass only needs to define its attributes with `int` type hints
-    and implement `apply_difficulty(level)`.
-    The base class handles all rounding logic automatically.
-    """
+    """Base task config with resettable difficulty levels."""
     level: int = 0
     seed: int = None
     size: int = None
 
     def __post_init__(self):
-        # This flag is the key to differentiating behavior during updates.
-        object.__setattr__(self, '_is_updating', False)
-        
-        self._unrounded = SimpleNamespace()
-
-        self._stochastic_fields = {
-            f.name for f in fields(self) 
-            if f.type is int and not f.name.startswith('_') and f.name not in ['level', 'size', 'seed']
-        }
-        for name in self._stochastic_fields:
-            if name in self.__dict__:
-                setattr(self._unrounded, name, float(self.__dict__.pop(name)))
-        
-        # Save the base state before any level-based updates are applied.
-        self._base_unrounded = copy.deepcopy(self._unrounded)
         self._base_config_dict = copy.deepcopy(self.__dict__)
-
-        # Apply updates if initialized with level > 0.
         if self.level > 0:
-            # We need to capture the level passed to __init__ before calling set_level,
-            # as set_level will reset it.
             initial_level = self.level
-            # Use the existing set_level logic to apply the updates.
-            # This is clean and avoids duplicating code.
             self.set_level(initial_level)
-
-    def __getattribute__(self, name: str) -> Any:
-        try:
-            stochastic_fields = object.__getattribute__(self, '_stochastic_fields')
-            if name in stochastic_fields:
-                is_updating = object.__getattribute__(self, '_is_updating')
-                float_val = getattr(object.__getattribute__(self, '_unrounded'), name)
-                
-                # If updating, return the raw float for deterministic calculations.
-                # Otherwise, return the stochastically rounded value.
-                if is_updating:
-                    return float_val
-                else:
-                    return stochastic_rounding(float_val, object.__getattribute__(self, 'seed'))
-        except AttributeError:
-            pass # Object is still initializing.
-            
-        return object.__getattribute__(self, name)
-
-    def get_true_value(self, name: str) -> float:
-        """Returns the unrounded float value of a stochastic field."""
-        if name in self._stochastic_fields:
-            return getattr(self._unrounded, name)
-        return getattr(self, name)
-
-    def __setattr__(self, name: str, value: Any):
-        try:
-            if name in object.__getattribute__(self, '_stochastic_fields'):
-                setattr(object.__getattribute__(self, '_unrounded'), name, float(value))
-                return
-        except AttributeError:
-            pass # Object is still initializing.
-            
-        object.__setattr__(self, name, value)
 
     def _apply_difficulty_level(self, i: int, apply):
         current_seed = self.seed
         self.__dict__.update(copy.deepcopy(self._base_config_dict))
-        self._unrounded = copy.deepcopy(self._base_unrounded)
         self.seed = current_seed
-        # Set the flag to enable deterministic updates.
-        object.__setattr__(self, '_is_updating', True)
         rounding_seed_token = _ROUNDING_SEED.set(current_seed)
         try:
             object.__setattr__(self, 'level', i)             
             apply(i)
         finally:
             _ROUNDING_SEED.reset(rounding_seed_token)
-            # Always reset the flag, even if update fails.
-            object.__setattr__(self, '_is_updating', False)
         
         object.__setattr__(self, 'level', i) 
         return self
@@ -943,15 +664,6 @@ class Config:
 
     def update(self, c):
         raise NotImplementedError("Config subclasses must implement 'update'")
-
-    def to_unrounded_dict(self):
-        result = {}
-        for f in fields(self):
-            if f.name in self._stochastic_fields:
-                result[f.name] = self.get_true_value(f.name)
-            else:
-                result[f.name] = getattr(self, f.name)
-        return result
 
     def to_dict(self):
         return asdict(self)

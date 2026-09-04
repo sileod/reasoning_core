@@ -1,7 +1,7 @@
 import random
 from math import gcd
 
-from reasoning_core.tasks.generated.wave4.s45_equation_balancing.equation_balancing import (
+from reasoning_core.tasks.generated.wave4.equation_balancing.equation_balancing import (
     EquationBalancing, EquationBalancingConfig, _conserves, _parse_formula)
 
 
@@ -60,9 +60,9 @@ def test_wrong_answers_score_zero():
 def test_difficulty_changes():
     cfg = EquationBalancingConfig()
     cfg.set_level(0)
-    l0 = cfg.get_true_value('n_species')
+    l0 = cfg.n_species
     cfg.set_level(5)
-    assert cfg.get_true_value('n_species') >= l0
+    assert cfg.n_species >= l0
 
 
 def test_all_levels_generate():

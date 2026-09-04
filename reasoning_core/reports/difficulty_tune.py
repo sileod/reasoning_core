@@ -135,12 +135,12 @@ def hardcoded(patched, varying):
     a default and watching level 0 fail to follow is the cheapest way to catch that.
     """
     for name in sorted(varying):
-        base = patched().to_unrounded_dict().get(name)
+        base = patched().to_dict().get(name)
         if not isinstance(base, (int, float)) or isinstance(base, bool):
             continue
         probe = patched(**{name: base + 7})
         probe.set_level(0)
-        if probe.to_unrounded_dict().get(name) != base + 7:
+        if probe.to_dict().get(name) != base + 7:
             return name
     return None
 
@@ -154,7 +154,7 @@ def verify(task_name, cfg, method, levels):
         try:
             c = patched()
             c.set_level(level)
-            states[level] = c.to_unrounded_dict()
+            states[level] = c.to_dict()
         except Exception as e:
             return False, f"level {level} raised {type(e).__name__}: {e}"
     varying = {k for k in states[levels[0]]
@@ -165,7 +165,7 @@ def verify(task_name, cfg, method, levels):
     for level in levels:
         c = cfg()
         c.set_level(level)
-        before[level] = c.to_unrounded_dict()
+        before[level] = c.to_dict()
     if before == states:
         # Rewriting `x += level` as `x = self.x + level` passes every other check here and
         # changes nothing. Presented as a fix, with a rationale, it is worse than no patch.
@@ -189,7 +189,7 @@ def propose(client, task_name, cfg, points, verdict, detail, method_source, reje
     measured = "\n".join(f"  level {lv}: {r:.0%} solved" for lv, r in points.items())
     helpers = [n for n in ("sround", "math", "random")
                if n in sys.modules[cfg.__module__].__dict__]
-    fields = "\n".join(f"  {f}: {v!r}" for f, v in sorted(cfg().to_unrounded_dict().items())
+    fields = "\n".join(f"  {f}: {v!r}" for f, v in sorted(cfg().to_dict().items())
                        if f not in ("level", "seed", "size"))
     user = (f"Task: {task_name}\nConfig class: {cfg.__name__}\n\n"
             f"Base field values (level 0):\n{fields}\n\n"

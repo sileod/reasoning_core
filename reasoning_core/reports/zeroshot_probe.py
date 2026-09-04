@@ -206,9 +206,7 @@ def prepare_cell(name, level, n, seed, p):
         t, ex = examples(name, n, level, seed)
     except (KeyboardInterrupt, SystemExit):
         raise
-    except BaseException as e:
-        # The deadline raises a BaseException on purpose, so that a generator cannot swallow
-        # its own timeout. Here it is a verdict about the task like any other.
+    except Exception as e:
         return None, {**base, "status": f"gen:{type(e).__name__}", "n": 0}
     if not ex:
         return None, {**base, "status": "no-examples", "n": 0}
