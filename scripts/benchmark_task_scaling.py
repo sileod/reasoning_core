@@ -186,6 +186,8 @@ def main():
     parser.add_argument("--max-tokens", type=int, default=8192)
     parser.add_argument("--cell-timeout", type=float, default=180)
     parser.add_argument("--include-dev", action="store_true")
+    parser.add_argument("--include-generated", action="store_true",
+                        help="Also benchmark landed task-search output, which is off the roster")
     parser.add_argument("--output-json")
     parser.add_argument("--output-csv")
     parser.add_argument("--fail-on-unsupported", action="store_true")
@@ -198,7 +200,9 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
 
-    available = list_tasks() + (list(DEV_DATASETS) if args.include_dev else [])
+    available = list_tasks(include_generated=args.include_generated)
+    if args.include_dev:
+        available += list(DEV_DATASETS)
     tasks = args.tasks or available
     unknown = sorted(set(tasks) - set(available))
     if unknown:

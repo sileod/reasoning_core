@@ -223,18 +223,23 @@ def main(argv=None):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(source, target, ignore=shutil.ignore_patterns("__pycache__"))
         strip_variant(target, row["name"])
+        # A draft that cannot settle on a name has no module either, so everything below
+        # this point waits on it -- one bad draft used to take the whole pass down with a
+        # TypeError from joining None into the module path.
         name, problem = settle_name(target)
-        claim = CLAIMED.get(name)
-        module = ".".join((*target.parts[2:-1], name))
-        if claim and claim != module and not claim.startswith(module + "."):
-            problem = f"the name is already taken by {claim}"
+        if not problem:
+            module = ".".join((*target.parts[2:-1], name))
+            claim = CLAIMED.get(name)
+            if claim and claim != module and not claim.startswith(module + "."):
+                problem = f"the name is already taken by {claim}"
         if not problem and target.name != name:
             if target.with_name(name).exists() and not args.overwrite:
                 problem = "already in the package"
             else:
                 shutil.rmtree(target.with_name(name), ignore_errors=True)
                 target = target.rename(target.with_name(name))
-        problem = problem or check(name, module)
+        if not problem:
+            problem = check(name, module)
         if problem:
             # A task that cannot load is worse than a missing one: it breaks discovery for
             # everything that lands after it, so it goes straight back out.
