@@ -61,6 +61,26 @@ proposals: []
 rejected: []
 ```
 
+## Provenance
+
+A wave whose proposals carry `novelty.source: legacy` never went past the novelty critic,
+so the only account of why its ideas are worth implementing is who supplied them. Those
+waves must carry a top-level block naming the origin:
+
+```yaml
+provenance:
+  kind: external            # external | proposer | legacy_file
+  name: ASTRA0              # the name the source gave the wave, not the file stem
+  received: 2026-09-04
+  source: battery supplied verbatim by the repository owner in a Claude Code session
+```
+
+`legacy_file` is a file already in the repository (`external` came from `WAVE1.md`),
+`external` is a wave handed over from outside it (`manual_high_value_80` arrived as pull
+request #52), and `proposer` is this pipeline's own output, which does not need the block
+because its critic calls are already recorded in `generation.calls`. Validation requires
+it, so an unreviewed wave cannot be archived without saying where it came from.
+
 A proposal is a name and a coverage summary, and nothing else:
 
 ```yaml

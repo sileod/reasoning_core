@@ -83,6 +83,11 @@ def build_legacy_wave(repo_root, *, name="external", source=LEGACY_SOURCE):
         "format_version": 1,
         "kind": "sft_task_proposals",
         "name": name,
+        # Imported waves skip the critic, so validation asks them to say where they came
+        # from. The importer knows: it is the file it just read.
+        "provenance": {"kind": "legacy_file", "name": name,
+                       "received": datetime.now(timezone.utc).date().isoformat(),
+                       "source": f"imported from {source} by task_search import-legacy"},
         "created_at": datetime.now(timezone.utc).isoformat(),
         "objective": {"training_stage": "sft", "requested": len(proposals),
                       "accepted": len(proposals), "complete": True},

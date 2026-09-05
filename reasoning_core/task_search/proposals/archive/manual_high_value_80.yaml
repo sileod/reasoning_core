@@ -1,6 +1,11 @@
 format_version: 1
 kind: sft_task_proposals
 name: manual_high_value_80
+provenance:
+  kind: external
+  name: manual_high_value_80
+  received: '2026-09-03'
+  source: 'contributed by the repository owner as pull request #52, commit 7b26f74'
 created_at: '2026-09-03T11:48:00+00:00'
 objective:
   training_stage: sft

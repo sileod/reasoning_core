@@ -1,6 +1,11 @@
 format_version: 1
 kind: sft_task_proposals
 name: ASTRA0
+provenance:
+  kind: external
+  name: ASTRA0
+  received: '2026-09-04'
+  source: battery supplied verbatim by the repository owner in a Claude Code session
 created_at: '2026-09-05T10:19:17+00:00'
 objective:
   training_stage: sft

@@ -1,0 +1,120 @@
+format_version: 1
+kind: sft_task_proposals
+name: ASTRA2
+provenance:
+  kind: external
+  name: ASTRA2
+  received: '2026-09-05'
+  source: battery supplied verbatim by the repository owner in a Claude Code session, initially under the name STAR2
+created_at: '2026-09-05T10:24:51+00:00'
+objective:
+  training_stage: sft
+  requested: 20
+  accepted: 8
+  complete: true
+catalog:
+  sha256: f2872d4a5ab73697ea4fb24998739467d27197c6f60dd3c49b71f0650f99c904
+  entries: 426
+  sources:
+    gallery: 65
+    plan: 97
+    proposal: 48
+    task: 216
+generation:
+  provider: legacy
+  source: hand-supplied battery; deduplicated against ASTRA0 by name and by coverage summary
+  calls: []
+proposals:
+- name: scope_explication
+  summary: Rewrite explicitly disambiguated negation, quantifiers, and modifiers into a short unambiguous statement.
+  id: P001
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-scope_explication
+- name: deictic_reanchoring
+  summary: Rewrite 'I', 'here', 'tomorrow', and similar expressions after changes of speaker, place, or time.
+  id: P002
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-deictic_reanchoring
+- name: lossless_summary
+  summary: Compress a short generated narrative while preserving exactly the facts needed for specified future queries.
+  id: P003
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-lossless_summary
+- name: temporal_perspective
+  summary: Express an event's status from a specified reference time, distinguishing ongoing, completed, and not yet started.
+  id: P004
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-temporal_perspective
+- name: causal_identification
+  summary: Identify which candidate causal mechanisms remain possible after an ordered sequence of interventions and observations.
+  id: P005
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-causal_identification
+- name: distinguishing_witness
+  summary: Construct the smallest situation where two natural-language statements have different truth values.
+  id: P006
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-distinguishing_witness
+- name: incremental_interpretation
+  summary: After each sentence fragment, report which interpretations remain possible using only the observed prefix.
+  id: P007
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-incremental_interpretation
+- name: noisy_channel_recovery
+  summary: Recover a short intended utterance from controlled corruption, contextual constraints, and an explicit noise model.
+  id: P008
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2-noisy_channel_recovery
+rejected:
+- name: semantic_realization
+  summary: Express a small event structure as one sentence, preserving roles, negation, tense, and specified wording.
+  reason: duplicate of ASTRA0:P010 semantic_paraphrase, already proposed in ASTRA0
+- name: dialogue_revision
+  summary: Resolve successive corrections and cancellations into the final requested action and arguments.
+  reason: duplicate of ASTRA0:P002 request_revision, already proposed in ASTRA0
+- name: agreement_completion
+  summary: Supply an inflected word across intervening distractors, coordination, and nested relative clauses.
+  reason: duplicate of ASTRA0:P011 agreement_completion, already proposed in ASTRA0
+- name: novel_word_learning
+  summary: Infer invented words' meanings from grounded examples; use them in a new short utterance.
+  reason: duplicate of ASTRA0:P013 novel_word_application, already proposed in ASTRA0
+- name: ellipsis_expansion
+  summary: Expand omitted predicates or arguments in coordinated sentences and dialogue replies.
+  reason: duplicate of ASTRA0:P012 ellipsis_completion, already proposed in ASTRA0
+- name: minimal_semantic_edit
+  summary: Change a sentence to express a specified meaning change using the fewest token edits.
+  reason: duplicate of ASTRA0:P004 minimal_edit, already proposed in ASTRA0
+- name: clarification_question
+  summary: Ask the shortest question that resolves an underspecified request among known alternatives.
+  reason: duplicate of ASTRA0:P005 clarification_question, already proposed in ASTRA0
+- name: question_generation
+  summary: Generate the question whose answer is a designated argument of a supplied event.
+  reason: duplicate of ASTRA0:P009 question_generation, already proposed in ASTRA0
+- name: contrastive_description
+  summary: Produce the shortest description uniquely identifying an object among distractors.
+  reason: duplicate of ASTRA0:P020 pragmatic_reference_generation, already proposed in ASTRA0
+- name: counterfactual_replay
+  summary: Change an earlier event and report one downstream outcome, preserving unaffected background conditions.
+  reason: duplicate of ASTRA0:P016 counterfactual_replay, already proposed in ASTRA0
+- name: presupposition_check
+  summary: Answer a question when its presupposition holds; otherwise produce a short factual correction.
+  reason: duplicate of ASTRA0:P015 presupposition_repair, already proposed in ASTRA0
+- name: information_gain_query
+  summary: Choose the next question or experiment that best separates remaining hypotheses under a stated prior.
+  reason: duplicate of ASTRA0:P019 information_seeking, already proposed in ASTRA0

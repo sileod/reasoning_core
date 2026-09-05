@@ -1,6 +1,11 @@
 format_version: 1
 kind: sft_task_proposals
 name: external
+provenance:
+  kind: legacy_file
+  name: external
+  received: '2026-09-01'
+  source: reasoning_core/task_search/plans/WAVE1.md, imported by task_search import-legacy; the 80 candidates came from outside this pipeline
 created_at: '2026-09-01T18:31:34.240182+00:00'
 objective:
   training_stage: sft
@@ -90,8 +95,7 @@ proposals:
     verdict: imported
     origin_id: W1-010
 - name: bloom_filter_membership
-  summary: Apply explicit hashes to a Bloom filter and classify a query as definitely absent or possibly
-    present.
+  summary: Apply explicit hashes to a Bloom filter and classify a query as definitely absent or possibly present.
   id: P011
   novelty:
     source: legacy
@@ -182,8 +186,7 @@ proposals:
     verdict: imported
     origin_id: W1-023
 - name: finite_relation_properties
-  summary: Given a finite relation, output which of reflexive, symmetric, antisymmetric, and transitive
-    hold.
+  summary: Given a finite relation, output which of reflexive, symmetric, antisymmetric, and transitive hold.
   id: P024
   novelty:
     source: legacy
@@ -232,8 +235,7 @@ proposals:
     verdict: imported
     origin_id: W1-030
 - name: conflict_serializability
-  summary: Given a transaction schedule, determine conflict serializability and give the unique serial
-    order if one exists.
+  summary: Given a transaction schedule, determine conflict serializability and give the unique serial order if one exists.
   id: P031
   novelty:
     source: legacy
@@ -254,8 +256,7 @@ proposals:
     verdict: imported
     origin_id: W1-033
 - name: two_phase_lock_blocker
-  summary: Given lock requests under strict 2PL, output the transaction blocking a queried request or
-    None.
+  summary: Given lock requests under strict 2PL, output the transaction blocking a queried request or None.
   id: P034
   novelty:
     source: legacy
@@ -283,8 +284,7 @@ proposals:
     verdict: imported
     origin_id: W1-037
 - name: linearizability_check
-  summary: Given a small concurrent history and sequential specification, answer whether the history is
-    linearizable.
+  summary: Given a small concurrent history and sequential specification, answer whether the history is linearizable.
   id: P038
   novelty:
     source: legacy
@@ -298,8 +298,7 @@ proposals:
     verdict: imported
     origin_id: W1-039
 - name: quorum_intersection
-  summary: Given replica and quorum sizes, answer whether every read quorum must intersect every write
-    quorum.
+  summary: Given replica and quorum sizes, answer whether every read quorum must intersect every write quorum.
   id: P040
   novelty:
     source: legacy
@@ -390,8 +389,7 @@ proposals:
     verdict: imported
     origin_id: W1-052
 - name: lexical_scope_resolution
-  summary: Given nested scopes and declarations, output the declaration bound to a queried identifier
-    occurrence.
+  summary: Given nested scopes and declarations, output the declaration bound to a queried identifier occurrence.
   id: P053
   novelty:
     source: legacy
@@ -419,8 +417,7 @@ proposals:
     verdict: imported
     origin_id: W1-056
 - name: overload_resolution
-  summary: Given overload signatures and argument types, output the unique most-specific applicable overload
-    or Ambiguous.
+  summary: Given overload signatures and argument types, output the unique most-specific applicable overload or Ambiguous.
   id: P057
   novelty:
     source: legacy
@@ -441,8 +438,7 @@ proposals:
     verdict: imported
     origin_id: W1-059
 - name: pattern_match_exhaustiveness
-  summary: Given a finite algebraic datatype and pattern clauses, answer whether all constructors are
-    covered.
+  summary: Given a finite algebraic datatype and pattern clauses, answer whether all constructors are covered.
   id: P060
   novelty:
     source: legacy
@@ -491,8 +487,7 @@ proposals:
     verdict: imported
     origin_id: W1-066
 - name: canonical_huffman_code
-  summary: Given symbol frequencies, build a tie-broken Huffman tree and output one symbol's canonical
-    codeword.
+  summary: Given symbol frequencies, build a tie-broken Huffman tree and output one symbol's canonical codeword.
   id: P067
   novelty:
     source: legacy
@@ -534,16 +529,14 @@ proposals:
     verdict: imported
     origin_id: W1-072
 - name: dimensional_consistency
-  summary: Given dimensions for variables and an equation, answer whether the equation is dimensionally
-    valid.
+  summary: Given dimensions for variables and an equation, answer whether the equation is dimensionally valid.
   id: P073
   novelty:
     source: legacy
     verdict: imported
     origin_id: W1-073
 - name: missing_dimension
-  summary: Given a valid formula with one unknown quantity dimension, output its base-dimension exponent
-    vector.
+  summary: Given a valid formula with one unknown quantity dimension, output its base-dimension exponent vector.
   id: P074
   novelty:
     source: legacy
@@ -571,8 +564,7 @@ proposals:
     verdict: imported
     origin_id: W1-077
 - name: petri_conflict_pair
-  summary: Output the canonical pair of individually enabled transitions that compete for insufficient
-    shared tokens, or None.
+  summary: Output the canonical pair of individually enabled transitions that compete for insufficient shared tokens, or None.
   id: P078
   novelty:
     source: legacy

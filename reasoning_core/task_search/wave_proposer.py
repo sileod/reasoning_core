@@ -311,6 +311,32 @@ def proposal_problems(proposal):
     return problems
 
 
+PROVENANCE_KINDS = {"proposer", "external", "legacy_file"}
+
+
+def provenance_problems(data, proposals):
+    """Where an unreviewed wave came from, which `novelty.source: legacy` does not say.
+
+    A wave whose proposals are marked legacy skipped the novelty critic entirely, so the
+    only account of why its ideas are trustworthy is who supplied them. Three of those
+    waves were archived before this was required and each recorded its origin differently
+    -- one in a free-text `generation.source`, one not at all -- which made "where did
+    this idea come from" a question you answered by reading git log.
+    """
+    if not any((item.get("novelty") or {}).get("source") == "legacy" for item in proposals):
+        return []
+    where = data.get("provenance")
+    if not isinstance(where, dict):
+        return ["a wave with legacy proposals needs a provenance block saying who supplied it"]
+    problems = []
+    if where.get("kind") not in PROVENANCE_KINDS:
+        problems.append(f"provenance.kind must be one of {sorted(PROVENANCE_KINDS)}")
+    for field in ("name", "received", "source"):
+        if not _one_line(where.get(field)):
+            problems.append(f"provenance.{field} is required and must be one line")
+    return problems
+
+
 def validate_proposal_wave(data):
     problems = []
     if data.get("format_version") != 1 or data.get("kind") != "sft_task_proposals":
@@ -319,6 +345,7 @@ def validate_proposal_wave(data):
     if not isinstance(proposals, list):
         problems.append("wave proposals must be a list")
         return problems
+    problems.extend(provenance_problems(data, proposals))
     names = [_snake(item.get("name")) for item in proposals]
     if len(names) != len(set(names)):
         problems.append("proposal names must be unique")
