@@ -178,6 +178,15 @@ queues:
   - P004v1
   - P005v1
   - P006v1
+  # The only three ideas in this wave that lost both draws. Every other failed trial
+  # has a sibling that landed, so the idea is already covered and a redraw adds nothing.
+  retry:
+  - P009v1
+  - P009v2
+  - P015v1
+  - P015v2
+  - P047v1
+  - P047v2
 trials:
 - id: P001v1
   hypothesis: W1-001

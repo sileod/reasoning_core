@@ -1,0 +1,163 @@
+format_version: 1
+kind: sft_task_proposals
+name: ASTRA0
+created_at: '2026-09-05T10:19:17+00:00'
+objective:
+  training_stage: sft
+  requested: 20
+  accepted: 20
+  complete: true
+catalog:
+  sha256: 2ce3a297a3b6c21718b0c505fb5680be568c77827338e395d34e19369acc79f9
+  entries: 406
+  sources:
+    gallery: 65
+    plan: 97
+    proposal: 28
+    task: 216
+generation:
+  provider: legacy
+  source: 'hand-supplied ASTRA0 battery: instruction-following, pragmatics and discourse, a family the algorithmic roster does not reach'
+  calls: []
+proposals:
+- name: instruction_priority
+  summary: Answer under conflicting instructions from different authority levels; lower-priority instructions still apply where compatible.
+  id: P001
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-01
+- name: request_revision
+  summary: Fulfil a request after successive corrections, cancellations, and reinstatements; preserve requirements that were not revised.
+  id: P002
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-02
+- name: instruction_data_boundary
+  summary: Process quoted text containing commands without treating those commands as instructions.
+  id: P003
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-03
+- name: minimal_edit
+  summary: Apply a requested semantic change to a short sentence, preserving all unaffected wording.
+  id: P004
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-04
+- name: clarification_question
+  summary: Ask the shortest question that distinguishes requests requiring different answers; answer directly when already determined.
+  id: P005
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-05
+- name: scoped_instruction
+  summary: Apply instructions limited to one item, section, or turn, then restore the surrounding defaults.
+  id: P006
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-06
+- name: tool_call_generation
+  summary: Convert a short request into a call using supplied tool definitions, argument constraints, and defaults.
+  id: P007
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-07
+- name: tool_result_continuation
+  summary: Continue a request from a tool response, distinguishing success, empty results, partial completion, and failure.
+  id: P008
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-08
+- name: question_generation
+  summary: Generate the question whose answer is a marked constituent of a sentence.
+  id: P009
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-09
+- name: semantic_paraphrase
+  summary: Express a generated event using a requested construction while preserving participants, negation, tense, and meaning.
+  id: P010
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-10
+- name: agreement_completion
+  summary: Supply the correctly inflected next word despite intervening nouns, coordination, and nested relative clauses.
+  id: P011
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-11
+- name: ellipsis_completion
+  summary: Complete an elliptical reply by recovering omitted predicates and arguments from preceding dialogue.
+  id: P012
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-12
+- name: novel_word_application
+  summary: Use newly defined words productively in unfamiliar grammatical constructions and combinations.
+  id: P013
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-13
+- name: correction_aware_summary
+  summary: Summarize the final commitments in a short exchange, excluding withdrawn proposals and corrected details.
+  id: P014
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-14
+- name: presupposition_repair
+  summary: Correct a question's false premise using supplied facts, then answer whichever part remains meaningful.
+  id: P015
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-15
+- name: counterfactual_replay
+  summary: Predict one outcome after changing an earlier event, recomputing downstream effects while retaining independent events.
+  id: P016
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-16
+- name: event_order_reconstruction
+  summary: Recover chronological event order from a short narrative containing flashbacks and temporal connectives.
+  id: P017
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-17
+- name: answer_relevant_change
+  summary: After a fact is corrected, return only the previously answered items whose answers now change.
+  id: P018
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-18
+- name: information_seeking
+  summary: Choose the observation or question that best distinguishes remaining hypotheses under a supplied finite model.
+  id: P019
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-19
+- name: pragmatic_reference_generation
+  summary: Produce the shortest description uniquely identifying an object among distractors in a shared scene.
+  id: P020
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0-20
+rejected: []

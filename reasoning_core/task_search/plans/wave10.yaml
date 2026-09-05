@@ -1,0 +1,741 @@
+version: 1
+name: wave10
+proposal_wave: ASTRA0
+defaults:
+  base_ref: 8dc7230a38870632d5fe73ff390179c0a53082f0
+context_files:
+- AGENTS.md
+- TASK_AUTHORING_GUIDE.md
+- reasoning_core/task_search/CONTEXT.md
+- reasoning_core/task_search/AUTHORING_RULES.md
+queues:
+  v1:
+  - P001v1
+  - P002v1
+  - P003v1
+  - P004v1
+  - P005v1
+  - P006v1
+  - P007v1
+  - P008v1
+  - P009v1
+  - P010v1
+  - P011v1
+  - P012v1
+  - P013v1
+  - P014v1
+  - P015v1
+  - P016v1
+  - P017v1
+  - P018v1
+  - P019v1
+  - P020v1
+  v2:
+  - P001v2
+  - P002v2
+  - P003v2
+  - P004v2
+  - P005v2
+  - P006v2
+  - P007v2
+  - P008v2
+  - P009v2
+  - P010v2
+  - P011v2
+  - P012v2
+  - P013v2
+  - P014v2
+  - P015v2
+  - P016v2
+  - P017v2
+  - P018v2
+  - P019v2
+  - P020v2
+  pilot:
+  - P001v1
+  - P002v1
+  - P003v1
+  - P004v1
+  - P005v1
+  - P006v1
+trials:
+- id: P001v1
+  hypothesis: ASTRA0-01
+  idea: instruction_priority_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/instruction_priority_v1
+  instruction: |-
+    Author a new task from scratch: instruction_priority_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Answer under conflicting instructions from different authority levels; lower-priority instructions still apply where compatible.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/instruction_priority_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/instruction_priority_v1
+- id: P001v2
+  hypothesis: ASTRA0-01
+  idea: instruction_priority_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/instruction_priority_v2
+  instruction: |-
+    Author a new task from scratch: instruction_priority_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Answer under conflicting instructions from different authority levels; lower-priority instructions still apply where compatible.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/instruction_priority_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/instruction_priority_v2
+- id: P002v1
+  hypothesis: ASTRA0-02
+  idea: request_revision_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/request_revision_v1
+  instruction: |-
+    Author a new task from scratch: request_revision_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Fulfil a request after successive corrections, cancellations, and reinstatements; preserve requirements that were not revised.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/request_revision_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/request_revision_v1
+- id: P002v2
+  hypothesis: ASTRA0-02
+  idea: request_revision_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/request_revision_v2
+  instruction: |-
+    Author a new task from scratch: request_revision_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Fulfil a request after successive corrections, cancellations, and reinstatements; preserve requirements that were not revised.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/request_revision_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/request_revision_v2
+- id: P003v1
+  hypothesis: ASTRA0-03
+  idea: instruction_data_boundary_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/instruction_data_boundary_v1
+  instruction: |-
+    Author a new task from scratch: instruction_data_boundary_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Process quoted text containing commands without treating those commands as instructions.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/instruction_data_boundary_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/instruction_data_boundary_v1
+- id: P003v2
+  hypothesis: ASTRA0-03
+  idea: instruction_data_boundary_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/instruction_data_boundary_v2
+  instruction: |-
+    Author a new task from scratch: instruction_data_boundary_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Process quoted text containing commands without treating those commands as instructions.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/instruction_data_boundary_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/instruction_data_boundary_v2
+- id: P004v1
+  hypothesis: ASTRA0-04
+  idea: minimal_edit_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/minimal_edit_v1
+  instruction: |-
+    Author a new task from scratch: minimal_edit_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply a requested semantic change to a short sentence, preserving all unaffected wording.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/minimal_edit_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/minimal_edit_v1
+- id: P004v2
+  hypothesis: ASTRA0-04
+  idea: minimal_edit_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/minimal_edit_v2
+  instruction: |-
+    Author a new task from scratch: minimal_edit_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply a requested semantic change to a short sentence, preserving all unaffected wording.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/minimal_edit_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/minimal_edit_v2
+- id: P005v1
+  hypothesis: ASTRA0-05
+  idea: clarification_question_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/clarification_question_v1
+  instruction: |-
+    Author a new task from scratch: clarification_question_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Ask the shortest question that distinguishes requests requiring different answers; answer directly when already determined.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/clarification_question_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/clarification_question_v1
+- id: P005v2
+  hypothesis: ASTRA0-05
+  idea: clarification_question_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/clarification_question_v2
+  instruction: |-
+    Author a new task from scratch: clarification_question_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Ask the shortest question that distinguishes requests requiring different answers; answer directly when already determined.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/clarification_question_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/clarification_question_v2
+- id: P006v1
+  hypothesis: ASTRA0-06
+  idea: scoped_instruction_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/scoped_instruction_v1
+  instruction: |-
+    Author a new task from scratch: scoped_instruction_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply instructions limited to one item, section, or turn, then restore the surrounding defaults.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/scoped_instruction_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/scoped_instruction_v1
+- id: P006v2
+  hypothesis: ASTRA0-06
+  idea: scoped_instruction_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/scoped_instruction_v2
+  instruction: |-
+    Author a new task from scratch: scoped_instruction_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Apply instructions limited to one item, section, or turn, then restore the surrounding defaults.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/scoped_instruction_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/scoped_instruction_v2
+- id: P007v1
+  hypothesis: ASTRA0-07
+  idea: tool_call_generation_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/tool_call_generation_v1
+  instruction: |-
+    Author a new task from scratch: tool_call_generation_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Convert a short request into a call using supplied tool definitions, argument constraints, and defaults.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/tool_call_generation_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/tool_call_generation_v1
+- id: P007v2
+  hypothesis: ASTRA0-07
+  idea: tool_call_generation_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/tool_call_generation_v2
+  instruction: |-
+    Author a new task from scratch: tool_call_generation_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Convert a short request into a call using supplied tool definitions, argument constraints, and defaults.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/tool_call_generation_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/tool_call_generation_v2
+- id: P008v1
+  hypothesis: ASTRA0-08
+  idea: tool_result_continuation_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/tool_result_continuation_v1
+  instruction: |-
+    Author a new task from scratch: tool_result_continuation_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Continue a request from a tool response, distinguishing success, empty results, partial completion, and failure.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/tool_result_continuation_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/tool_result_continuation_v1
+- id: P008v2
+  hypothesis: ASTRA0-08
+  idea: tool_result_continuation_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/tool_result_continuation_v2
+  instruction: |-
+    Author a new task from scratch: tool_result_continuation_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Continue a request from a tool response, distinguishing success, empty results, partial completion, and failure.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/tool_result_continuation_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/tool_result_continuation_v2
+- id: P009v1
+  hypothesis: ASTRA0-09
+  idea: question_generation_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/question_generation_v1
+  instruction: |-
+    Author a new task from scratch: question_generation_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Generate the question whose answer is a marked constituent of a sentence.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/question_generation_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/question_generation_v1
+- id: P009v2
+  hypothesis: ASTRA0-09
+  idea: question_generation_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/question_generation_v2
+  instruction: |-
+    Author a new task from scratch: question_generation_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Generate the question whose answer is a marked constituent of a sentence.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/question_generation_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/question_generation_v2
+- id: P010v1
+  hypothesis: ASTRA0-10
+  idea: semantic_paraphrase_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/semantic_paraphrase_v1
+  instruction: |-
+    Author a new task from scratch: semantic_paraphrase_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Express a generated event using a requested construction while preserving participants, negation, tense, and meaning.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/semantic_paraphrase_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/semantic_paraphrase_v1
+- id: P010v2
+  hypothesis: ASTRA0-10
+  idea: semantic_paraphrase_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/semantic_paraphrase_v2
+  instruction: |-
+    Author a new task from scratch: semantic_paraphrase_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Express a generated event using a requested construction while preserving participants, negation, tense, and meaning.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/semantic_paraphrase_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/semantic_paraphrase_v2
+- id: P011v1
+  hypothesis: ASTRA0-11
+  idea: agreement_completion_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/agreement_completion_v1
+  instruction: |-
+    Author a new task from scratch: agreement_completion_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Supply the correctly inflected next word despite intervening nouns, coordination, and nested relative clauses.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/agreement_completion_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/agreement_completion_v1
+- id: P011v2
+  hypothesis: ASTRA0-11
+  idea: agreement_completion_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/agreement_completion_v2
+  instruction: |-
+    Author a new task from scratch: agreement_completion_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Supply the correctly inflected next word despite intervening nouns, coordination, and nested relative clauses.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/agreement_completion_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/agreement_completion_v2
+- id: P012v1
+  hypothesis: ASTRA0-12
+  idea: ellipsis_completion_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/ellipsis_completion_v1
+  instruction: |-
+    Author a new task from scratch: ellipsis_completion_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Complete an elliptical reply by recovering omitted predicates and arguments from preceding dialogue.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/ellipsis_completion_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/ellipsis_completion_v1
+- id: P012v2
+  hypothesis: ASTRA0-12
+  idea: ellipsis_completion_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/ellipsis_completion_v2
+  instruction: |-
+    Author a new task from scratch: ellipsis_completion_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Complete an elliptical reply by recovering omitted predicates and arguments from preceding dialogue.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/ellipsis_completion_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/ellipsis_completion_v2
+- id: P013v1
+  hypothesis: ASTRA0-13
+  idea: novel_word_application_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/novel_word_application_v1
+  instruction: |-
+    Author a new task from scratch: novel_word_application_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Use newly defined words productively in unfamiliar grammatical constructions and combinations.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/novel_word_application_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/novel_word_application_v1
+- id: P013v2
+  hypothesis: ASTRA0-13
+  idea: novel_word_application_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/novel_word_application_v2
+  instruction: |-
+    Author a new task from scratch: novel_word_application_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Use newly defined words productively in unfamiliar grammatical constructions and combinations.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/novel_word_application_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/novel_word_application_v2
+- id: P014v1
+  hypothesis: ASTRA0-14
+  idea: correction_aware_summary_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/correction_aware_summary_v1
+  instruction: |-
+    Author a new task from scratch: correction_aware_summary_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Summarize the final commitments in a short exchange, excluding withdrawn proposals and corrected details.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/correction_aware_summary_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/correction_aware_summary_v1
+- id: P014v2
+  hypothesis: ASTRA0-14
+  idea: correction_aware_summary_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/correction_aware_summary_v2
+  instruction: |-
+    Author a new task from scratch: correction_aware_summary_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Summarize the final commitments in a short exchange, excluding withdrawn proposals and corrected details.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/correction_aware_summary_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/correction_aware_summary_v2
+- id: P015v1
+  hypothesis: ASTRA0-15
+  idea: presupposition_repair_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/presupposition_repair_v1
+  instruction: |-
+    Author a new task from scratch: presupposition_repair_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Correct a question's false premise using supplied facts, then answer whichever part remains meaningful.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/presupposition_repair_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/presupposition_repair_v1
+- id: P015v2
+  hypothesis: ASTRA0-15
+  idea: presupposition_repair_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/presupposition_repair_v2
+  instruction: |-
+    Author a new task from scratch: presupposition_repair_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Correct a question's false premise using supplied facts, then answer whichever part remains meaningful.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/presupposition_repair_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/presupposition_repair_v2
+- id: P016v1
+  hypothesis: ASTRA0-16
+  idea: counterfactual_replay_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/counterfactual_replay_v1
+  instruction: |-
+    Author a new task from scratch: counterfactual_replay_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Predict one outcome after changing an earlier event, recomputing downstream effects while retaining independent events.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/counterfactual_replay_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/counterfactual_replay_v1
+- id: P016v2
+  hypothesis: ASTRA0-16
+  idea: counterfactual_replay_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/counterfactual_replay_v2
+  instruction: |-
+    Author a new task from scratch: counterfactual_replay_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Predict one outcome after changing an earlier event, recomputing downstream effects while retaining independent events.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/counterfactual_replay_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/counterfactual_replay_v2
+- id: P017v1
+  hypothesis: ASTRA0-17
+  idea: event_order_reconstruction_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/event_order_reconstruction_v1
+  instruction: |-
+    Author a new task from scratch: event_order_reconstruction_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Recover chronological event order from a short narrative containing flashbacks and temporal connectives.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/event_order_reconstruction_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/event_order_reconstruction_v1
+- id: P017v2
+  hypothesis: ASTRA0-17
+  idea: event_order_reconstruction_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/event_order_reconstruction_v2
+  instruction: |-
+    Author a new task from scratch: event_order_reconstruction_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Recover chronological event order from a short narrative containing flashbacks and temporal connectives.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/event_order_reconstruction_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/event_order_reconstruction_v2
+- id: P018v1
+  hypothesis: ASTRA0-18
+  idea: answer_relevant_change_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/answer_relevant_change_v1
+  instruction: |-
+    Author a new task from scratch: answer_relevant_change_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      After a fact is corrected, return only the previously answered items whose answers now change.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/answer_relevant_change_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/answer_relevant_change_v1
+- id: P018v2
+  hypothesis: ASTRA0-18
+  idea: answer_relevant_change_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/answer_relevant_change_v2
+  instruction: |-
+    Author a new task from scratch: answer_relevant_change_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      After a fact is corrected, return only the previously answered items whose answers now change.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/answer_relevant_change_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/answer_relevant_change_v2
+- id: P019v1
+  hypothesis: ASTRA0-19
+  idea: information_seeking_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/information_seeking_v1
+  instruction: |-
+    Author a new task from scratch: information_seeking_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Choose the observation or question that best distinguishes remaining hypotheses under a supplied finite model.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/information_seeking_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/information_seeking_v1
+- id: P019v2
+  hypothesis: ASTRA0-19
+  idea: information_seeking_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/information_seeking_v2
+  instruction: |-
+    Author a new task from scratch: information_seeking_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Choose the observation or question that best distinguishes remaining hypotheses under a supplied finite model.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/information_seeking_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/information_seeking_v2
+- id: P020v1
+  hypothesis: ASTRA0-20
+  idea: pragmatic_reference_generation_v1 (draw 1 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/pragmatic_reference_generation_v1
+  instruction: |-
+    Author a new task from scratch: pragmatic_reference_generation_v1.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Produce the shortest description uniquely identifying an object among distractors in a shared scene.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/pragmatic_reference_generation_v1
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/pragmatic_reference_generation_v1
+- id: P020v2
+  hypothesis: ASTRA0-20
+  idea: pragmatic_reference_generation_v2 (draw 2 of 2)
+  changes: new task in reasoning_core/tasks/generated/wave10/pragmatic_reference_generation_v2
+  instruction: |-
+    Author a new task from scratch: pragmatic_reference_generation_v2.
+
+    Cover exactly this, and put this line -- adapted to what you actually build -- in the class `summary`:
+
+      Produce the shortest description uniquely identifying an object among distractors in a shared scene.
+
+    Every decision the summary does not fix is yours: instance family, generator, verifier, difficulty scaling, prompt wording and answer format. Other trials in this wave are implementing the same summary independently and are not coordinating with you. Make the choices you believe produce the best training data.
+
+    AUTHORING_RULES.md lists the checks generate_entry must perform and the failure modes that sank earlier waves -- read it before writing code, and treat it as part of this instruction.
+  owned_path: reasoning_core/tasks/generated/wave10/pragmatic_reference_generation_v2
+  validation:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider --import-mode=importlib reasoning_core/tasks/generated/wave10/pragmatic_reference_generation_v2
