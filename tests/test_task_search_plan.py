@@ -239,7 +239,7 @@ def test_a_trial_without_a_design_choice_renders_the_prompt_it_always_did(tmp_pa
     # The only difference is the new section: nothing else about the prompt moved.
     assert without == with_choice.replace(
         with_choice[with_choice.index("\n## Assigned design choice") :
-                    with_choice.index("\nDesign constraint, measured on this wave:")],
+                        with_choice.index("\nKeep the assigned answer semantics.")],
         "",
     )
 

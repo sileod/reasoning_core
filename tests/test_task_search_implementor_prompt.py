@@ -98,6 +98,17 @@ def test_sample_generator_command_is_allowed():
 
     assert permissions["bash"][_sample_command(trial)] == "allow"
 
+
+def test_prompt_allows_balanced_labels_and_keeps_seeding_outside_tasks():
+    plan = load_plan(PLAN)
+    prompt = " ".join(render_implementor_prompt(plan, plan.trials[0], ROOT).split())
+    assert "Balanced yes/no answers and small fixed label sets are allowed" in prompt
+    assert "excess over the 1/k floor" in prompt
+    assert "Seed only in the sample script, never inside the task" in prompt
+    assert "required before coordinator review" in prompt
+    assert "small fixed label sets lose" not in prompt
+    assert "seed the `random` module instead" not in prompt
+
 def test_self_check_is_the_only_verification_command_the_prompt_asks_for(tmp_path):
     """The prompt hands out one verification command and the sandbox allows exactly it.
 
