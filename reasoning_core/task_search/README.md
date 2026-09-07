@@ -66,3 +66,25 @@ python -m reasoning_core.task_search check-proposals \
 ```
 
 See `proposals/FORMAT.md` for the proposal schema and novelty rules.
+
+## Compare implementation choices
+
+Generate two distinct approaches per proposal, then run one worker per approach:
+
+```bash
+python -m reasoning_core.task_search plan proposals.yaml --name choice_pilot \
+  --variants 2 --design-choices 2
+python -m reasoning_core.task_search run reasoning_core/task_search/plans/choice_pilot.yaml \
+  --model deepseek-v4-flash --provider albert
+```
+
+The design proposer defaults to DeepSeek V4 Flash on Albert and uses `ALBERT_API_KEY`.
+`--design-choices` must equal `--variants`; without it, variants differ only by seed.
+Every proposal in the input is included, so use a proposal subset for a small pilot.
+
+The exact assigned approach is stored as `trials[].design_choice` in the plan, under
+`Assigned design choice` in `prompt.md`, and as `design_choice` in each completed
+trial's `run.json` and its `summary.json` result. This records the assignment, not
+proof that the implementation followed it: inspect the candidate and samples before
+comparing approaches. The generated module's `TASK_META` does not include this field;
+retain the plan and run records alongside any selected candidate.

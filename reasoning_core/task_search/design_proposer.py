@@ -39,6 +39,9 @@ Rules:
 - Each choice must be implementable on its own, with no reference to the others.
 - Describe the approach, not the code. Name no Python identifiers, files or libraries.
 - Every choice must satisfy the summary. Do not propose a different task.
+- Follow the worker's answer contract: compact, canonical strings, lists, fractions,
+  or integers. No float or JSON answers, free-form prose, or open-ended semantic
+  paraphrase grading. A tool call can be a constrained canonical call string.
 - Prefer choices whose answers vary richly across examples over yes/no or fixed labels.
 
 Reply with JSON only: {"choices": ["...", "..."]}"""
