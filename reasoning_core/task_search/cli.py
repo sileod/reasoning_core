@@ -342,7 +342,8 @@ def main(argv=None):
             f"at {plan.base_ref}"
         )
         repo_root = _repo_root(plan.path.parent)
-        for problem in _plan_problems(plan, repo_root):
+        problems = _plan_problems(plan, repo_root)
+        for problem in problems:
             print(f"PROBLEM: {problem}")
         drift = _frozen_module_drift(repo_root, plan.base_ref)
         if drift:
@@ -351,6 +352,8 @@ def main(argv=None):
             print(f"queue\t{name}\t{','.join(members)}")
         for trial in plan.trials:
             print(f"{trial.trial_id}\t{trial.hypothesis or '-'}\t{trial.owned_path}")
+        if problems:
+            raise SystemExit(1)
     elif args.command == "render":
         trial = next(
             (item for item in plan.trials if item.trial_id == args.trial_id), None
@@ -402,5 +405,7 @@ def main(argv=None):
                 f"{result['trial_id']}\t{result['status']}\t"
                 f"{result.get('worktree', '-')}"
             )
+            if result.get("error"):
+                print(f"{result['trial_id']}: {result['error']}", file=sys.stderr)
         if any(result["status"] != "success" for result in results):
             raise SystemExit(1)

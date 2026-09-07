@@ -8,7 +8,7 @@ cd "$repo_root"
 
 task_search_seed=${TASK_SEARCH_SEED:-20260828}
 task_search_queue=${TASK_SEARCH_QUEUE:-weekend_p0}
-task_search_plan=${TASK_SEARCH_PLAN:-reasoning_core/task_search/wave0.yaml}
+task_search_plan=${TASK_SEARCH_PLAN:-reasoning_core/task_search/plans/wave0.yaml}
 task_search_harness=${TASK_SEARCH_HARNESS:-opencode}
 
 if [[ -n ${TASK_SEARCH_KEY_FILE:-} ]]; then

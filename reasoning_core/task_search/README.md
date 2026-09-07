@@ -43,6 +43,8 @@ gameability, semantics, and candidate stability in a fixed order.
 Runs default to `.reasoning_core-task-search/<wave>/<timestamp>/` beside the checkout.
 They retain prompts, harness output, validation logs, candidate hashes, `run.json`, and
 an incrementally updated `summary.json`. See `BABYSITTING.md` for safe monitoring.
+The runner prints the artifact directory at startup. Custom `--runs-root` paths
+must be outside `/tmp` and `/run`, which are hidden by the sandbox.
 
 ## Propose tasks
 

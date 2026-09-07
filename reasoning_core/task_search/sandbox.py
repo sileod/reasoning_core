@@ -111,6 +111,15 @@ def _sanitized_environment(credential_env_names=()):
     return environment
 
 
+def _check_sandbox_location(path, label):
+    path = Path(path).resolve()
+    for hidden in (Path("/tmp"), Path("/run")):
+        if path == hidden or hidden in path.parents:
+            raise ValueError(
+                f"{label} cannot be under {hidden} because strict runs hide host {hidden}: {path}"
+            )
+
+
 def _sandbox_command(
     command,
     *,
@@ -133,14 +142,7 @@ def _sandbox_command(
         raise ValueError(f"owned path escapes worktree: {owned_path}")
     runtime_root = Path(runtime_root).resolve()
     for path, label in ((worktree, "worktree"), (runtime_root, "runtime root")):
-        if path == Path("/tmp") or Path("/tmp") in path.parents:
-            raise ValueError(
-                f"{label} cannot be under /tmp because strict runs hide host /tmp: {path}"
-            )
-        if path == Path("/run") or Path("/run") in path.parents:
-            raise ValueError(
-                f"{label} cannot be under /run because strict runs hide host /run: {path}"
-            )
+        _check_sandbox_location(path, label)
     runtime_dirs = {
         "XDG_DATA_HOME": runtime_root / "data",
         "XDG_CACHE_HOME": runtime_root / "cache",

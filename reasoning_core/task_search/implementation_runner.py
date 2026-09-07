@@ -26,6 +26,7 @@ from .implementor_prompt import (
 from .plan import _frozen_module_drift, _plan_problems, _select_trials, load_plan
 from .sandbox import (
     _agy_writable_overlays,
+    _check_sandbox_location,
     _public_resource_limits,
     _resolve_resource_limits,
     _resource_command,
@@ -610,6 +611,12 @@ def run_plan(
         raise ValueError("retry count and backoff must be non-negative")
     plan = load_plan(plan_path)
     repo_root = Path(repo_root).resolve() if repo_root else _repo_root(plan.path.parent)
+    root = (
+        Path(runs_root).resolve()
+        if runs_root
+        else repo_root.parent / f".{repo_root.name}-task-search"
+    )
+    _check_sandbox_location(root, "runs root")
     selected = _select_trials(plan, trial_ids, queue_names)
     base_commit = subprocess.check_output(
         ["git", "rev-parse", plan.base_ref], cwd=repo_root, text=True
@@ -650,11 +657,6 @@ def run_plan(
         memory_max=memory_max,
         tasks_max=tasks_max,
         cpu_quota=cpu_quota,
-    )
-    root = (
-        Path(runs_root).resolve()
-        if runs_root
-        else repo_root.parent / f".{repo_root.name}-task-search"
     )
     invocation = (
         root / plan.name / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -738,6 +740,7 @@ def run_plan(
                 time.sleep(_retry_delay(retry_backoff_seconds, provider_retries))
 
     write_summary()
+    print(f"Run artifacts: {invocation}", file=sys.stderr, flush=True)
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
         futures = {
             pool.submit(

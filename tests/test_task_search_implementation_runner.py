@@ -83,6 +83,18 @@ def test_opencode_profile_leaves_write_scope_to_mount_sandbox():
     assert permissions["bash"][trial.validation[0]] == "allow"
     assert permissions["task"] == "deny"
 
+
+@pytest.mark.parametrize("runs_root", ["/tmp/task-search-test", "/run/task-search-test"])
+def test_hidden_run_directory_fails_before_worktree_or_harness_setup(monkeypatch, runs_root):
+    from reasoning_core.task_search import implementation_runner as runner
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("invalid run directory reached subprocess setup")
+
+    monkeypatch.setattr(runner.subprocess, "check_output", unexpected)
+    with pytest.raises(ValueError, match="runs root cannot be under"):
+        runner.run_plan(PLAN, repo_root=ROOT, model="unused", runs_root=runs_root)
+
 def test_generation_metadata_records_requested_but_unforwarded_seed():
     metadata = generation_metadata(
         "example-provider/example-model",
