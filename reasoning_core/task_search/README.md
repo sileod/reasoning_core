@@ -35,6 +35,16 @@ model selection, cwd, prompt delivery, unattended mode, and native argument forw
 Task search still owns experiment-specific permissions/configuration, step limits,
 trajectory paths, AGY writable overlays, and the outer sandbox/resource limits.
 
+`run` requires a plan and `--model`. Defaults are OpenCode, one job, 56 steps,
+and a 30-minute worker timeout. With no `--trial` or `--queue`, it runs every
+trial in the plan; use `--trial ID` for a single-task smoke run.
+
+OpenCode filesystem snapshots are disabled by default to avoid a second Git index
+of each isolated worktree. Use `--snapshots` to enable session undo, or
+`--no-snapshots` to disable it explicitly. This setting affects only OpenCode and
+is recorded in `summary.json` and `run.json`; it does not change the worker prompt,
+sandbox permissions, validation, or retained worktrees.
+
 Each trial runs from the same detached base commit and may write only its owned task
 directory and private runtime. The coordinator independently checks scope, provenance,
 discovery, contract behavior, samples, reproducibility, validation commands,

@@ -84,6 +84,15 @@ def test_opencode_profile_leaves_write_scope_to_mount_sandbox():
     assert permissions["task"] == "deny"
 
 
+def test_snapshots_toggle_does_not_change_worker_permissions():
+    trial = load_plan(PLAN).trials[0]
+    disabled = opencode_config(trial, "worker")
+    enabled = opencode_config(trial, "worker", snapshots=True)
+    assert disabled.pop("snapshot") is False
+    assert enabled.pop("snapshot") is True
+    assert disabled == enabled
+
+
 @pytest.mark.parametrize("runs_root", ["/tmp/task-search-test", "/run/task-search-test"])
 def test_hidden_run_directory_fails_before_worktree_or_harness_setup(monkeypatch, runs_root):
     from reasoning_core.task_search import implementation_runner as runner

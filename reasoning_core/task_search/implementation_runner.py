@@ -176,6 +176,7 @@ def opencode_config(
     temperature=None,
     top_p=None,
     max_steps=56,
+    snapshots=False,
 ):
     permissions = opencode_permissions(trial)
     agent_config = {
@@ -192,6 +193,7 @@ def opencode_config(
         agent_config["top_p"] = top_p
     return {
         "$schema": "https://opencode.ai/config.json",
+        "snapshot": snapshots,
         "permission": permissions,
         "agent": {agent: agent_config},
     }
@@ -320,6 +322,7 @@ def _run_trial(
     validation_timeout_seconds,
     credential_env_names,
     pace=DEFAULT_PACE,
+    snapshots=False,
 ):
     trial_root = invocation_root / trial.trial_id
     worktree = trial_root / "worktree"
@@ -397,6 +400,7 @@ def _run_trial(
                 temperature=temperature,
                 top_p=top_p,
                 max_steps=max_steps,
+                snapshots=snapshots,
             ),
         )
         events_path = trial_root / "events.jsonl"
@@ -503,6 +507,7 @@ def _run_trial(
         # into the worker's prompt, and a pace A/B whose treatment also edits the
         # provenance mapping is not measuring the pacing alone.
         "pace": pace,
+        "snapshots": snapshots if harness == "opencode" else None,
         "prompt_sha256": _sha256(prompt),
         "generation": generation,
         "parent_source_id": parent_source_id,
@@ -601,6 +606,7 @@ def run_plan(
     pace=DEFAULT_PACE,
     transient_retries=2,
     retry_backoff_seconds=30,
+    snapshots=False,
 ):
     """Run selected trials concurrently in isolated Git worktrees."""
     if pace not in PACE:
@@ -686,6 +692,7 @@ def run_plan(
                 "timeout_seconds": timeout_seconds,
                 "validation_timeout_seconds": validation_timeout_seconds,
                 "pace": pace,
+                "snapshots": snapshots if harness == "opencode" else None,
                 "transient_retries": transient_retries,
                 "retry_backoff_seconds": retry_backoff_seconds,
                 "sandbox": {"name": "bubblewrap", "version": sandbox_version},
@@ -769,6 +776,7 @@ def run_plan(
                 validation_timeout_seconds,
                 tuple(credential_env_names),
                 pace,
+                snapshots,
             ): trial.trial_id
             for trial in selected
         }

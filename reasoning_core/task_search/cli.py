@@ -146,6 +146,12 @@ def _parser():
     )
     run.add_argument("--provider", help="optional Harness Link provider")
     run.add_argument(
+        "--snapshots",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="enable OpenCode session undo snapshots (default: disabled; OpenCode only)",
+    )
+    run.add_argument(
         "--credential-env",
         action="append",
         default=[],
@@ -399,6 +405,7 @@ def main(argv=None):
             validation_timeout_seconds=args.validation_timeout_seconds,
             credential_env_names=args.credential_env,
             pace=args.pace,
+            snapshots=args.snapshots,
         )
         for result in results:
             print(
