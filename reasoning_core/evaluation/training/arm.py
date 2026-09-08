@@ -14,17 +14,17 @@ from transformers import TrainerCallback
 from trl import SFTConfig, SFTTrainer
 
 from reasoning_core import __version__
-from reasoning_core.training.checkpointing import (
+from reasoning_core.evaluation.training.checkpointing import (
     ResumableCheckpointCallback,
     latest_complete_checkpoint,
     prepare_checkpoint_dir,
 )
-from reasoning_core.training.local_metrics import LocalMetricsCallback, LocalMetricsSink
-from reasoning_core.training.optimizers import (
+from reasoning_core.evaluation.training.local_metrics import LocalMetricsCallback, LocalMetricsSink
+from reasoning_core.evaluation.training.optimizers import (
     create_optimizer_and_scheduler,
     trainer_cls_for_optimizer,
 )
-from reasoning_core.training.paths import RUNS_HOME, home_path
+from reasoning_core.evaluation.training.paths import RUNS_HOME, home_path
 
 
 ENGINE_VERSION = 3

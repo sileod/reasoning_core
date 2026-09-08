@@ -2,11 +2,11 @@
 
 The public training API has one arm runner:
 
-- `arm.py`: typed, resumable, content-addressed `run_arm()`
-- `data.py`: explicit formatting, filtering, mixing, and token-dose helpers
-- `evals.py`: versioned QA, LM, multiple-choice, and generation evaluators
-- `influence.py`: paired baseline/treatment orchestration using `run_arm()`
-- `gradient_influence.py`: cached contrastive gradients and cheap task alignment
+- `evaluation/training/arm.py`: typed, resumable, content-addressed `run_arm()`
+- `evaluation/training/data.py`: explicit formatting, filtering, mixing, and token-dose helpers
+- `evaluation/metrics.py`: versioned QA, LM, multiple-choice, and generation evaluators
+- `evaluation/influence.py`: paired baseline/treatment orchestration using `run_arm()`
+- `evaluation/gradient.py`: cached contrastive gradients and cheap task alignment
 
 Install the optional dependencies with:
 
@@ -16,7 +16,7 @@ pip install 'reasoning-core[training]'
 
 For a complete offline evaluation and two-step paired training example, run
 `CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py` from a checkout.
-See the [workflow recipes](../../docs/workflows.md#run-a-paired-influence-smoke) for
+See the [workflow recipes](workflows.md#run-a-paired-influence-smoke) for
 expected output and artifact locations. The API sketch below assumes caller-supplied data and models.
 
 ## Eval data
@@ -33,8 +33,8 @@ plans. Dataset factories are called independently, and the same supplied model
 state is cloned once and restored before every arm:
 
 ```python
-from reasoning_core.training.arm import ArmSpec
-from reasoning_core.training.influence import ArmPlan, run_influence
+from reasoning_core.evaluation.training.arm import ArmSpec
+from reasoning_core.evaluation.influence import ArmPlan, run_influence
 
 baseline = ArmPlan(ArmSpec(
     "study", "baseline", initialization_id="sha256:...", main_data_id="sha256:...",
@@ -95,10 +95,10 @@ The former `dev_*` modules remain compatibility imports. New code should import
 the canonical modules above.
 
 For a new or changed task, follow the repository's
-[task influence guide](../../task_influence/README.md).
+[task influence guide](influence.md).
 It keeps the baseline fixed and limits task-specific changes to the auxiliary
 stream/filter, its content ID, and the treatment arm ID. Historical measurements
-are published in [`RESULTS.md`](../../task_influence/RESULTS.md).
+are published in [`RESULTS.md`](results/influence.md).
 
 ## Gradient influence proxy
 
@@ -108,7 +108,7 @@ content-addressed aggregate from ordered MC benchmark legs, then scores formatte
 `prompt`/`completion` batches:
 
 ```python
-from reasoning_core.training.gradient_influence import (
+from reasoning_core.evaluation.gradient import (
     GradientCacheSpec, build_eval_gradient_cache, gradient_objective_id,
     score_task_gradient,
 )
@@ -129,3 +129,77 @@ Run `scripts/validate_gradient_influence.py --help` to calibrate 1/2/4/8/16/32
 batch estimates against the published 51-task, 300-step measurements. Its pinned
 5M default is a cheap pipeline smoke; pass the actual warmed FW+Dolci checkpoint
 and initialization ID for scientific calibration.
+
+## Task groups and composition
+
+A single task and a mixture use the same `TaskGroup` representation. Weights
+are normalized, member order is canonical, and membership/weights form its identity:
+
+```python
+from reasoning_core.evaluation.groups import TaskGroup
+
+a = TaskGroup(("arithmetics",))
+b = TaskGroup(("graph_pathfinding",))
+ab = TaskGroup(("arithmetics", "graph_pathfinding"), (1, 3))
+```
+
+`evaluation.training.groups.group_arm(spec, group, main_rows, task_rows, tokenizer)`
+builds an ordinary `ArmPlan` for `run_influence`. `main_rows` are formatted
+`prompt`/`completion` rows; `task_rows` maps every group member to preselected raw
+`prompt`/`answer` rows. Pass `aux_token_fraction` explicitly and
+`shuffle_buffer=0`. The helper snapshots the formatted rows, records their content
+identities and the group in the spec, and builds a replayable seeded stream.
+Sampling corrects for each source's mean token length; token shares are expected
+proportions, with sampling variation in short runs. Oversized rows are rejected.
+
+For example, after materializing your main and task rows and creating an `ArmSpec`:
+
+```python
+from reasoning_core.evaluation.training.groups import group_arm
+from reasoning_core.evaluation.intrinsic import FreeGenRewardSpec
+
+plan = group_arm(
+    spec, ab, main_rows, task_rows, tokenizer, aux_token_fraction=0.2,
+    reward_rows=heldout_rows,
+    reward_spec=FreeGenRewardSpec(n_eval=25),
+    evaluation_group=TaskGroup(ab.tasks),  # equal evaluation weights
+)
+```
+
+`heldout_rows` maps the evaluation group members to fixed rows with task metadata;
+keep it separate from training rows. The plan evaluates each member independently
+before and after training. Arm metrics retain `initial/reward/<task>`,
+`reward/<task>`, per-member `reward_examples/<task>` counts, and the aggregate
+`initial/reward`/`reward`. `n_eval` is per member, not a cap on the concatenated
+mixture. A member with no scorable rows fails instead of disappearing from the
+aggregate. Evaluation weights default to equal and are identified independently
+of training weights. Pass the same, possibly larger `evaluation_group` and fixed
+reward rows to every arm when comparing intrinsic transfer across A, B, and A+B.
+Generation may skip individual unscorable rows; inspect the
+reported counts alongside rewards.
+
+To assess compositional predictability, measure components and the mixture using
+the same total training dose and evaluation protocol, then compare:
+
+```python
+from reasoning_core.evaluation.composition import GroupMeasurement, compare_composition
+
+# Illustrative measurements, not benchmark results.
+ma = GroupMeasurement(a, "matched-protocol-v1", 0, {"nll": 2.0})
+mb = GroupMeasurement(b, "matched-protocol-v1", 0, {"nll": 4.0})
+mab = GroupMeasurement(ab, "matched-protocol-v1", 0, {"nll": 3.0})
+print(compare_composition(mab, [ma, mb]))
+# predicted nll: 3.5; observed: 3.0; residual: -0.5
+```
+
+The weighted-linear prediction is a baseline hypothesis about fixed-budget
+mixtures, not a causal synergy estimate. A negative NLL residual beats that
+prediction. Repeat across seeds and evaluate prediction quality on mixtures not
+used to tune a predictor. Components may themselves be disjoint groups, provided
+their internal proportions match the observed mixture.
+
+The caller must supply a protocol ID identifying the shared initialization,
+training dose, task-data snapshots, formatting, battery, and metric definitions. The comparison rejects
+different IDs, seeds, metric sets, missing members, overlapping components, or
+incompatible internal weights. Use selected scientific metrics (e.g. per-leg NLL),
+not runtimes or training-loss fields, as the measurement vector.

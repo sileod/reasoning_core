@@ -22,6 +22,8 @@ def main():
     from reasoning_core.evaluation.training.arm import ArmSpec
     from reasoning_core.evaluation.metrics import EvalExample, EvalSuite, evaluate_qa_nll
     from reasoning_core.evaluation.influence import ArmPlan, run_influence
+    from reasoning_core.evaluation.groups import TaskGroup
+    from reasoning_core.evaluation.training.groups import group_arm
 
     torch.set_num_threads(1)
     torch.manual_seed(0)
@@ -45,8 +47,6 @@ def main():
         return
 
     main_rows = [{"prompt": f"value {n} ", "completion": f"{n} [EOS]"} for n in (0, 1)] * 4
-    aux_rows = [{"prompt": f"value {n} ", "completion": f"{n} [EOS]"} for n in (2, 3)] * 4
-    mixed_rows = [row for pair in zip(main_rows, aux_rows) for row in pair]
     initial = {key: tensor.detach().clone() for key, tensor in model.state_dict().items()}
     digest = hashlib.sha256(json.dumps(model.config.to_dict(), sort_keys=True).encode())
     for key, tensor in sorted(initial.items()):
@@ -58,12 +58,17 @@ def main():
         initialization_id="sha256:" + digest.hexdigest(), main_data_id=content_hash(main_rows),
         eval_ids=(suite.identifier,), formatter="smoke_text_v1",
     )
-    treatment_spec = replace(baseline_spec, arm_id="treatment", aux_source="smoke",
-                             aux_data_id=content_hash(aux_rows), aux_fraction=0.5)
+    group = TaskGroup(("toy_2", "toy_3"))
+    task_rows = {f"toy_{n}": [{"prompt": f"value {n}", "answer": f"{n} "}] for n in (2, 3)}
+    treatment = group_arm(
+        replace(baseline_spec, arm_id="treatment", aux_formatter="influence_legacy_v1"),
+        group, main_rows, task_rows, tokenizer, aux_token_fraction=0.5,
+    )
+    treatment_spec = treatment.spec
     result = run_influence(
         model, tokenizer, initial,
         ArmPlan(baseline_spec, lambda: Dataset.from_list(main_rows)),
-        (ArmPlan(treatment_spec, lambda: Dataset.from_list(mixed_rows)),),
+        (treatment,),
         metric_names=("nll",), evaluate=evaluate,
     )
     print(json.dumps({"baseline": result.baseline, "treatments": result.treatments,
