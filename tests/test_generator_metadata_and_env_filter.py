@@ -1,9 +1,18 @@
 from datasets import Dataset
 
-from reasoning_core.primeintellect.reasoning_core_env.reasoning_core_env import (
-    _filter_available_tasks,
-    _prepare_env_dataset,
-)
+# The Prime Intellect env moved out of the package to integrations/ and is deliberately NOT
+# importable as reasoning_core.*: it ships its own pyproject and is not part of the distribution.
+# Load it by path so this stays a test of the adapter rather than of the packaging layout.
+import importlib.util as _ilu
+import pathlib as _pathlib
+
+_ENV = (_pathlib.Path(__file__).resolve().parents[1]
+        / "integrations/primeintellect/reasoning_core_env/reasoning_core_env.py")
+_spec = _ilu.spec_from_file_location("pi_reasoning_core_env", _ENV)
+_mod = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+_filter_available_tasks = _mod._filter_available_tasks
+_prepare_env_dataset = _mod._prepare_env_dataset
 from reasoning_core.template import Config, DevTask, Problem
 
 

@@ -129,3 +129,7 @@ reasoning_core/task_search/README.providers.private.md
 reasoning_core/reports/
 # ...and the test that imports it.
 tests/test_difficulty_tune.py
+# G5K / machine-specific orchestration: hardcodes site paths and $ST storage, writes into the
+# private reports/ tree and shells into the private task_diagnostics runner. It cannot work for
+# anyone outside this setup, so it is workspace state, not part of the public package.
+scripts/g5k_influence_gaps.py
