@@ -24,7 +24,7 @@ from reasoning_core.task_search.wave_proposer import (
 )
 
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 VARIANT = re.compile(r"_v\d+$")
 
 

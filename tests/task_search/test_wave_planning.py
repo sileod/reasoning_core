@@ -14,7 +14,7 @@ from reasoning_core.task_search.wave_proposer import (
 )
 
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 
 
 def wave(count=2, variants_of=("alpha_task", "beta_task")):

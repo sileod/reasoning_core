@@ -232,19 +232,19 @@ landing are described in [BABYSITTING.md](../reasoning_core/task_search/BABYSITT
 
 ## Local checks
 
-Install `pytest` explicitly (`python -m pip install pytest`). For catalogue and
-core infrastructure changes:
+Install `pytest` explicitly (`python -m pip install pytest`). `tests/` mirrors the
+package, so run the directory matching what you changed:
 
-```bash
-python -m pytest -q tests/test_task_discovery.py tests/test_score_answer_dispatch.py \
-  tests/test_template_validation.py tests/test_workflow_cli.py
-```
+| Changed | Run |
+|---|---|
+| a task generator | `python -m pytest -q tests/tasks/test_<task>.py` |
+| the registry or task contract | `python -m pytest -q tests/*.py` |
+| generation or the CLI | `python -m pytest -q tests/generation` |
+| training, batteries, influence | `python -m pytest -q tests/evaluation` |
+| an optional adapter | `python -m pytest -q tests/integrations` |
+| task search | `python -m pytest -q tests/task_search` |
 
-For training changes, with the training extra installed:
-
-```bash
-python -m pytest -q tests/test_training_runtime.py
-```
-
-For search changes, run the relevant `tests/test_task_search_*.py` files. Individual
-task tests can need external solvers; choose tests for the subsystem you changed.
+The top-level files are the cross-cutting ones — discovery, scoring dispatch, the
+template contract — which is why the registry row runs `tests/*.py` rather than the
+whole tree. `tests/evaluation` needs the training extra, and individual task tests can
+need external solvers.

@@ -106,6 +106,10 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Patterns match a directory's *basename*, so a bare name here excludes that name anywhere in
+# the tree. "integrations" used to be listed for the root integrations/ distributions and
+# silently swallowed tests/integrations/ as well; it collected nothing either way. Prefer a
+# path fragment over a bare name, and check `--collect-only` counts after adding one.
 norecursedirs = [
     ".git",
     ".hypothesis",
@@ -120,7 +124,6 @@ norecursedirs = [
     "data-gym-cache",
     "per_task_results",
     "per_task_results_rgym",
-    "integrations",
     "reasoning_core/.mountpoints",
     "reasoning_core/generated_data",
     "reasoning_core/index",

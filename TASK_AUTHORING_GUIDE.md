@@ -90,7 +90,7 @@ Design rules for `apply_difficulty(level)`:
 - do not hardcode different subtasks (do not use "if level ... then ...")
 - use direct formulas instead of recursively calling legacy update logic.
 
-Use `assert_difficulty_update_equivalence(...)` from `reasoning_core.template` when migrating existing configs; see `tests/test_config_difficulty_migration.py` for examples.
+Use `assert_difficulty_update_equivalence(...)` from `reasoning_core.template` when migrating existing configs; see `tests/tasks/test_config_difficulty_migration.py` for examples.
 
 Rough reference:
 Level 0 should be as simple as possible while ensuring diversity (for example in a task where we generate graphs for shortest path prediction, 3 nodes are not enough because the combinatorics run out quickly)

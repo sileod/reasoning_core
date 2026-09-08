@@ -5,7 +5,7 @@ import pytest
 from reasoning_core.task_search import cli
 
 
-PLAN = Path(__file__).parents[1] / "reasoning_core/task_search/plans/wave0.yaml"
+PLAN = Path(__file__).parents[2] / "reasoning_core/task_search/plans/wave0.yaml"
 
 
 @pytest.mark.parametrize("flags, expected", [([], False), (["--snapshots"], True),

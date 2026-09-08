@@ -6,7 +6,7 @@ from datasets import Dataset
 import importlib.util as _ilu
 import pathlib as _pathlib
 
-_ENV = (_pathlib.Path(__file__).resolve().parents[1]
+_ENV = (_pathlib.Path(__file__).resolve().parents[2]
         / "integrations/primeintellect/reasoning_core_env/reasoning_core_env.py")
 _spec = _ilu.spec_from_file_location("pi_reasoning_core_env", _ENV)
 _mod = _ilu.module_from_spec(_spec)

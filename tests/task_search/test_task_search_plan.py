@@ -56,7 +56,7 @@ from reasoning_core.task_search.validation import (
 )
 
 
-ROOT = Path(__file__).parents[1]
+ROOT = Path(__file__).parents[2]
 PLAN = ROOT / "reasoning_core" / "task_search" / "plans" / "wave0.yaml"
 
 

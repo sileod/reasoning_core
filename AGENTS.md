@@ -17,9 +17,10 @@
 
 - `registry.py`: discovery and scoring dispatch; `template.py`: task contract; `runtime.py`: execution/cache helpers.
 - Under `reasoning_core/`: `evaluation/` owns zero-shot, intrinsic reward, batteries, and influence; `evaluation/training/` owns the arm engine; `generation/` owns generation/collection; `integrations/` owns optional adapters; `task_search/` owns developer orchestration.
-- New code uses `evaluation/`; old `training/` Python imports are compatibility shims. Keep module aliases so existing monkeypatches and callers keep working. Do not change run/battery identities during relocation.
+- There is one import path per module and nothing aliases anything else; if you move a module, repoint its callers rather than leaving an alias behind. Do not change run/battery identities when relocating: an `ArmSpec` must keep its `spec_id` and a battery its `identifier`.
+- Battery manifests are data, under `reasoning_core/resources/batteries/`. A manifest pins its own `name`, which is hashed into the battery identifier recorded by measured arms, so add manifests freely but never rename or edit one.
 - Standalone integration distributions live in root `integrations/`; reports and private ops remain outside the public package.
 - Read [docs/workflows.md](docs/workflows.md) for runnable recipes and install requirements. Find tasks without imports: `python -m reasoning_core catalog 'query' --all --json`.
-- With `pytest` installed, core changes: `python -m pytest -q tests/test_task_discovery.py tests/test_score_answer_dispatch.py tests/test_template_validation.py tests/test_workflow_cli.py`.
-- Training changes: `python -m pytest -q tests/test_training_runtime.py` (training extra required). Search changes: run the relevant `tests/test_task_search_*.py` files.
+- `tests/` mirrors the package: `tests/tasks/`, `tests/evaluation/`, `tests/generation/`, `tests/integrations/`, `tests/task_search/`, `tests/scripts/`, with the registry and task-contract tests at the top level. Run the directory matching what you changed.
+- With `pytest` installed, core changes: `python -m pytest -q tests/*.py`. Training changes: `python -m pytest -q tests/evaluation` (training extra required). Search changes: `python -m pytest -q tests/task_search`.
 - Operational artifacts and private checkouts are not source dependencies; use tracked files for shared workflows.
