@@ -118,8 +118,10 @@ def render_implementor_prompt(
             *textwrap.wrap(
                 f"1. {pacing['first_step']} under the owned path: a `Config` subclass, a"
                 " `Task` subclass whose name does not contain `Task`, a literal class"
-                " `summary` that packs the full task coverage into one sentence, and the exact"
-                " TASK_META below, pasted rather than retyped.",
+                " `summary` that packs the full task coverage into one sentence,"
+                + (" a literal class `design_choice` holding the one-line choice assigned"
+                   " below, copied verbatim," if trial.design_choice else "")
+                + " and the exact TASK_META below, pasted rather than retyped.",
                 79,
                 subsequent_indent="   ",
             ),
@@ -161,6 +163,10 @@ def render_implementor_prompt(
             "  on it and must match the answer format your prompt asks for.",
             "- `summary` is a concise one-line coverage spec, not one example:",
             "  name the task's distinct modes, operations, input families and output regimes.",
+            *(("- `design_choice` is the assigned approach, one line, copied exactly as given.",
+               "  It travels with the code so a wave can say which approach a task came from;",
+               "  a paraphrase makes two arms of the same comparison unequal.")
+              if trial.design_choice else ()),
             "- `score_answer` runs with a mock `self` that raises on any attribute access,",
             "  so it must not touch `self` at all: no `self._parse_interval(answer)`, no",
             "  `self.config`. Put shared parsing in a module-level function and call it",

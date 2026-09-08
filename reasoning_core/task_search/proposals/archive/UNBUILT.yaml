@@ -1,0 +1,245 @@
+format_version: 1
+kind: sft_task_proposals
+name: UNBUILT
+provenance:
+  kind: external
+  name: UNBUILT
+  received: '2026-09-08'
+  source: every archived proposal that never produced a landed task, re-gathered from external, manual_high_value_80, ASTRA0 and ASTRA2
+created_at: '2026-09-08T18:58:00+00:00'
+objective:
+  training_stage: sft
+  requested: 31
+  accepted: 31
+  complete: true
+catalog:
+  sha256: 91f6f7656ec48a1310c514df78e16f9b7219b75af0242104cabafda50e6fe7b6
+  entries: 438
+  sources:
+    gallery: 65
+    plan: 97
+    proposal: 33
+    task: 243
+generation:
+  provider: legacy
+  source: 'no new ideation: these summaries are already archived and were never built'
+  calls: []
+proposals:
+- name: instruction_priority
+  summary: Answer under conflicting instructions from different authority levels; lower-priority instructions still apply where compatible.
+  id: P001
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0:instruction_priority
+- name: instruction_data_boundary
+  summary: Process quoted text containing commands without treating those commands as instructions.
+  id: P002
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0:instruction_data_boundary
+- name: information_seeking
+  summary: Choose the observation or question that best distinguishes remaining hypotheses under a supplied finite model.
+  id: P003
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0:information_seeking
+- name: pragmatic_reference_generation
+  summary: Produce the shortest description uniquely identifying an object among distractors in a shared scene.
+  id: P004
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA0:pragmatic_reference_generation
+- name: noisy_channel_recovery
+  summary: Recover a short intended utterance from controlled corruption, contextual constraints, and an explicit noise model.
+  id: P005
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: ASTRA2:noisy_channel_recovery
+- name: btree_promoted_key
+  summary: Given a small B-tree and one insertion, output the first promoted key or None.
+  id: P006
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: external:btree_promoted_key
+- name: linearizability_check
+  summary: Given a small concurrent history and sequential specification, answer whether the history is linearizable.
+  id: P007
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: external:linearizability_check
+- name: bgp_best_path
+  summary: Given BGP route attributes, output the route selected by a stated best-path rule sequence.
+  id: P008
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: external:bgp_best_path
+- name: canonical_huffman_code
+  summary: Given symbol frequencies, build a tie-broken Huffman tree and output one symbol's canonical codeword.
+  id: P009
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: external:canonical_huffman_code
+- name: probability_tree_marginal
+  summary: Evaluate branching sequential random processes with conditional transitions, replacement or state changes, returning an exact event probability.
+  id: P010
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:probability_tree_marginal
+- name: d_separation
+  summary: Determine conditional independence in causal DAGs by active-path reasoning through chains, forks, colliders, and conditioned descendants.
+  id: P011
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:d_separation
+- name: dominator_analysis
+  summary: Compute dominator sets and immediate dominators in directed control-flow graphs from a designated entry node, returning a queried dominator relation.
+  id: P012
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:dominator_analysis
+- name: hindley_milner_inference
+  summary: Infer principal types for small functional expressions with application, abstraction, tuples, and let-polymorphism, returning a canonical type.
+  id: P013
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:hindley_milner_inference
+- name: alias_mutation_tracking
+  summary: Track aliases among mutable lists or records through assignment, mutation, and rebinding, returning a queried final value or reference relation.
+  id: P014
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:alias_mutation_tracking
+- name: exception_control_flow
+  summary: Execute nested try, handler, finally, return, and raise semantics with state mutation, returning the final value or uncaught exception.
+  id: P015
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:exception_control_flow
+- name: reaching_definitions
+  summary: Propagate reaching-definition sets through branched control flow and loops, returning the assignments that can reach a queried program point.
+  id: P016
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:reaching_definitions
+- name: relational_join_execution
+  summary: Execute inner, left, semi, and anti joins on small keyed relations with repeated keys, then return a specified projection or exact aggregate.
+  id: P017
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:relational_join_execution
+- name: window_function_execution
+  summary: Compute partitioned ordered running totals, ranks, lag or lead values, or bounded-window aggregates for a queried table row.
+  id: P018
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:window_function_execution
+- name: schema_migration_execution
+  summary: Apply ordered field rename, split, merge, default, and type-conversion operations to structured records, returning the canonical migrated record.
+  id: P019
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:schema_migration_execution
+- name: filesystem_path_resolution
+  summary: Resolve relative paths through dot segments and symbolic links under stated root and link rules, returning the canonical target or error state.
+  id: P020
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:filesystem_path_resolution
+- name: transaction_serializability
+  summary: Build conflict-precedence relations from interleaved transaction reads and writes, returning serializability and a canonical serial order when one exists.
+  id: P021
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:transaction_serializability
+- name: minimal_unsat_core
+  summary: Find the lexicographically canonical subset-minimal inconsistent subset of small Boolean or finite-domain constraints.
+  id: P022
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:minimal_unsat_core
+- name: truth_maintenance_revision
+  summary: Maintain derived facts with explicit justification sets as premises are added or retracted, returning the facts that remain supported.
+  id: P023
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:truth_maintenance_revision
+- name: modular_constraint_solver
+  summary: Combine modular congruence constraints including non-coprime moduli, returning inconsistency or the canonical residue and modulus solution.
+  id: P024
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:modular_constraint_solver
+- name: polynomial_euclidean_algorithm
+  summary: Execute exact polynomial division and the Euclidean algorithm over integers or finite fields, returning a canonical remainder or monic gcd.
+  id: P025
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:polynomial_euclidean_algorithm
+- name: calendar_recurrence_execution
+  summary: Generate occurrences from explicit recurrence, exclusion, and adjustment rules, returning the nth valid date or a count in a bounded interval.
+  id: P026
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:calendar_recurrence_execution
+- name: access_control_policy_evaluation
+  summary: Resolve inherited allow and deny permissions, group membership, and explicit exceptions under a stated precedence policy, returning effective access.
+  id: P027
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:access_control_policy_evaluation
+- name: consensus_log_commit
+  summary: Track replicated log terms, indexes, acknowledgements, and majority rules in a simplified consensus protocol, returning committed entries or commit index.
+  id: P028
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:consensus_log_commit
+- name: three_way_merge_resolution
+  summary: Perform deterministic base, left, and right sequence merging, distinguishing independent edits from conflicts and returning merged text or conflict spans.
+  id: P029
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: manual_high_value_80:three_way_merge_resolution
+- name: separation_logic_frame
+  summary: Infer the minimal frame for a separation logic triple {P} C {Q} over a tiny heap language with points-to, separating conjunction, and inductive predicates.
+  id: P030
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: nemotron_1:separation_logic_frame
+- name: termination_ranking_function
+  summary: Given a single-loop program with linear integer arithmetic updates and a loop guard, synthesize a linear ranking function proving termination and output its coefficients in canonical form.
+  id: P031
+  novelty:
+    source: legacy
+    verdict: imported
+    origin_id: nemotron_2:termination_ranking_function
+rejected: []

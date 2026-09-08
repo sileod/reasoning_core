@@ -26,7 +26,12 @@ DEFAULT_ENDPOINT = "https://albert.api.etalab.gouv.fr/v1/chat/completions"
 DEFAULT_API_KEY_ENV = "ALBERT_API_KEY"
 # One sentence is not enough to constrain an implementation and a paragraph starts
 # writing the code for the worker, which is the opposite of what the search is for.
-CHOICE_CHARS = 400
+# One line, and short enough to read beside its siblings. A choice now travels into the
+# task as a class attribute, so it is read far more often than it is written: a paragraph
+# there is a paragraph in every module built under it.
+CHOICE_CHARS = 240
+CHOICE_MIN_CHARS = 40
+CHOICE_ATTEMPTS = 3
 
 SYSTEM = """You design reasoning tasks for a machine-learning benchmark.
 
@@ -54,7 +59,7 @@ def _prompt(name, summary, count):
         f"TASK NAME: {name}\n"
         f"TASK SUMMARY: {summary}\n\n"
         f"Propose exactly {count} distinct design choices for implementing this task.\n"
-        f"Each choice: one or two sentences, at most {CHOICE_CHARS} characters."
+        f"Each choice: ONE line, {CHOICE_MIN_CHARS}-{CHOICE_CHARS} characters, no line breaks."
     )
 
 
@@ -69,22 +74,33 @@ def propose_design_choices(name, summary, count, *, client=None, **client_option
     if not summary.strip():
         raise ValueError(f"{name}: a design proposer needs a summary to work from")
     client = client or ChatClient(**client_options)
-    reply = client.json(f"design-{name}", SYSTEM, _prompt(name, summary, count))
-    choices = reply.get("choices")
-    if not isinstance(choices, list):
-        raise ValueError(f"{name}: design proposer response requires a choices list")
     cleaned = []
-    for choice in choices:
-        text = " ".join(str(choice).split())[:CHOICE_CHARS].strip()
-        # Case-insensitive: the model repeats itself in different capitalisation more
-        # often than it repeats itself exactly.
-        if text and text.lower() not in {seen.lower() for seen in cleaned}:
-            cleaned.append(text)
-    if len(cleaned) < count:
-        raise ValueError(
-            f"{name}: asked for {count} distinct design choices, got {len(cleaned)}"
-        )
-    return tuple(cleaned[:count])
+    # One overlong choice used to cost the whole wave: the call returns all `count` at
+    # once, so a single reply that runs past one line leaves a shortfall, and the raise
+    # below aborts a plan covering every other proposal too. Ask again instead, keeping
+    # what already passed, and only give up when the model cannot do it three times.
+    for attempt in range(CHOICE_ATTEMPTS):
+        reply = client.json(f"design-{name}-{attempt}" if attempt else f"design-{name}",
+                            SYSTEM, _prompt(name, summary, count))
+        choices = reply.get("choices")
+        if not isinstance(choices, list):
+            raise ValueError(f"{name}: design proposer response requires a choices list")
+        for choice in choices:
+            # Collapsing whitespace is what makes it one line; truncating mid-sentence
+            # would leave a dangling clause in the task, so an overlong choice is dropped.
+            text = " ".join(str(choice).split()).strip()
+            if not CHOICE_MIN_CHARS <= len(text) <= CHOICE_CHARS:
+                continue
+            # Case-insensitive: the model repeats itself in different capitalisation more
+            # often than it repeats itself exactly.
+            if text.lower() not in {seen.lower() for seen in cleaned}:
+                cleaned.append(text)
+        if len(cleaned) >= count:
+            return tuple(cleaned[:count])
+    raise ValueError(
+        f"{name}: asked for {count} distinct design choices, got {len(cleaned)} "
+        f"in {CHOICE_ATTEMPTS} attempts"
+    )
 
 
 def propose_wave_design_choices(wave, count, *, client=None, **client_options):
