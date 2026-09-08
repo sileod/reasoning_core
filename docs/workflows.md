@@ -107,19 +107,11 @@ Expected `mean_score` is 1. This verifies scoring only, not model ability.
 
 ## Evaluate a model
 
-For a fully offline model-evaluation smoke, install the training extra and run:
+Two different questions, answered by two different tools.
 
-```bash
-python -m pip install -e '.[training]'
-CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py --eval-only
-```
-
-The example constructs a tiny random GPT-2 model and tokenizer locally. It prints
-an evaluation identity and finite answer-token `nll`; no weights, datasets, or API
-credentials are downloaded. Its synthetic metric is a pipeline check.
-
-For API-backed task evaluation, install `python -m pip install -e '.[eval]'`,
-configure credentials for your `litlm` provider, and supply its model identifier:
+**How well does my model solve Reasoning Core tasks?** Generate data, let the model
+answer it, score the answers. Install `python -m pip install -e '.[eval]'`, configure
+credentials for your `litlm` provider, and supply its model identifier:
 
 ```bash
 export RC_EVAL_MODEL='your-provider/your-model'
@@ -134,35 +126,86 @@ print(scored.groupby('task')[['format_check', 'score']].mean())
 PY
 ```
 
-This makes paid/provider-limited requests and saves raw outputs (`y`), extracted
-answers (`pred`), format checks, and task scores. For local pretrained models and
-benchmark batteries, use `evaluate_battery()` in
-`reasoning_core.evaluation.battery`; [the training guide](evaluation.md)
-explains battery identities and evaluator variants.
+The input is the file [Sample data](#sample-data) wrote. This makes paid or
+provider-limited requests. Each row keeps the raw output (`y`), the extracted answer
+(`pred`), a `format_check`, and the task-native `score`. Read the two columns
+together: `format_check` separates answering in the wrong shape from answering
+wrongly, and a model that scores badly with a low format check is being measured on
+its formatting rather than its reasoning. `system_prompt=` changes the answer-format
+instruction and `scorer=` replaces task-native scoring.
+
+**How does this checkpoint do on the benchmark battery?** The battery is the fixed
+held-out suite that influence measurements are computed against — ARC, GSM8K, BBH,
+MMLU, FineWeb NLL and others. It scores by teacher-forced likelihood rather than
+free generation, so it works on base models that follow no instructions, and it
+takes a loaded model rather than an API:
+
+```bash
+python - <<'PY'
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from reasoning_core.evaluation.battery import default_battery, evaluate_battery
+
+name = 'EleutherAI/pythia-70m'
+tokenizer = AutoTokenizer.from_pretrained(name)
+model = AutoModelForCausalLM.from_pretrained(name, dtype=torch.float32).eval()
+
+battery = default_battery(max_length=1024)
+print(battery.identifier, len(battery.legs), 'legs')
+result = evaluate_battery(model, tokenizer, battery, tokenizer.eos_token)
+print(len(result.metrics), 'metrics')
+for key in sorted(result.metrics)[:3]:
+    print(f'{key:34s} {result.metrics[key]:.4f}')
+PY
+```
+
+That prints `copyfree_battery_v8_tiny/battery@v1:c94e9ad44be0 39 legs` and 89
+metrics, because each multiple-choice leg reports likelihood, accuracy, and margin.
+The first call unpacks the shipped legs out of the package into `data_cache/`, so
+no benchmark data is downloaded.
+
+**Pass `max_length` explicitly.** It is part of the battery identifier, and the
+manifest's own default is 512 (`...:5e8ae638a485`) while published results are
+measured at 1024 (`...:c94e9ad44be0`). Numbers carrying different identifiers
+describe different measurements and cannot be pooled, so build the battery at the
+length you intend to compare at. [The training guide](evaluation.md) covers battery
+identities, custom manifests, and the legacy `paper_battery()`.
+
+The run above takes roughly 100 s of wall time on a many-core CPU host for a
+70M-parameter model, and cost grows with parameter count; use a GPU for anything
+larger.
 
 ## Run a paired influence smoke
 
-With the training extra installed:
+These two commands exercise the training and evaluation pipeline end to end on a
+tiny random model. They are plumbing checks, not measurements — the model is a
+one-layer GPT-2 over an eight-token vocabulary and the evaluation suite is
+synthetic, so no number either prints can be compared to a benchmark.
+
+With the training extra installed (`python -m pip install -e '.[training]'`):
+
+```bash
+CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py --eval-only
+```
+
+That constructs the model and tokenizer locally and prints an evaluation identity
+and a finite answer-token `nll`; no weights, datasets, or API credentials are
+downloaded. Dropping the flag runs the full paired protocol:
 
 ```bash
 CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py
 ```
 
 This trains a baseline and a two-source group treatment for two steps each from
-identical tiny-model weights, evaluates
-both arms, and prints baseline/treatment metrics, `treatment - baseline` deltas,
-and their artifact directories. Artifacts default to
-`~/.reasoning_core/runs/arms/workflow-smoke-v1/`; `RC_HOME` can select another
-directory under your home. Repeating an identical run reuses completed arm results.
+identical initial weights, evaluates both arms, and prints baseline/treatment
+metrics, `treatment - baseline` deltas, and their artifact directories. Artifacts
+default to `~/.reasoning_core/runs/arms/workflow-smoke-v1/`; `RC_HOME` can select
+another directory under your home. Repeating an identical run reuses completed arm
+results.
 
-The script includes all model, tokenizer, dataset factory, evaluation callback,
-and immutable-ID setup. Replace the toy data/model for actual research and follow
-the [influence protocol](influence.md). The smoke uses a synthetic
-evaluation suite; its numbers cannot be compared to the published benchmark.
-
-Custom battery manifests resolve relative leg paths beside the manifest. Passing
-`data_dir` overrides that root. Shipped batteries unpack their frozen legs into
-`data_cache/` (or `EVAL_DATA_DIR`); never rebuild those legs to refresh data.
+The script includes all model, tokenizer, dataset factory, evaluation callback, and
+immutable-ID setup. Replace the toy data and model for actual research and follow the
+[influence protocol](influence.md).
 
 ## Run task search
 

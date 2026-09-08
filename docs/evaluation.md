@@ -64,20 +64,27 @@ which callers must also pass as the model/dataset loader revision. External
 callbacks likewise require matching version IDs in `ArmSpec.callback_ids`.
 
 Benchmark batteries are ordered data, not runner logic. Build any battery from
-`EvalLeg` objects or `load_battery_manifest()`; `paper_battery()` is only the
-shipped paper default. Its BBH dev and BBH dev-cloze entries share frozen examples
-but remain separate, reorderable legs; the held-out test split likewise has raw,
-cloze, and options-omitted legs. MCQ legs emit paired `<name>_nll`,
-`<name>_mc_cloze_acc`, and margin metrics from one scoring pass. Record
-`battery.identifier` in `ArmSpec.eval_ids`.
+`EvalLeg` objects or `load_battery_manifest()`. `default_battery()` is what current
+results are measured on; `paper_battery()` is the legacy 21-leg suite, kept to
+reproduce the first influence paper and not poolable with the default.
+`max_length` belongs to the battery identifier and defaults to the manifest's own
+value, so build a battery at the length you intend to compare at rather than
+accepting that default.
 
-`FreeGenRewardSpec` in `intrinsic_rewards.py` configures native task reward without
-environment variables. Pass a small reward evaluator as `evaluate_endpoints` to
+A leg pairs a file with a scoring kind, so the same frozen examples can appear under
+more than one leg: the shipped batteries score `bbh_dev_eval.jsonl` both as `bbh_dev`
+(`qa_nll`) and as `bbh_dev_cloze` (`mcq`), and the held-out test split likewise has
+raw, cloze, and options-omitted legs. They stay separate, reorderable legs. MCQ legs
+emit paired `<name>_nll`, `<name>_mc_cloze_acc`, and margin metrics from one scoring
+pass. Record `battery.identifier` in `ArmSpec.eval_ids`.
+
+`FreeGenRewardSpec` in `evaluation/intrinsic.py` configures native task reward
+without environment variables. Pass a small reward evaluator as `evaluate_endpoints` to
 `run_influence()` to record the shared initial reward and each arm's final reward,
 or attach it to one treatment with `ArmPlan.evaluate_endpoint`.
 
-`SaturationCurveSpec` in `saturation.py` configures periodic teacher-forced
-answer-token accuracy. Attach a `SaturationCurveCallback` to a treatment plan and
+`SaturationCurveSpec` in `evaluation/training/saturation.py` configures periodic
+teacher-forced answer-token accuracy. Attach a `SaturationCurveCallback` to a treatment plan and
 record its `saturation_id` in `ArmSpec.callback_ids`. Curves are batched, written
 atomically under the arm directory, recovered after checkpoint resume, and included
 in the completed arm metrics.
