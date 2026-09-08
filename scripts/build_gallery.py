@@ -12,7 +12,8 @@ from types import SimpleNamespace
 
 from tqdm.auto import tqdm
 
-from reasoning_core import _task_to_module_map, get_task, list_tasks
+from reasoning_core import get_task, list_tasks
+from reasoning_core.registry import _task_to_module_map
 from reasoning_core.template import _strip_docstrings
 
 

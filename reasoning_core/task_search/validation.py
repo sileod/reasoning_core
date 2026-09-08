@@ -797,7 +797,7 @@ def selfcheck_main(argv=None):
     # Passing implementation is not the same as shipping: _discover_tasks walks the
     # tasks tree by AST and drops anything under a directory or file whose name starts
     # with "_" or ".", so a task can validate perfectly and still never reach DATASETS.
-    from reasoning_core import _discover_tasks
+    from reasoning_core.registry import _discover_tasks
 
     shipped, _ = _discover_tasks("reasoning_core/tasks")
     mine = sorted(

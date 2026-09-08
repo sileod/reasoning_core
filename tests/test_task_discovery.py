@@ -7,7 +7,7 @@ import sys
 
 import reasoning_core
 import pytest
-from reasoning_core import _discover_tasks
+from reasoning_core.registry import _discover_tasks
 from reasoning_core import registry
 
 

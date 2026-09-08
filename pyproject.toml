@@ -101,7 +101,6 @@ include = [
     "/scripts",
     "/pyproject.toml",
     "/reasoning_core",
-    "/task_influence",
     "/tests",
 ]
 

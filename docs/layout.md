@@ -1,4 +1,4 @@
-# Repository boundaries and migration
+# Repository layout
 
 | Location | Responsibility |
 |---|---|
@@ -12,33 +12,38 @@
 | `scripts/` | Commands, smoke runs, and builders for new evaluation datasets |
 | `docs/`, `docs/results/` | Protocols and maintained published results |
 
+There is one import path per module. Reach for a module where the table says it
+lives; nothing aliases anything else.
+
+## Import cost
+
 Importing `evaluation` or its group/composition helpers does not load training.
 Metrics depend on Torch, while arm execution additionally needs the training
 extra (TRL/Transformers). Runtime adapters import the external framework only at
-its boundary. Operational reports remain private/outside the public package.
+its boundary, so core stays importable without `reasoning_gym` installed.
 
-## Compatibility
+`reasoning_core/__init__.py` binds only the intended API. Registry discovery
+internals live in `reasoning_core.registry` and are imported from there.
 
-The old `reasoning_core.training.*`, `zero_shot_eval`, `collect`,
-`generation_worker`, and collection-adapter Python imports alias their canonical
-modules. This preserves access to private helpers and monkeypatch behavior as
-well as public classes. Existing `python -m reasoning_core.generation.collect` and
-`python -m reasoning_core.generation.worker` commands forward to the new modules.
-`from reasoning_core import evaluate_model` remains supported.
+## Deliberate exceptions
 
-Legacy `dev_*` modules and `train_arm` stay available in this migration. We do not
-rename individual task modules or rebuild battery data. Manifests remain at their
-existing `training/` paths for file-based consumers; battery functions now live in
-`evaluation/battery.py`. Historical-manifest retirement and task lifecycle changes
-need their own consumer migration. Default-valued group fields do not change old
-arm identities. Existing engine/provenance identifiers intentionally retain their
-old spelling.
+Two things sit where the table would not predict, and both are load-bearing:
 
-`task_search` is available from a checkout/editable install or source distribution,
-not from the ordinary wheel. Its installed dependencies and external harness
-requirements are documented in its README. Independent applications retain their
-internal package structure; update checkout paths to root `integrations/`.
+- **Battery manifests stay under `reasoning_core/training/`.** Running jobs pass
+  `--eval-manifest reasoning_core/training/copyfree_battery_v8_tiny.json` and shipped arm
+  specs record that path, so the files are addressed by path by consumers we do not
+  control. The battery *functions* live in `reasoning_core/evaluation/battery.py`; only the JSON stayed.
+- **Engine and provenance identifiers keep their existing spelling.** They are hashed into
+  arm identities, so renaming them would silently split old and new results.
 
-Use a separate worktree for this migration. Do not repoint a shared editable
-installation or move active run/cache directories. Other agents can continue on
-`main`; the PR must be reviewed and merged before their checkout sees any changes.
+Group fields default to values that spell themselves absent, so adding them left every
+pre-existing arm identity byte-identical. Any change here must preserve that: an ArmSpec
+must keep hashing to the same `spec_id` across a refactor, or previously measured arms stop
+pooling with new ones.
+
+`task_search` is available from a checkout, editable install, or source distribution, not
+from the ordinary wheel; its dependencies are documented in its README. The independent
+applications under root `integrations/` retain their own package structure and pyprojects.
+
+Operational reports, results and G5K orchestration are private and live outside this
+repository.
