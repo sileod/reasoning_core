@@ -131,9 +131,10 @@ def evaluate_battery(model, tokenizer, battery, eos_token):
 
 
 DATA_DIR = os.environ.get("EVAL_DATA_DIR", "data_cache")
-# Leg identity is sha256 of the file bytes, so legs ship rather than rebuild. Outside the package:
-# neither wheel nor sdist carries them.
-_ARCHIVE = Path(__file__).resolve().parents[2] / "eval_data" / "battery_legs.zip"
+# Leg identity is sha256 of the file bytes, so legs ship rather than rebuild -- which means they
+# have to be package data. `resources/**` is declared in pyproject; the old repo-root eval_data/
+# was in neither the wheel nor the sdist, so an installed copy could not find its own legs.
+_ARCHIVE = Path(__file__).resolve().parents[1] / "resources" / "battery_legs.zip"
 
 
 def ensure_eval_data(data_dir=DATA_DIR):
