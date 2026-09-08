@@ -42,7 +42,9 @@ Rules:
 - Follow the worker's answer contract: compact, canonical strings, lists, fractions,
   or integers. No float or JSON answers, free-form prose, or open-ended semantic
   paraphrase grading. A tool call can be a constrained canonical call string.
-- Prefer choices whose answers vary richly across examples over yes/no or fixed labels.
+- Answers must vary within a level. Balanced yes/no and small label sets are fine --
+  the gameability gate scores the excess over the 1/k floor, not the raw rate -- but
+  a level that emits one answer fails.
 
 Reply with JSON only: {"choices": ["...", "..."]}"""
 
