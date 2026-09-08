@@ -7,6 +7,7 @@
 | `reasoning_core/evaluation/training/` | Data mixing, arm execution, optimization, checkpoints |
 | `reasoning_core/generation/` | Generation workers and collection |
 | `reasoning_core/integrations/` | Optional Python adapters |
+| `reasoning_core/resources/` | Shipped data: battery manifests and frozen eval legs |
 | root `integrations/` | Independently packaged OpenEnv and Prime Intellect applications |
 | `reasoning_core/task_search/` | Repository-only developer orchestration, excluded from the wheel |
 | `scripts/` | Commands, smoke runs, and builders for new evaluation datasets |
@@ -27,14 +28,20 @@ internals live in `reasoning_core.registry` and are imported from there.
 
 ## Deliberate exceptions
 
-Two things sit where the table would not predict, and both are load-bearing:
-
-- **Battery manifests stay under `reasoning_core/training/`.** Running jobs pass
-  `--eval-manifest reasoning_core/training/copyfree_battery_v8_tiny.json` and shipped arm
-  specs record that path, so the files are addressed by path by consumers we do not
-  control. The battery *functions* live in `reasoning_core/evaluation/battery.py`; only the JSON stayed.
+- **Battery manifest filenames keep their version numbers.** A manifest pins its own
+  `name`, and that name is hashed into the battery identifier recorded by every measured
+  arm, so `copyfree_battery_v8_tiny` is an identity, not a label. Renaming those files to
+  something more descriptive would either orphan the results that carry the old identifier
+  or leave a filename that disagrees with the identity inside it. Three files also share
+  one declared name: `copyfree_battery_v8.json`, `v9`, and `v10` all announce
+  `copyfree_battery_v8`, distinguished only by the digest. That is a wart, and it is
+  frozen for the same reason.
 - **Engine and provenance identifiers keep their existing spelling.** They are hashed into
   arm identities, so renaming them would silently split old and new results.
+
+Manifests are *addressed* by path, though, including by consumers outside this repo, so
+code reaches them through `battery._MANIFESTS` rather than a path literal, and moving them
+is a coordinated change rather than a forbidden one.
 
 Group fields default to values that spell themselves absent, so adding them left every
 pre-existing arm identity byte-identical. Any change here must preserve that: an ArmSpec

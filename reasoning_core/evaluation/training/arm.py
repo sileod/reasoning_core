@@ -329,6 +329,9 @@ def _canonical_json(value):
 
 def _provenance(spec):
     return {
+        # Frozen spelling: this string is recorded in every arm's status file and is part of how a
+        # measurement identifies its engine. The module moved to evaluation/training/; the name did
+        # not, because changing it would split old and new results. Do not "fix" it.
         "engine": "reasoning_core.training.arm",
         "engine_version": ENGINE_VERSION,
         "package_version": __version__,

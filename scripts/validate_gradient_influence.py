@@ -217,7 +217,8 @@ def parse_args():
     parser.add_argument("--model", default=TINY_MODEL, help="Warmed model/checkpoint")
     parser.add_argument("--revision")
     parser.add_argument("--initialization-id")
-    parser.add_argument("--battery", default="reasoning_core/training/paper_battery.json")
+    parser.add_argument("--battery",
+                        default="reasoning_core/resources/batteries/paper_battery.json")
     parser.add_argument("--data-dir", default="data_cache")
     parser.add_argument("--legs", nargs="+", default=["arc_easy", "arc_challenge"])
     parser.add_argument("--task-rows", nargs="*", default=[])

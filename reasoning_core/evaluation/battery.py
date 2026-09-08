@@ -134,7 +134,12 @@ DATA_DIR = os.environ.get("EVAL_DATA_DIR", "data_cache")
 # Leg identity is sha256 of the file bytes, so legs ship rather than rebuild -- which means they
 # have to be package data. `resources/**` is declared in pyproject; the old repo-root eval_data/
 # was in neither the wheel nor the sdist, so an installed copy could not find its own legs.
-_ARCHIVE = Path(__file__).resolve().parents[1] / "resources" / "battery_legs.zip"
+_RESOURCES = Path(__file__).resolve().parents[1] / "resources"
+_ARCHIVE = _RESOURCES / "battery_legs.zip"
+# Manifests are data too, and they sit beside the legs they name. A manifest pins its own `name`,
+# and a leg is identified by its bytes, so neither identity depends on where these files live --
+# which is what makes moving them safe. Address them through this constant, never by path literal.
+_MANIFESTS = _RESOURCES / "batteries"
 
 
 def ensure_eval_data(data_dir=DATA_DIR):
@@ -161,7 +166,7 @@ def default_battery(data_dir=DATA_DIR, max_length=None):
     different values are not poolable. Published results use 1024.
     """
 
-    manifest = Path(__file__).resolve().parents[1] / "training" / "copyfree_battery_v8_tiny.json"
+    manifest = _MANIFESTS / "copyfree_battery_v8_tiny.json"
     return load_battery_manifest(manifest, data_dir, max_length)
 
 
@@ -172,7 +177,7 @@ def paper_battery(data_dir=DATA_DIR, max_length=None):
     the two cannot be pooled.
     """
 
-    manifest = Path(__file__).resolve().parents[1] / "training" / "paper_battery.json"
+    manifest = _MANIFESTS / "paper_battery.json"
     return load_battery_manifest(manifest, data_dir, max_length)
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the contrastive / preference eval legs of copyfree_battery_v5+ as 2-choice cloze rows.
 
-PUBLIC entry point. The battery manifests in reasoning_core/training/ point at data_cache/*.jsonl
+PUBLIC entry point. The manifests in reasoning_core/resources/batteries/ point at data_cache/*.jsonl
 files. Frozen evaluation legs ship in resources/battery_legs.zip. This builder is
 for creating new batteries from pinned sources, never refreshing an existing battery.
 
