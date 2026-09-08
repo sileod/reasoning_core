@@ -69,6 +69,8 @@ class ArmSpec:
     aux_config: str | None = None
     aux_revision: str | None = None
     aux_task: str | None = None
+    aux_tasks: tuple[str, ...] | None = None      # a GROUP of aux tasks trained as one arm
+    aux_weights: tuple[float, ...] | None = None  # their token shares; None = equal
     aux_mode: str | None = None
     aux_max_level: int | None = None
     aux_fraction: float = 0.0
@@ -288,7 +290,8 @@ def _callback_metrics(callbacks):
 
 # Fields added after arms exist are spelled as ABSENT at their default value, so every id and
 # status.json written before they existed stays byte-identical and in-flight runs stay resumable.
-_ADDED_FIELDS = {"warmup_steps": 0, "carry_optimizer_state": False}
+_ADDED_FIELDS = {"warmup_steps": 0, "carry_optimizer_state": False,
+                 "aux_tasks": None, "aux_weights": None}
 
 
 def _stable_spec(spec):
