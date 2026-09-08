@@ -15,7 +15,7 @@ pip install 'reasoning-core[training]'
 ```
 
 For a complete offline evaluation and two-step paired training example, run
-`CUDA_VISIBLE_DEVICES='' python examples/influence_smoke.py` from a checkout.
+`CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py` from a checkout.
 See the [workflow recipes](../../docs/workflows.md#run-a-paired-influence-smoke) for
 expected output and artifact locations. The API sketch below assumes caller-supplied data and models.
 

@@ -115,54 +115,41 @@ Level 5 should be tough even for large LLMs.
 - Blatantly inccorect answer should be reward 0.0, correct answer should have reward 1.0.
 - Use `Reward(...)` tags when useful for diagnostics.
 
-A complete runnable starter is [examples/authoring_smoke.py](examples/authoring_smoke.py);
-see the [copy and validate recipe](docs/workflows.md#implement-and-validate-a-task).
-
 ## Minimal Task Skeleton
+
+Save this teaching example as `reasoning_core/tasks/example_maximum.py`, then run
+`python -m reasoning_core validate example_maximum --samples 3`.
+It uses the default exact-match scorer; real tasks can supply a semantic scorer.
+
 ```python
+import random
 from dataclasses import dataclass
-from reasoning_core.template import Task, Entry, Config, edict, render_payload, stochastic_rounding as sround
-from reasoning_core.utils import score_scalar
+
+from reasoning_core.template import Config, Entry, Task, stochastic_rounding
+
 
 @dataclass
-class MyTaskConfig(Config):
-    n_vars: int = 2
-    depth: int = 3
+class MaximumConfig(Config):
+    count: int = 3
 
     def apply_difficulty(self, level):
-        # Use explicit stochastic rounding where fractional scaling is useful.
-        self.n_vars = sround(self.n_vars + level)
-        self.depth = sround(self.depth + level)
+        self.count = stochastic_rounding(self.count + level)
 
-class MyTask(Task):
-    # Do not put "Task" in the task name
-    summary = "Solve the complete generated problem family and name its important modes."
-    config_cls = MyTaskConfig
+
+class ExampleMaximum(Task):
+    summary = "Find the maximum integer in a randomly generated list of signed integers."
+    config_cls = MaximumConfig
 
     def generate_entry(self):
-        # Build instance using external libs when possible.
-        metadata = edict({"equation": "...", "cot": "...optional..."})
-        metadata.payload = {"equation": metadata.equation}
-        answer = "..."
-        return Entry(metadata=metadata, answer=answer)
+        values = random.sample(range(-100, 101), self.config.count)
+        return Entry(metadata={"values": values}, answer=str(max(values)))
 
     def render_prompt(self, metadata):
-        # Specify the answer format clearly, refer to it as "the answer" or "answer".
-        # Do not use answer as a verb, do not use "return".
-        # The wording logic should live here and not be buried in generation.
-        return f"{render_payload(metadata.payload)}\n\nThe answer is a scalar."
-
-    def score_answer(self, answer, entry):
-        # Answer is the answer to score (e.g. LLM prediction)
-        # entry is a problem; entry.answer is the ground truth
-        # use ast.literal_eval for safety if evaluation is need
-        # leniency is helpful (e.g. score 0.5 for half answer)
-        # but 1 should be reserved for correct answers
-        return score_scalar(answer, entry)  # or custom semantic checker
+        return f"Find the maximum of {metadata['values']!r}. The answer is one integer."
 ```
 
 ## Quality Checklist
-- `task = MyTask(); x = task.generate_example()` works.
+- `task = ExampleMaximum(); x = task.generate_example()` works.
 - `summary` is a packed one-line coverage spec for the whole task distribution.
 - `task.score_answer(x.answer, x) == 1`.
 - Wrong/random answers do not all score `1`.

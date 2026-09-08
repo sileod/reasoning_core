@@ -2,6 +2,9 @@
 
 Reusable report tooling. Everything here is tracked, unlike `task_diagnostics/` and `paper_exports/`,
 so another agent gets it from a plain `git pull`.
+`per_task_results/` is an ignored local input directory used by these reports;
+a fresh clone does not contain measurements. Published tables live in
+[`task_influence/`](../../task_influence/RESULTS.md).
 
 | module | what it does |
 |---|---|

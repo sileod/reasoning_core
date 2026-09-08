@@ -91,7 +91,6 @@ include = [
     "/TASK_MUTATION_GUIDE.md",
     "/AGENTS.md",
     "/docs/workflows.md",
-    "/examples",
     "/requirements",
     "/scripts",
     "/pyproject.toml",

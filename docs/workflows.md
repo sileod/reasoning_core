@@ -62,14 +62,14 @@ preserves them).
 ## Implement and validate a task
 
 Read [TASK_AUTHORING_GUIDE.md](../TASK_AUTHORING_GUIDE.md) first. With the lightweight
-install, copy the runnable starter to the discovery directory and validate it:
+install, save its [minimal skeleton](../TASK_AUTHORING_GUIDE.md#minimal-task-skeleton)
+as `reasoning_core/tasks/example_maximum.py`, then validate it:
 
 ```bash
-cp -n examples/authoring_smoke.py reasoning_core/tasks/example_maximum.py
 python -m reasoning_core validate example_maximum --samples 3
 ```
 
-Expected output includes `"valid": true`. The copied file is yours to edit into a
+Expected output includes `"valid": true`. The new file is yours to edit into a
 real task; it is not part of the shipped roster. `validate()` exercises difficulty
 transitions as well as generation and scoring. No registry edit is necessary.
 Follow [TASK_MUTATION_GUIDE.md](../TASK_MUTATION_GUIDE.md) for experimental tasks.
@@ -111,7 +111,7 @@ For a fully offline model-evaluation smoke, install the training extra and run:
 
 ```bash
 python -m pip install -e '.[training]'
-CUDA_VISIBLE_DEVICES='' python examples/influence_smoke.py --eval-only
+CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py --eval-only
 ```
 
 The example constructs a tiny random GPT-2 model and tokenizer locally. It prints
@@ -145,7 +145,7 @@ explains battery identities and evaluator variants.
 With the training extra installed:
 
 ```bash
-CUDA_VISIBLE_DEVICES='' python examples/influence_smoke.py
+CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py
 ```
 
 This runs two training steps per arm from identical tiny-model weights, evaluates
