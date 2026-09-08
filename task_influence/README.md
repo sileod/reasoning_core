@@ -42,6 +42,25 @@ train at. Published results use 1024. Pass a
 small `FreeGenRewardSpec` evaluator through `evaluate_endpoints` to measure the same
 task rows before and after training.
 
+## The protocol to match
+
+To produce a number comparable to the published results, pin all of it:
+
+| | |
+|---|---|
+| battery | `default_battery()`, built at `max_length=1024` |
+| main stream | identified by `content_id()`, never by path alone |
+| model | an exact 40-character revision |
+| dose | auxiliary share fixed by tokens, not example count |
+
+Batch size, gradient accumulation, optimizer and learning-rate schedule are part of the
+measurement too: two runs that differ on any of them are not poolable, and a report that
+averages them ranks nothing.
+
+Cluster orchestration -- allocation, preemption, scratch, resume -- is site-specific and is
+not part of this package. Run locally with the recipe below; wrap it in whatever your site
+uses for batch jobs, running the arm in the foreground so the job's exit status is the run's.
+
 Start with a one- or two-step smoke. For the real run, preserve the model revision,
 main data, token dose, seed, formatting, battery, and reward rows from the comparison
 protocol.
