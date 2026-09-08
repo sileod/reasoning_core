@@ -56,6 +56,24 @@ an incrementally updated `summary.json`. See `BABYSITTING.md` for safe monitorin
 The runner prints the artifact directory at startup. Custom `--runs-root` paths
 must be outside `/tmp` and `/run`, which are hidden by the sandbox.
 
+## Before you launch
+
+```bash
+python -m reasoning_core.task_search doctor --live
+```
+
+It checks the two credential paths, which are separate and both fail open. Worker
+credentials reach the coding agent through a copy of the environment, so the provider's
+own key (`ALBERT_API_KEY` for albert) must be set in the shell that launches the run; a
+wave without it spends its whole queue on `harness_failed`. The semantic reviewer reads
+`TASK_SEARCH_REVIEW_ENDPOINT`, `TASK_SEARCH_REVIEW_MODEL` and
+`TASK_SEARCH_REVIEW_KEY_ENV` instead; without them it returns a null verdict for every
+trial and `land` skips them all as `unreviewed`. Both live in
+`~/.config/reasoning_core/env`, which is outside the checkout and must be sourced --
+background scripts do not inherit it. `--live` spends one tiny completion to prove the
+key is not merely present but accepted, which is how a spent daily quota shows up before
+a run rather than during one.
+
 ## Propose tasks
 
 ```bash

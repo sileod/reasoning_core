@@ -90,6 +90,15 @@ def _parser():
         "--critic-samples", type=int, default=CRITIC_SAMPLES,
         help="review each candidate this many times over shuffled orderings and take the"
              " majority; 1 restores a single opinion")
+    doctor = subparsers.add_parser(
+        "doctor", help="check this machine can run a wave before a wave finds out"
+    )
+    doctor.add_argument("--provider", default="albert")
+    doctor.add_argument("--harness", default="opencode",
+                        choices=("opencode", "mini", "agy"))
+    doctor.add_argument("--live", action="store_true",
+                        help="spend one tiny completion proving the reviewer key works")
+    doctor.add_argument("--timeout", type=float, default=60)
     proposal_check = subparsers.add_parser(
         "check-proposals", help="validate an archived SFT proposal wave"
     )
@@ -319,6 +328,11 @@ def main(argv=None):
             f"{len(wave['proposals'])} proposals at {base_ref[:7]}"
         )
         return
+    if args.command == "doctor":
+        from .doctor import check
+
+        raise SystemExit(check(provider=args.provider, harness=args.harness,
+                               live=args.live, timeout=args.timeout).show())
     if args.command == "check-proposals":
         from .wave_proposer import check_proposal_file
 
