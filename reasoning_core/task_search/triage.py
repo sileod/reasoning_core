@@ -136,6 +136,8 @@ def draft(trial_dir, trial, verdict, source, audited=None):
     steps = trial.get("steps") or {}
     return {
         "audit": audited,
+        # Whether the fidelity reviewer saw the assigned task or an easier lookalike.
+        "fidelity": (trial.get("sample_fidelity") or {}).get("verdict"),
         "trial": trial["trial_id"],
         "run": trial_dir.parent.name,
         "name": _task_name(trial),
@@ -155,13 +157,20 @@ def draft(trial_dir, trial, verdict, source, audited=None):
 # equal to one that was read and rejected either. Rank on that, then on whether the
 # worker finished with budget to spare.
 RANK = {"VALID": 0, None: 1, "INVALID": 2}
+# Same three-way shape for the fidelity reviewer, whose verdict is advisory at the gate
+# and decisive here. Unread is the normal case for every wave built before it existed.
+FIDELITY_RANK = {"REALIZES": 0, None: 1, "SUBSTITUTES": 2}
 
 
 def pick(drafts):
-    # Newest run last, so a re-run of the same trial id wins the tie: it is the one whose
-    # worktree the rest of the wave was measured against.
-    return sorted(drafts, key=lambda d: (RANK.get(d["verdict"], 1), d["exhausted"],
-                                         d["trial"], _newest(d)))
+    # Trial id decides last, which was fine while variants differed only by seed and wrong
+    # once they differ by design: taking v1 of three design choices because it sorts first
+    # throws away the comparison the wave paid for. Newest run last, so a re-run of the same
+    # trial id wins its tie: it is the one whose worktree the rest of the wave was measured
+    # against.
+    return sorted(drafts, key=lambda d: (RANK.get(d["verdict"], 1),
+                                         FIDELITY_RANK.get(d.get("fidelity"), 1),
+                                         d["exhausted"], d["trial"], _newest(d)))
 
 
 def _newest(row):
