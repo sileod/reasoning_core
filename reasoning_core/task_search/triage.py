@@ -202,16 +202,23 @@ def _newest(row):
     return tuple(-ord(character) for character in row.get("run", ""))
 
 
+# The report has to show what the ranking used, or a wave of design choices reads as an
+# arbitrary pick between three lines that look identical.
+FIDELITY_MARK = {"REALIZES": "", "SUBSTITUTES": " substitutes", None: " unread"}
+
+
 def render(groups):
     lines = []
     for proposal, drafts in sorted(groups.items()):
         best, *rest = pick(drafts)
         mark = _mark(best)
         lines.append(f"{proposal:<6} {mark:<10} {best['trial']:<8} {best['name']:<46}"
-                     f" {best['steps']}/{best['budget']}")
+                     f" {best['steps']}/{best['budget']}"
+                     f"{FIDELITY_MARK.get(best.get('fidelity'), '')}")
         for other in rest:
             lines.append(f"{'':6} {'also':<10} {other['trial']:<8} {other['name']:<46}"
-                         f" {other['steps']}/{other['budget']} [{other['verdict']}]")
+                         f" {other['steps']}/{other['budget']} [{other['verdict']}"
+                         f"{FIDELITY_MARK.get(other.get('fidelity'), '')}]")
         if best["verdict"] == "INVALID":
             lines.append(f"{'':17}why: {best['why']}")
         if best.get("audit") and not best["audit"]["ok"]:
