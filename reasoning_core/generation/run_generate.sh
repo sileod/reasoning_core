@@ -13,14 +13,21 @@ export HF_HOME="/tmp/hf_$$"
 export NUMBA_CACHE_DIR="/tmp/numba_$$"
 mkdir -p "$HF_HOME" "$NUMBA_CACHE_DIR" 2>/dev/null
 
+# Split launcher options from worker options. These three are consumed HERE; everything else is
+# forwarded. They used to be forwarded too, so `--threads 8` reached the worker's argparse as an
+# unknown argument and killed every task -- the launcher's own documented option broke the run.
 BATCH=0; threads=""; script_dir="."
-prev=""
-for i in "$@"; do
-  [[ "$i" == "--batch" ]] && BATCH=1
-  [[ "$prev" == "--threads" ]] && threads="$i"
-  [[ "$prev" == "--script_dir" ]] && script_dir="$i"
-  prev="$i"
+worker_args=()
+while (( $# )); do
+  case "$1" in
+    --batch)      BATCH=1; shift ;;
+    --threads)    threads="$2"; shift 2 ;;
+    --script_dir) script_dir="$2"; shift 2 ;;
+    *)            worker_args+=("$1"); shift ;;
+  esac
 done
+# Quote once here so the string can be embedded in the single command GNU parallel runs.
+printf -v WORKER_ARGS '%q ' "${worker_args[@]}"
 
 # Default: 45% of CPUs, or use --threads override
 [[ -z "$threads" ]] && threads=$(python3 -c "import math, os; print(math.ceil(os.cpu_count() * 0.4))")
@@ -29,6 +36,15 @@ done
 STATUS_DIR="/dev/shm/gen_status_$$"
 trap 'rm -rf "$STATUS_DIR" "$HF_HOME" "$NUMBA_CACHE_DIR"' EXIT
 mkdir -p "$STATUS_DIR"
+
+# Launch the worker as a MODULE, not a file path. This script used to exec
+# reasoning_core/generation_worker.py by path; when that module moved, the launcher kept
+# "working" while doing nothing at all, because the file it found was a re-export stub with no
+# __main__. A module launch fails loudly instead, and survives the worker being moved again.
+python -c "import reasoning_core.generation.worker" 2>/dev/null || {
+  echo "!!! cannot import reasoning_core.generation.worker -- run from the repo root or install the package" >&2
+  exit 3
+}
 
 start_ts=$(date +%s)
 echo "- Starting at: $(date)"
@@ -40,7 +56,7 @@ seq $((threads * 200)) | parallel \
   -j"$threads" \
   --joblog "$script_dir/generation.log" \
   --line-buffer \
-  'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python "'"$script_dir"'/generation_worker.py" --id {} --status_dir '"$STATUS_DIR"' --out_path "'"$script_dir"'/generated_data" '"$@"'' &
+  'ulimit -v '"$MEM_LIMIT_KB"' 2>/dev/null; timeout --signal=KILL 1000 python -m reasoning_core.generation.worker --id {} --status_dir '"$STATUS_DIR"' --out_path "'"$script_dir"'/generated_data" '"$WORKER_ARGS"'' &
 
 PARALLEL_PID=$!
 

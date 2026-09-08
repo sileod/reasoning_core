@@ -52,7 +52,7 @@ between runs. Preserve the generated file when comparing models.
 
 For larger balanced batches, use `get_task(name).generate_balanced_batch(...)`.
 The production worker and Linux/GNU Parallel launcher are
-`reasoning_core/generation/worker.py` and `reasoning_core/run_generate.sh`.
+`reasoning_core/generation/worker.py` and `reasoning_core/generation/run_generate.sh`.
 Inspect worker options with `python -m reasoning_core.generation.worker --help`.
 Uploading is a separate operation: install `python -m pip install -e '.[collection]'`
 and inspect `python -m reasoning_core.generation.collect --help`. Uploads require Hub
