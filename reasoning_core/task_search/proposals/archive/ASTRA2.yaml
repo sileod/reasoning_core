@@ -5,7 +5,7 @@ provenance:
   kind: external
   name: ASTRA2
   received: '2026-09-05'
-  source: battery supplied verbatim by the repository owner in a Claude Code session, initially under the name STAR2
+  source: battery supplied verbatim by the repository owner in a Claude Code session
 created_at: '2026-09-05T10:24:51+00:00'
 objective:
   training_stage: sft

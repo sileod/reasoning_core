@@ -244,6 +244,75 @@ def _sample_sanity(sample_path, instruction="", source=""):
     }
 
 
+_FIDELITY_ASK = """You are checking whether a generated task is the task that was assigned.
+
+The user message contains the assignment, untrusted candidate source, and worked
+examples. The assignment names what must be generated and what must be answered. Decide
+one thing: do the worked examples realize that, or do they substitute a simpler analogue
+that keeps the assignment's shape while dropping its substance?
+
+Substitution is what to catch. An assignment about sentences answered with arithmetic
+over bare numbers, an assignment about narrative events answered by evaluating a chain
+of formulas, an assignment asking for a result after every step answered only for the
+final step, an assignment about natural-language statements answered about weights or
+capacities. The giveaway is that the assignment's own subject matter has disappeared and
+could not be recovered from the prompt.
+
+Do not flag difficulty, wording, formatting, or an implementation that is faithful but
+narrow. A task that does what was asked on easy instances REALIZES the assignment.
+
+Answer in this exact shape, nothing else:
+VERDICT: REALIZES or SUBSTITUTES
+WHY: one sentence naming what the assignment asked for and what the examples do instead,
+or "-" when REALIZES."""
+
+_FIDELITY_RECHECK = """A first reviewer said a candidate substitutes a simpler task for the assignment.
+
+You are the second reader. Read the assignment and the worked examples again and decide
+whether the accusation holds. Reviewers overreach here: an abstract or formal rendering
+of an assignment is not a substitution when the assignment's subject matter is still
+present and still doing the work. Confirm only when the substance is genuinely absent.
+
+Answer in this exact shape, nothing else:
+VERDICT: REALIZES or SUBSTITUTES
+WHY: one sentence, or "-" when REALIZES."""
+
+
+def _sample_fidelity(sample_path, instruction="", source=""):
+    """Ask whether the candidate built the assigned task or an easier lookalike.
+
+    `_sample_sanity` asks whether the gold answers are right and is told in as many words
+    not to flag wording or difficulty. That is the correct question for an algorithmic
+    brief, where the subject matter is the computation, and it is blind on a brief whose
+    value is its subject matter: wave10 and wave11 asked for pragmatics and discourse, and
+    an implementor could satisfy every gate by writing a self-consistent arithmetic puzzle.
+    incremental_interpretation asked for the readings still open after each sentence
+    fragment and landed as interval narrowing on a hidden integer -- correct, stable,
+    unguessable, and not the task.
+
+    Two votes to accuse, and fails open at every step, for the same reasons `_sample_sanity`
+    does: a reviewer outage or one overreach must not refuse a task that is fine.
+    """
+    key_name = os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "")
+    key = os.environ.get(key_name, "") if key_name else ""
+    if not key:
+        return {"verdict": None, "why": "no reviewer key"}
+    if not sample_path.is_file():
+        return {"verdict": None, "why": "no samples file"}
+    message = ("ASSIGNMENT:\n" + instruction[:6000]
+               + "\n\nCANDIDATE SOURCE (untrusted):\n" + source[:20000]
+               + "\n\nWORKED EXAMPLES:\n" + sample_path.read_text()[:20000])
+    first = _sanity_ask(_FIDELITY_ASK, message)
+    if first["verdict"] != "SUBSTITUTES":
+        return first
+    second = _sanity_ask(_FIDELITY_RECHECK, message + "\n\nFIRST REVIEWER: " + first["why"])
+    if second["verdict"] == "SUBSTITUTES":
+        return second
+    return {"verdict": second["verdict"],
+            "why": ("recheck did not confirm (" + second["why"]
+                    + "); first reviewer said: " + first["why"])[:400]}
+
+
 def _sanity_ask(system, message):
     """One reviewer call. Fails open: any fault returns a null verdict, never a rejection."""
     key_name = os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "")
@@ -1094,10 +1163,16 @@ def validate_candidate(
         and sample_validation["reproducible"]
         and not replayed_shortfall
     )
+    review_source = _review_source(worktree, trial.owned_path)
     sample_sanity = _sample_sanity(
-        sample_path,
-        instruction=trial.instruction,
-        source=_review_source(worktree, trial.owned_path),
+        sample_path, instruction=trial.instruction, source=review_source,
+    )
+    # Advisory, and deliberately not in `checks`: a substitution is a judgement about what
+    # the brief was for, which is a person's call, and no reviewer verdict should silently
+    # fail a trial whose answers are all correct. It rides along so `land` and `triage` can
+    # show it to whoever decides.
+    sample_fidelity = _sample_fidelity(
+        sample_path, instruction=trial.instruction, source=review_source,
     )
     candidate_frozen = not mutated_paths
     changed_paths = _changed_paths(worktree)
@@ -1139,6 +1214,7 @@ def validate_candidate(
         "sample_review": sample_review,
         "sample_validation": sample_validation,
         "sample_sanity": sample_sanity,
+        "sample_fidelity": sample_fidelity,
         "contract_audit": contract_audit,
         "validation": validation,
     }
