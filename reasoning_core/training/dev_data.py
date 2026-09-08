@@ -1,6 +1,6 @@
 """Compatibility import for the former experimental data helpers."""
 
-from reasoning_core.training.data import (  # noqa: F401
+from reasoning_core.evaluation.training.data import (  # noqa: F401
     FORMATTERS,
     StreamSpec,
     content_id,

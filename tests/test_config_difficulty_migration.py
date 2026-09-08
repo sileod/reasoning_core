@@ -13,7 +13,7 @@ from reasoning_core.tasks.arithmetics import ArithmeticsConfig
 
 MIGRATED_CONFIGS = [
     ("reasoning_core.tasks._procedural_warmup", "ProceduralWarmupConfig"),
-    ("reasoning_core.tasks._reasoning_gym", "RGConfig"),
+    ("reasoning_core.integrations.reasoning_gym", "RGConfig"),
     ("reasoning_core.tasks.arithmetics", "ArithmeticsConfig"),
     ("reasoning_core.tasks.arithmetics", "WordProblemMathConfig"),
     ("reasoning_core.tasks.binding", "LambdaReductionConfig"),

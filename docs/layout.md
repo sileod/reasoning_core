@@ -22,8 +22,8 @@ its boundary. Operational reports remain private/outside the public package.
 The old `reasoning_core.training.*`, `zero_shot_eval`, `collect`,
 `generation_worker`, and collection-adapter Python imports alias their canonical
 modules. This preserves access to private helpers and monkeypatch behavior as
-well as public classes. Existing `python -m reasoning_core.collect` and
-`python -m reasoning_core.generation_worker` commands forward to the new modules.
+well as public classes. Existing `python -m reasoning_core.generation.collect` and
+`python -m reasoning_core.generation.worker` commands forward to the new modules.
 `from reasoning_core import evaluate_model` remains supported.
 
 Legacy `dev_*` modules and `train_arm` stay available in this migration. We do not

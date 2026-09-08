@@ -6,7 +6,7 @@ with exactly one gold, scored by mean token logprob per candidate. That makes th
 to arc_easy / balanced_copa, and it is the shape that survived the leak critique -- the choices are
 NOT listed in the prompt, so there is no option-menu to format-match against.
 
-    python -m reasoning_core.evals.build_contrastive_evals --tasks boolq siqa wic piqa reclor
+    python scripts/build_contrastive_evals.py --tasks boolq siqa wic piqa reclor
 
 Revisions are PINNED. `load_dataset(..., revision=None)` silently resolves to whatever snapshot the
 hub serves that day, which has already produced one stale-pool incident in this project.

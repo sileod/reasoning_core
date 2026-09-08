@@ -4,7 +4,7 @@ from easydict import EasyDict as edict
 
 from reasoning_core import get_task, list_tasks, match_task_name, score_answer
 from reasoning_core.template import Entry
-from reasoning_core.generation_worker import run_task, serialize_example
+from reasoning_core.generation.worker import run_task, serialize_example
 
 
 def test_collection_adapters_are_explicit_and_do_not_change_default_tasks():
@@ -51,7 +51,7 @@ def test_generation_worker_does_not_publish_partial_file(tmp_path, monkeypatch):
             # batch timings onto metadata before it serialises anything.
             return [Entry(metadata={'bad': object()})]
 
-    monkeypatch.setattr('reasoning_core.generation_worker.get_task', lambda _: BadTask())
+    monkeypatch.setattr('reasoning_core.generation.worker.get_task', lambda _: BadTask())
     success, message = run_task("bad", 0, 0, tmp_path, 1, 0)
 
     assert not success and message.startswith("ERR: TypeError:")
@@ -66,7 +66,7 @@ def test_generation_worker_passes_its_timeout_policy_explicitly(tmp_path, monkey
             received.update(kwargs)
             return []
 
-    monkeypatch.setattr('reasoning_core.generation_worker.get_task', lambda _: EmptyTask())
+    monkeypatch.setattr('reasoning_core.generation.worker.get_task', lambda _: EmptyTask())
     success, message = run_task("empty", 0, 2, tmp_path, 1, 0)
 
     assert (success, message) == (False, "EMPTY")

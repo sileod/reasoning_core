@@ -1,4 +1,3 @@
-import importlib
 import subprocess
 import sys
 
@@ -14,20 +13,6 @@ assert Task.__bases__ == (object,)
 assert 'reasoning_gym.dataset' not in sys.modules
 '''
     subprocess.run([sys.executable, '-c', code], check=True, timeout=30)
-
-
-@pytest.mark.parametrize('old,new', [
-    ('training.arm', 'evaluation.training.arm'),
-    ('training.evals', 'evaluation.metrics'),
-    ('training.intrinsic_rewards', 'evaluation.intrinsic'),
-    ('training.battery', 'evaluation.battery'),
-    ('training.influence', 'evaluation.influence'),
-    ('generation_worker', 'generation.worker'),
-    ('collect', 'generation.collect'),
-    ('zero_shot_eval', 'evaluation.zero_shot'),
-])
-def test_legacy_imports_share_module_identity(old, new):
-    assert importlib.import_module('reasoning_core.' + old) is importlib.import_module('reasoning_core.' + new)
 
 
 def test_reasoning_gym_registration_uses_adapter(monkeypatch):

@@ -5,12 +5,12 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from reasoning_core.training.evals import (
+from reasoning_core.evaluation.metrics import (
     EvalExample,
     contrastive_mc_loss,
     contrastive_mc_objective_id,
 )
-from reasoning_core.training.gradient_influence import (
+from reasoning_core.evaluation.gradient import (
     GradientCache,
     GradientCacheSpec,
     build_eval_gradient_cache,

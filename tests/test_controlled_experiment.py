@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from reasoning_core.training.controlled_experiment import control_spec, row_filter
+from reasoning_core.evaluation.training.controlled_experiment import control_spec, row_filter
 
 
 def test_row_filter_top_level_fields():

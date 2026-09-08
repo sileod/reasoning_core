@@ -4,31 +4,31 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-from reasoning_core.training.battery import (
+from reasoning_core.evaluation.battery import (
     EvalBattery, EvalLeg, evaluate_battery, load_battery_manifest, paper_battery,
 )
-from reasoning_core.training.checkpointing import (
+from reasoning_core.evaluation.training.checkpointing import (
     COMPLETE_MARKER,
     ResumableCheckpointCallback,
     latest_complete_checkpoint,
     prepare_checkpoint_dir,
 )
-from reasoning_core.training.paths import HOME, home_path
-from reasoning_core.training.arm import ArmSpec, _evaluate_model, optimizer_eval_mode
-from reasoning_core.training.data import format_row
-from reasoning_core.training.data import (
+from reasoning_core.evaluation.training.paths import HOME, home_path
+from reasoning_core.evaluation.training.arm import ArmSpec, _evaluate_model, optimizer_eval_mode
+from reasoning_core.evaluation.training.data import format_row
+from reasoning_core.evaluation.training.data import (
     StreamSpec, content_id, fraction_for_token_share, load_stream, mix_streams,
     ratio_to_fraction, replay_after, source_id, steps_for_token_budget,
 )
-from reasoning_core.training.evals import (
+from reasoning_core.evaluation.metrics import (
     EvalExample, eval_id, evaluate_lm_nll, evaluate_mcq, evaluate_qa_nll, load_eval_suite,
     load_qa_jsonl,
 )
-from reasoning_core.training.influence import ArmPlan, run_influence
-from reasoning_core.training.intrinsic_rewards import (
+from reasoning_core.evaluation.influence import ArmPlan, run_influence
+from reasoning_core.evaluation.intrinsic import (
     FreeGenRewardSpec, free_gen_reward, reward_id,
 )
-from reasoning_core.training.saturation import (
+from reasoning_core.evaluation.training.saturation import (
     SaturationCurveCallback, SaturationCurveSpec, answer_token_accuracy,
     derive_saturation, saturation_id,
 )
@@ -60,7 +60,7 @@ def test_existing_trainer_checkpoint_is_adopted(tmp_path):
 
 def test_wall_clock_checkpoint_marks_completed_save(tmp_path, monkeypatch):
     clock = iter((0.0, 61.0))
-    monkeypatch.setattr("reasoning_core.training.checkpointing.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr("reasoning_core.evaluation.training.checkpointing.time.monotonic", lambda: next(clock))
     callback = ResumableCheckpointCallback(every_minutes=1, stop_signals=())
     args = SimpleNamespace(output_dir=str(tmp_path))
     state = SimpleNamespace(global_step=7)
@@ -187,7 +187,7 @@ def test_influence_mix_is_an_absolute_fraction(monkeypatch):
         captured["probabilities"] = probabilities
         return parts[0]
 
-    monkeypatch.setattr("reasoning_core.training.data.interleave_datasets", fake_interleave)
+    monkeypatch.setattr("reasoning_core.evaluation.training.data.interleave_datasets", fake_interleave)
     stream = SimpleNamespace(shuffle=lambda **kwargs: None)
     mix_streams(stream, stream, aux_fraction=0.2, shuffle_buffer=0)
     assert captured["probabilities"] == [0.8, 0.2]
@@ -241,7 +241,7 @@ def test_source_id_binds_remote_sources_to_exact_commits(tmp_path):
 
 
 def test_remote_stream_passes_its_pinned_revision(monkeypatch):
-    import reasoning_core.training.data as data_module
+    import reasoning_core.evaluation.training.data as data_module
 
     captured = {}
     monkeypatch.setattr(
@@ -557,7 +557,7 @@ def test_paired_influence_uses_one_arm_runner_and_resets_weights(monkeypatch):
             "eval_runtime": 1.0 if spec.arm_id == "baseline" else 2.0,
         }
 
-    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    monkeypatch.setattr("reasoning_core.evaluation.influence.run_arm", fake_run_arm)
     result = run_influence(
         Model(), None, {"weight": 7},
         ArmPlan(ArmSpec("exp", "baseline", initialization_id="init", main_data_id="main"),
@@ -585,7 +585,7 @@ def test_influence_evaluates_shared_initial_and_each_arm_endpoint(monkeypatch):
         model.weight += dataset
         return None, {"reward": evaluate(model)["reward"]}
 
-    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    monkeypatch.setattr("reasoning_core.evaluation.influence.run_arm", fake_run_arm)
     spec = lambda arm: ArmSpec(
         "exp", arm, initialization_id="init", main_data_id="main",
         eval_ids=("reward/v1",),
@@ -617,7 +617,7 @@ def test_influence_can_evaluate_reward_only_on_treatment(monkeypatch):
         calls.append((spec.arm_id, tuple(metrics)))
         return None, metrics
 
-    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    monkeypatch.setattr("reasoning_core.evaluation.influence.run_arm", fake_run_arm)
     base = ArmSpec("exp", "base", initialization_id="init", main_data_id="main",
                    eval_ids=("battery",))
     treatment = ArmSpec("exp", "task", initialization_id="init", main_data_id="main",
@@ -666,7 +666,7 @@ def test_free_gen_reward_is_configured_and_content_addressed(monkeypatch):
         for i in range(5)
     ] + [{"prompt": "ignored", "answer": "wrong", "mode": "verify", "task": "x"}]
     monkeypatch.setattr(
-        "reasoning_core.training.intrinsic_rewards.score_answer",
+        "reasoning_core.evaluation.intrinsic.score_answer",
         lambda prediction, entry: 0.5 if entry.prompt.startswith("p") else 0.0,
     )
     spec = FreeGenRewardSpec(mode="instruct", n_eval=3, max_tokens=9)
@@ -733,7 +733,7 @@ def test_influence_passes_versioned_callbacks_to_treatment(monkeypatch):
         seen.append((spec.arm_id, callbacks))
         return None, {"nll": 1.0}
 
-    monkeypatch.setattr("reasoning_core.training.influence.run_arm", fake_run_arm)
+    monkeypatch.setattr("reasoning_core.evaluation.influence.run_arm", fake_run_arm)
     base = ArmSpec("exp", "base", initialization_id="init", main_data_id="main")
     treatment = ArmSpec(
         "exp", "task", initialization_id="init", main_data_id="main",
@@ -758,7 +758,7 @@ def test_paired_influence_rejects_duplicate_arm_ids():
 
 def test_paired_influence_clones_a_shallow_torch_state_dict(monkeypatch):
     import torch
-    import reasoning_core.training.influence as influence_module
+    import reasoning_core.evaluation.influence as influence_module
 
     model = torch.nn.Linear(1, 1, bias=False)
     with torch.no_grad():

@@ -64,7 +64,7 @@ import os, sys, tempfile
 import huggingface_hub, nfsdict, tqdm, pyarrow.parquet
 before = dict(os.environ), tempfile.tempdir
 sys.argv = ['host-application', '--unrelated-option']
-import reasoning_core.collect
+import reasoning_core.generation.collect
 assert (dict(os.environ), tempfile.tempdir) == before
 '''
     subprocess.run([sys.executable, "-c", code], check=True, timeout=30)

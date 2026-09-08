@@ -1,6 +1,6 @@
 """Compatibility import for the former experimental evaluators."""
 
-from reasoning_core.training.evals import (  # noqa: F401
+from reasoning_core.evaluation.metrics import (  # noqa: F401
     EVALUATOR_VERSION,
     EvalExample,
     EvalSuite,

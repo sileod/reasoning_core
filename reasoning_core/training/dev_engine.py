@@ -1,6 +1,6 @@
 """Compatibility import for the former experimental arm runner."""
 
-from reasoning_core.training.arm import (  # noqa: F401
+from reasoning_core.evaluation.training.arm import (  # noqa: F401
     ArmSpec,
     ENGINE_VERSION,
     ScheduleFreeTrainerMixin,

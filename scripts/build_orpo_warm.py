@@ -7,7 +7,7 @@ not. This builder therefore takes tulu3 + ultramix from the pinned revisions and
 prompt already appears in ANY data_cache/*_eval.jsonl, which covers the eval legs, the dev legs
 (uf_short, python_dpo) and anything added later without this file needing to know their names.
 
-    python -m reasoning_core.evals.build_orpo_warm --n 6000
+    python scripts/build_orpo_warm.py --n 6000
 
 Output rows are {prompt, chosen, rejected}; `collection_influence warmup --warm-loss orpo` consumes
 them directly. Overlap is reported, not silently tolerated: a build that excluded nothing means the

@@ -1,4 +1,4 @@
-from reasoning_core.tasks._synlogic import Synlogic, SynlogicConfig
+from reasoning_core.integrations.synlogic import Synlogic, SynlogicConfig
 
 
 def _task(level):

@@ -12,7 +12,7 @@ if importlib.util.find_spec("reasoning_gym") is None:
 
 import reasoning_gym
 
-from reasoning_core.tasks._reasoning_gym import RGConfig, Reasoning_Gym
+from reasoning_core.integrations.reasoning_gym import RGConfig, Reasoning_Gym
 
 
 def test_codeio_uses_temporary_working_directory(tmp_path, monkeypatch):
