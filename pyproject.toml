@@ -73,14 +73,15 @@ exclude = [
     "/reasoning_core/checkpoints/**",
     "/reasoning_core/generated_data/**",
     "/reasoning_core/index/**",
-    "/reasoning_core/openenv/**/.pytest_cache/**",
-    "/reasoning_core/openenv/**/.venv/**",
+    "/integrations/**/.pytest_cache/**",
+    "/integrations/**/.venv/**",
     "/reasoning_core/score_cache/**",
     "/reasoning_core/wandb/**",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["reasoning_core"]
+exclude = ["/reasoning_core/task_search/**", "/reasoning_core/reports/**"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -91,6 +92,11 @@ include = [
     "/TASK_MUTATION_GUIDE.md",
     "/AGENTS.md",
     "/docs/workflows.md",
+    "/docs/evaluation.md",
+    "/docs/layout.md",
+    "/docs/influence.md",
+    "/docs/results",
+    "/integrations",
     "/requirements",
     "/scripts",
     "/pyproject.toml",
@@ -115,7 +121,7 @@ norecursedirs = [
     "data-gym-cache",
     "per_task_results",
     "per_task_results_rgym",
-    "reasoning_core/openenv",
+    "integrations",
     "reasoning_core/.mountpoints",
     "reasoning_core/generated_data",
     "reasoning_core/index",

@@ -63,3 +63,9 @@ example = task.generate_example(level=1, rg_task="lcm")
 ```
 
 Omit `rg_task` to sample a random reasoning-gym task.
+
+## Source layout
+
+Python adapters live in [reasoning_core/integrations/](reasoning_core/integrations/README.md).
+Standalone OpenEnv and Prime Intellect distributions live in
+[integrations/](integrations/README.md), outside the core wheel.

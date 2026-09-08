@@ -6,7 +6,7 @@ Reasoning Core generates verifiable textual tasks across first-order logic, form
 
 More than **10B tokens** of pre-generated data are available in the 🤗 [Reasoning Core dataset collection](https://huggingface.co/collections/reasoning-core/datasets).
 
-Tasks target compact, canonical answers and expose task-native scorers—clean targets for supervised fine-tuning (SFT), with deterministic rewards for RL and evaluation. The public [training and influence API](reasoning_core/training/README.md) provides reproducible paired baseline/treatment experiments. Follow the [task influence guide](task_influence/README.md) to measure a new or changed task, and compare it with the [reference results](task_influence/RESULTS.md).
+Tasks target compact, canonical answers and expose task-native scorers—clean targets for supervised fine-tuning (SFT), with deterministic rewards for RL and evaluation. The public [training and influence API](docs/evaluation.md) provides reproducible paired baseline/treatment experiments. Follow the [task influence guide](docs/influence.md) to measure a new or changed task, and compare it with the [reference results](docs/results/influence.md).
 
 ## Quickstart
 
@@ -38,6 +38,7 @@ Python 3.10+. From a checkout, use `python -m pip install -e .` or
 | Measure task influence | [Runnable paired smoke](docs/workflows.md#run-a-paired-influence-smoke) |
 | Propose and implement tasks with agents | [Task-search guide](reasoning_core/task_search/README.md) |
 
+[Repository layout](docs/layout.md) explains package boundaries and compatibility.
 [Workflow recipes](docs/workflows.md) cover prerequisites, commands, output files,
 and local checks. Catalogue queries read source metadata without importing tasks.
 
@@ -75,8 +76,8 @@ Browse all [65 task examples](GALLERY.md).
 A task authoring guide describes the interface and guidelines.  
 [TASK_AUTHORING_GUIDE](https://github.com/sileod/reasoning-core/blob/main/TASK_AUTHORING_GUIDE.md)
 [TASK_MUTATION_GUIDE](TASK_MUTATION_GUIDE.md)
-[TRAINING_AND_INFLUENCE](reasoning_core/training/README.md)
-[TASK_INFLUENCE](task_influence/README.md)
+[TRAINING_AND_INFLUENCE](docs/evaluation.md)
+[TASK_INFLUENCE](docs/influence.md)
 
 ## Ecosystem and integrations
 

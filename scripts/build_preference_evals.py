@@ -2,15 +2,15 @@
 """Build the contrastive / preference eval legs of copyfree_battery_v5+ as 2-choice cloze rows.
 
 PUBLIC entry point. The battery manifests in reasoning_core/training/ point at data_cache/*.jsonl
-files that are NOT shipped (derived data). This regenerates them from pinned public HF sources, so
-the manifests are reproducible rather than merely readable.
+files. Frozen evaluation legs ship in resources/battery_legs.zip. This builder is
+for creating new batteries from pinned sources, never refreshing an existing battery.
 
 Equal-length truncation: both responses are cut to exactly T tokens, so length bias is gone by
 construction rather than approximated by a ratio filter. Scoring is MEAN token logprob, so the two
 choices are directly comparable. Prompt is capped from the TAIL -- in multi-turn rows the last user
 turn is what the response answers.
 
-    python task_diagnostics/build_preference_evals.py --split train --out helpsteer_correctness
+    python scripts/build_preference_evals.py --split train --out helpsteer_correctness
 """
 import argparse, json, os, random, re, sys
 from pathlib import Path

@@ -7,7 +7,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from reasoning_core.training.evals import (
+from reasoning_core.evaluation.metrics import (
     evaluate_generation,
     evaluate_lm_nll,
     evaluate_mcq,
@@ -161,7 +161,7 @@ def default_battery(data_dir=DATA_DIR, max_length=None):
     different values are not poolable. Published results use 1024.
     """
 
-    manifest = Path(__file__).with_name("copyfree_battery_v8_tiny.json")
+    manifest = Path(__file__).resolve().parents[1] / "training" / "copyfree_battery_v8_tiny.json"
     return load_battery_manifest(manifest, data_dir, max_length)
 
 
@@ -172,7 +172,7 @@ def paper_battery(data_dir=DATA_DIR, max_length=None):
     the two cannot be pooled.
     """
 
-    manifest = Path(__file__).with_name("paper_battery.json")
+    manifest = Path(__file__).resolve().parents[1] / "training" / "paper_battery.json"
     return load_battery_manifest(manifest, data_dir, max_length)
 
 

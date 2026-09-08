@@ -128,7 +128,7 @@ class SaturationCurveCallback(TrainerCallback):
             return
         context = nullcontext()
         if optimizer is not None and hasattr(optimizer, "eval"):
-            from reasoning_core.training.arm import optimizer_eval_mode
+            from reasoning_core.evaluation.training.arm import optimizer_eval_mode
             context = optimizer_eval_mode(optimizer)
         with context:
             accuracy = answer_token_accuracy(

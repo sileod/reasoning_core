@@ -1,4 +1,4 @@
-from reasoning_core.downstream_eval.logic import evaluate_logic
+from reasoning_core.evaluation.downstream.logic import evaluate_logic
 
 
 def test_logic_smoke():

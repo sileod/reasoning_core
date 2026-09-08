@@ -4,10 +4,6 @@ import time
 from easydict import EasyDict as edict
 from collections import Counter
 from collections.abc import Mapping
-try:
-    from reasoning_gym.dataset import ProceduralDataset
-except ImportError:
-    ProceduralDataset = object
 from dataclasses import dataclass, fields, field, asdict
 import random
 import copy
@@ -166,7 +162,7 @@ class Payload(dict):
             metadata.payload = cls.maybe_shuffle_mapping(metadata.payload, p)
 
 
-class Task(ProceduralDataset):
+class Task:
     config_cls = None
     _distractor_reservoir_size = 64
     _distractor_saturation_patience = 8

@@ -1,9 +1,9 @@
 # Local/generated environments
-reasoning_core/openenv/
+integrations/openenv/
 .venv/
 **/.venv/
 tests_envs/
-reasoning_core/primeintellect/reasoning_core_env/.venv/
+integrations/primeintellect/reasoning_core_env/.venv/
 
 # Generated training/eval artifacts
 checkpoints/

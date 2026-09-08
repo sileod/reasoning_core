@@ -93,3 +93,39 @@ class Reasoning_Gym(Task):
 
     def render_prompt(self, metadata):
         return metadata._question
+
+
+def as_reasoning_gym(task_cls):
+    """Adapt a core Task class to reasoning-gym's finite dataset interface."""
+    from reasoning_gym.dataset import ProceduralDataset
+    from easydict import EasyDict
+    from reasoning_core import score_answer
+
+    class CoreDataset(ProceduralDataset):
+        def __init__(self, config):
+            super().__init__(config, seed=config.seed, size=500 if config.size is None else config.size)
+            self.task = task_cls(config=config)
+
+        def __getitem__(self, index):
+            if not 0 <= index < self.size:
+                raise IndexError(index)
+            return self.task[index]
+
+        def score_answer(self, answer, entry):
+            return score_answer(answer, EasyDict(entry))
+
+    CoreDataset.__name__ = task_cls.__name__ + 'Dataset'
+    return CoreDataset
+
+
+def register_tasks(task_names=None):
+    """Register selected tasks without constructing every generator."""
+    import reasoning_gym
+    from reasoning_core import DATASETS
+
+    for name in DATASETS if task_names is None else task_names:
+        if name not in reasoning_gym.factory.DATASETS:
+            task_cls = DATASETS[name]._resolved
+            reasoning_gym.register_dataset(
+                name, as_reasoning_gym(task_cls), task_cls.config_cls or type(task_cls().config),
+            )

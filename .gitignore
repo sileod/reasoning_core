@@ -72,7 +72,7 @@ generated_data/
 task_influence_work/
 upload_state/
 .task_influence_cache.json
-# Local measurement artifacts; published tables live under task_influence/.
+# Local measurement artifacts; published tables live under docs/results/.
 /per_task_results/
 per_task_results_rgym/*.json
 per_task_results_rgym/*.jsonl

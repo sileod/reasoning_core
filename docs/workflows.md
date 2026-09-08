@@ -137,7 +137,7 @@ PY
 This makes paid/provider-limited requests and saves raw outputs (`y`), extracted
 answers (`pred`), format checks, and task scores. For local pretrained models and
 benchmark batteries, use `evaluate_battery()` in
-`reasoning_core.training.battery`; [the training guide](../reasoning_core/training/README.md)
+`reasoning_core.evaluation.battery`; [the training guide](evaluation.md)
 explains battery identities and evaluator variants.
 
 ## Run a paired influence smoke
@@ -156,7 +156,7 @@ directory under your home. Repeating an identical run reuses completed arm resul
 
 The script includes all model, tokenizer, dataset factory, evaluation callback,
 and immutable-ID setup. Replace the toy data/model for actual research and follow
-the [influence protocol](../task_influence/README.md). The smoke uses a synthetic
+the [influence protocol](influence.md). The smoke uses a synthetic
 evaluation suite; its numbers cannot be compared to the published benchmark.
 
 Custom battery manifests resolve relative leg paths beside the manifest. Passing

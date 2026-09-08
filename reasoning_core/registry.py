@@ -22,9 +22,9 @@ _CACHE_PATH = Path(user_cache_dir("reasoning_core")) / "task_registry.json"
 _CACHE_VERSION = 1
 
 COLLECTIONS = {
-    "procedural_warmup": ("_procedural_warmup", "ProceduralWarmup"),
-    "reasoning_gym": ("_reasoning_gym", "Reasoning_Gym"),
-    "synlogic": ("_synlogic", "Synlogic"),
+    "procedural_warmup": ("tasks._procedural_warmup", "ProceduralWarmup"),
+    "reasoning_gym": ("integrations.reasoning_gym", "Reasoning_Gym"),
+    "synlogic": ("integrations.synlogic", "Synlogic"),
 }
 DEPRECATED = {"symbolic_arithmetics", "graph_node_centrality"}
 IGNORED = DEPRECATED | {"reasonining_gym", "count_elements"}
@@ -221,7 +221,7 @@ def get_task(name, *args, **kwargs):
     name = match_task_name(name, include_dev=True)
     if name in COLLECTIONS:
         module_name, class_name = COLLECTIONS[name]
-        module = importlib.import_module(f".tasks.{module_name}", _PACKAGE_NAME)
+        module = importlib.import_module(f".{module_name}", _PACKAGE_NAME)
         return getattr(module, class_name)(*args, **kwargs)
     catalog = DATASETS if name in DATASETS else DEV_DATASETS
     return catalog[name](*args, **kwargs)
@@ -301,9 +301,7 @@ def score_answer(answer, entry):
     return get_score_answer_fn(task_name)(answer, entry)
 
 
-def register_to_reasoning_gym():
-    import reasoning_gym
-    for task_name, task_cls_proxy in DATASETS.items():
-        task = task_cls_proxy()
-        if task_name not in reasoning_gym.factory.DATASETS:
-            reasoning_gym.register_dataset(task_name, task.__class__, task.config.__class__)
+def register_to_reasoning_gym(task_names=None):
+    """Register core tasks through the optional reasoning-gym adapter."""
+    from .integrations.reasoning_gym import register_tasks
+    return register_tasks(task_names)

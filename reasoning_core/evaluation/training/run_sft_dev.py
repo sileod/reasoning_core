@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from reasoning_core.training.paths import configure_runtime_env
+from reasoning_core.evaluation.training.paths import configure_runtime_env
 
 configure_runtime_env()
 
@@ -15,11 +15,11 @@ import torch
 from datasets import Dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from reasoning_core.training.data import (
+from reasoning_core.evaluation.training.data import (
     FORMATTERS, StreamSpec, format_row, load_stream, mix_streams, ratio_to_fraction,
     settle_remote_streams, source_id, steps_for_token_budget,
 )
-from reasoning_core.training.arm import ArmSpec, record_event, run_arm
+from reasoning_core.evaluation.training.arm import ArmSpec, record_event, run_arm
 
 
 def main():

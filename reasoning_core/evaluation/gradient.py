@@ -14,7 +14,7 @@ import torch
 from safetensors.torch import load_file, save_file
 
 from reasoning_core import __version__
-from reasoning_core.training.evals import (
+from reasoning_core.evaluation.metrics import (
     contrastive_mc_loss,
     contrastive_mc_objective_id,
     evaluating,
