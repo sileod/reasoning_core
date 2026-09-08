@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import sys
 import urllib.request
-from pathlib import Path
 
 # Worker credentials reach the harness through a blanket copy of the environment, so what
 # a provider needs is a fact about that provider, not about this repository.
@@ -30,6 +29,12 @@ PROVIDER_KEYS = {
 REVIEW_VARS = ("TASK_SEARCH_REVIEW_ENDPOINT", "TASK_SEARCH_REVIEW_MODEL",
                "TASK_SEARCH_REVIEW_KEY_ENV")
 ENV_FILE = "~/.config/reasoning_core/env"
+
+
+def default_provider():
+    """Which provider serves the model is a fact about a machine, not about this
+    repository, so it ships empty and is set in the env file."""
+    return os.environ.get("TASK_SEARCH_PROVIDER") or None
 
 
 class Report:
@@ -89,7 +94,7 @@ def _ask(endpoint, model, key, timeout):
         return False, f"unreachable: {error}"
 
 
-def check(provider="albert", harness="opencode", live=False, timeout=60):
+def check(provider=None, harness="opencode", live=False, timeout=60):
     report = Report()
 
     hlink = _binary(report, "harness link", "hlink",
@@ -111,7 +116,11 @@ def check(provider="albert", harness="opencode", live=False, timeout=60):
                "runs need --resource-limits none, which removes the memory and CPU cap")
 
     key_name = PROVIDER_KEYS.get(provider)
-    if not key_name:
+    if not provider:
+        report.add(None, "worker key", "no provider selected",
+                   "pass --provider, or set TASK_SEARCH_PROVIDER in the env file; the "
+                   "repository ships no provider default")
+    elif not key_name:
         report.add(None, f"worker key ({provider})", "unknown provider, cannot guess its key",
                    f"known providers: {', '.join(sorted(PROVIDER_KEYS))}")
     else:
@@ -153,7 +162,7 @@ def main(argv=None):
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--provider", default="albert")
+    parser.add_argument("--provider", default=default_provider())
     parser.add_argument("--harness", default="opencode",
                         choices=("opencode", "mini", "agy"))
     parser.add_argument("--live", action="store_true",

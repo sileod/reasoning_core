@@ -74,6 +74,11 @@ background scripts do not inherit it. `--live` spends one tiny completion to pro
 key is not merely present but accepted, which is how a spent daily quota shows up before
 a run rather than during one.
 
+`run` defaults `--model` to `deepseek-v4-flash`, the implementor every landed wave
+was built with. It has no default provider: which host serves that model is a fact
+about a machine, so set `TASK_SEARCH_PROVIDER` in the env file and `run` and `doctor`
+both pick it up.
+
 ## Propose tasks
 
 ```bash

@@ -26,6 +26,14 @@ from .wave_proposer import (
 from .plan import _frozen_module_drift, _plan_problems, load_plan
 from .implementation_runner import _repo_root, run_plan
 from .sandbox import _write_json
+from .doctor import default_provider
+
+# The implementor that every landed wave was built with. A model name is a fact about
+# what works and belongs in the repository; which provider serves it is a fact about a
+# machine and does not, so the provider default is read from the environment and ships
+# empty. Set TASK_SEARCH_PROVIDER in ~/.config/reasoning_core/env to have a local default.
+IMPLEMENTOR_MODEL = "deepseek-v4-flash"
+
 
 
 def _archive_path(repo_root, name):
@@ -93,7 +101,7 @@ def _parser():
     doctor = subparsers.add_parser(
         "doctor", help="check this machine can run a wave before a wave finds out"
     )
-    doctor.add_argument("--provider", default="albert")
+    doctor.add_argument("--provider", default=default_provider())
     doctor.add_argument("--harness", default="opencode",
                         choices=("opencode", "mini", "agy"))
     doctor.add_argument("--live", action="store_true",
@@ -149,11 +157,13 @@ def _parser():
     )
     run = subparsers.add_parser("run", help="launch folder-scoped coding workers")
     run.add_argument("plan")
-    run.add_argument("--model", required=True)
+    run.add_argument("--model", default=IMPLEMENTOR_MODEL,
+                     help=f"implementor model (default: {IMPLEMENTOR_MODEL})")
     run.add_argument(
         "--harness", choices=("opencode", "mini", "agy"), default="opencode"
     )
-    run.add_argument("--provider", help="optional Harness Link provider")
+    run.add_argument("--provider", default=default_provider(),
+                     help="Harness Link provider; defaults to $TASK_SEARCH_PROVIDER")
     run.add_argument(
         "--snapshots",
         action=argparse.BooleanOptionalAction,
