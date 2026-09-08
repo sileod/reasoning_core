@@ -537,9 +537,11 @@ class Task(ProceduralDataset):
                 problem.metadata["_deduplication_key"] = (
                     None if canonical is None
                     else xxhash.xxh3_128_hexdigest(
-                        canonical if isinstance(canonical, (str, bytes))
-                        else json.dumps(canonical, ensure_ascii=False, sort_keys=True,
-                        separators=(",", ":"), default=str)
+                        canonical if isinstance(canonical, bytes) else (
+                            canonical if isinstance(canonical, str)
+                            else json.dumps(canonical, ensure_ascii=False, sort_keys=True,
+                                            separators=(",", ":"), default=str)
+                        ).encode("utf-8")
                     )
                 )
                 self._remember_answer(problem.answer)

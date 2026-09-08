@@ -14,13 +14,19 @@ Install the optional dependencies with:
 pip install 'reasoning-core[training]'
 ```
 
+For a complete offline evaluation and two-step paired training example, run
+`CUDA_VISIBLE_DEVICES='' python examples/influence_smoke.py` from a checkout.
+See the [workflow recipes](../../docs/workflows.md#run-a-paired-influence-smoke) for
+expected output and artifact locations. The API sketch below assumes caller-supplied data and models.
+
 ## Eval data
 
 The battery legs ship in `reasoning_core/resources/battery_legs.zip` and unpack themselves into `data_cache/`
 (override with `EVAL_DATA_DIR`) the first time a battery loads. They are shipped rather than rebuilt
 because a leg's identity is the sha256 of its bytes: a regenerated leg is a *different* leg, and
-results across differing battery IDs must never be pooled. The archive lives outside the package, so
-it is in the git repo but not in the PyPI wheel or sdist.
+results across differing battery IDs must never be pooled. The archive is package data,
+included in the wheel and sdist. Custom manifests resolve relative leg paths beside
+the manifest unless an explicit `data_dir` is supplied.
 
 An influence experiment is a baseline `ArmPlan` plus one or more treatment
 plans. Dataset factories are called independently, and the same supplied model

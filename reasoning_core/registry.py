@@ -237,6 +237,45 @@ def list_tasks(include_mutated=False, include_generated=False):
     ]
 
 
+def task_catalog(query="", include_generated=False, include_mutated=False, include_dev=False):
+    """Return searchable task metadata without importing task modules.
+
+    Status describes registry kind; origin describes source placement, not quality.
+    Defaults match list_tasks(). Collection adapters are not individual tasks.
+    """
+    names = set(list_tasks(include_mutated, include_generated))
+    declarations = [(name, module, cls, "active")
+                    for name, (module, cls) in _task_to_module_map.items() if name in names]
+    if include_dev:
+        declarations += [(name, module, cls, "dev")
+                         for name, (module, cls) in _dev_task_to_module_map.items()]
+    parsed = {}
+    rows = []
+    terms = query.casefold().split()
+    for name, module, cls, status in sorted(declarations):
+        path = _TASKS_PATH.joinpath(*module.split(".")).with_suffix(".py")
+        if path not in parsed:
+            parsed[path] = {node.name: node for node in ast.parse(path.read_text()).body
+                            if isinstance(node, ast.ClassDef)}
+        node = parsed[path][cls]
+        summary = ""
+        for field in node.body:
+            if (isinstance(field, ast.Assign)
+                    and any(isinstance(target, ast.Name) and target.id == "summary"
+                            for target in field.targets)
+                    and isinstance(field.value, ast.Constant)
+                    and isinstance(field.value.value, str)):
+                summary = field.value.value
+        origin = module.split(".")[0] if module.startswith(("generated.", "mutated.")) else "core"
+        row = dict(name=name, summary=summary, status=status, origin=origin,
+                   source=f"reasoning_core/tasks/{path.relative_to(_TASKS_PATH).as_posix()}",
+                   line=node.lineno)
+        haystack = " ".join(str(value) for value in row.values()).casefold()
+        if all(term in haystack for term in terms):
+            rows.append(row)
+    return rows
+
+
 def get_score_answer_fn(task_name, *args, **kwargs):
     task_name = match_task_name(task_name)
     if task_name in COLLECTIONS:

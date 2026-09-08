@@ -1,14 +1,10 @@
-#[build-system]
-#requires = ["setuptools"]
-#build-backend = "setuptools.build_meta"
-
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "reasoning_core"
+requires-python = ">=3.10"
 dynamic = ["version"]
 readme = "README.md"
 description = "Procedural data generators for symbolic pre-training, also including RL environments"
@@ -62,12 +58,8 @@ dependencies = [
 prime = ["prime", "verifiers"]
 reasoning_gym = ["reasoning_gym"]
 training = ["torch", "transformers", "datasets", "trl", "safetensors", "prodigyplus"]
-
-[tool.setuptools.packages.find]
-include = ["reasoning_core*"]
-
-[tool.setuptools.package-data]
-"reasoning_core" = ["resources/**", "task_search/**/*.md", "task_search/**/*.yaml"]
+eval = ["litlm"]
+collection = ["huggingface-hub", "pyarrow"]
 
 [tool.hatch.version]
 path = "reasoning_core/__init__.py"
@@ -97,6 +89,11 @@ include = [
     "/README.md",
     "/TASK_AUTHORING_GUIDE.md",
     "/TASK_MUTATION_GUIDE.md",
+    "/AGENTS.md",
+    "/docs/workflows.md",
+    "/examples",
+    "/requirements",
+    "/scripts",
     "/pyproject.toml",
     "/reasoning_core",
     "/task_influence",

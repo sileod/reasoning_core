@@ -2,14 +2,7 @@
 import argparse, hashlib, json, os, tempfile, time
 from pathlib import Path
 
-home = Path.home()
-tmp = home / "tmp"; tmp.mkdir(parents=True, exist_ok=True)
-os.environ.update(HF_DATASETS_CACHE=str(home / ".cache/huggingface"),
-                  TMPDIR=str(tmp), TEMP=str(tmp), TMP=str(tmp))
-tempfile.tempdir = str(tmp)
-
-from datasets import disable_caching, load_dataset, Dataset
-from huggingface_hub import HfApi, login
+from huggingface_hub import HfApi
 from nfsdict import NfsDict
 from tqdm import tqdm
 
@@ -19,21 +12,19 @@ from multiprocessing import Pool
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-disable_caching()
-
-
 MAX_RETRIES = 5
 RETRY_BASE = 70
 
-ap = argparse.ArgumentParser()
-ap.add_argument("--rc_path", default=os.getcwd())
-ap.add_argument("--dataset_name", default="staging")
-ap.add_argument("--org", default="reasoning-core")
-ap.add_argument("--batch", type=int, default=10_000)
-ap.add_argument("--num_proc", type=int, default=24)
-ap.add_argument("--version", default="*")
-ap.add_argument("--delete", action=argparse.BooleanOptionalAction, default=True, help="Delete files after upload")
-args = ap.parse_args()
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Upload generated JSONL shards to the Hub")
+    parser.add_argument("--rc_path", default=os.getcwd())
+    parser.add_argument("--dataset_name", default="staging")
+    parser.add_argument("--org", default="reasoning-core")
+    parser.add_argument("--batch", type=int, default=10_000)
+    parser.add_argument("--num_proc", type=int, default=24)
+    parser.add_argument("--version", default="*")
+    parser.add_argument("--delete", action=argparse.BooleanOptionalAction, default=True, help="Delete files after upload")
+    return parser.parse_args(argv)
 
 
 def file_key(p: str) -> str:
@@ -208,6 +199,14 @@ def stats(state: NfsDict, done: set[str], bad: set[str]) -> tuple[int, int]:
 
 
 def main(args):
+    # Runtime configuration belongs to the CLI, not to importing its helpers.
+    home = Path.home()
+    tmp = home / "tmp"
+    tmp.mkdir(parents=True, exist_ok=True)
+    os.environ.update(HF_DATASETS_CACHE=str(home / ".cache/huggingface"),
+                      TMPDIR=str(tmp), TEMP=str(tmp), TMP=str(tmp))
+    tempfile.tempdir = str(tmp)
+
     repo = f"{args.org}/{args.dataset_name}"
     state_dir = os.path.join(args.rc_path, "upload_state")
 
@@ -310,4 +309,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(args)
+    main(parse_args())

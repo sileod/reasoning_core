@@ -15,6 +15,7 @@ from .registry import (
     prepr_task_name,
     register_to_reasoning_gym,
     score_answer,
+    task_catalog,
 )
 from .source_store import SourceStore
 
@@ -36,4 +37,5 @@ __all__ = [
     "match_task_name",
     "register_to_reasoning_gym",
     "score_answer",
+    "task_catalog",
 ]

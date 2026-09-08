@@ -24,6 +24,23 @@ print(example.prompt)
 assert score_answer(example.answer, example) == 1
 ```
 
+## Everyday workflows
+
+Python 3.10+. From a checkout, use `python -m pip install -e .` or
+`bash scripts/install_authoring.sh` for lightweight task authoring.
+
+| I want to… | Start here |
+|---|---|
+| Find a task by capability | `python -m reasoning_core catalog 'graph' --all --json` |
+| Generate examples | `python -m reasoning_core sample arithmetics --count 3 --output /tmp/rc-samples.jsonl` |
+| Implement or validate a task | [Authoring guide](TASK_AUTHORING_GUIDE.md) |
+| Evaluate a model or score predictions | [Evaluation recipes](docs/workflows.md#evaluate-a-model) |
+| Measure task influence | [Runnable paired smoke](docs/workflows.md#run-a-paired-influence-smoke) |
+| Propose and implement tasks with agents | [Task-search guide](reasoning_core/task_search/README.md) |
+
+[Workflow recipes](docs/workflows.md) cover prerequisites, commands, output files,
+and local checks. Catalogue queries read source metadata without importing tasks.
+
 ## Representative example
 
 Reasoning Core includes compilation-checked formal reasoning tasks such as [`lean_candidate_compilation`](GALLERY.md#lean_candidate_compilation):
@@ -75,7 +92,7 @@ See the [integration guide](INTEGRATIONS.md) for runnable examples.
 
 ## Generate datasets at scale
 
-Go from a single example to large pre-training, post-training, and evaluation corpora with balanced difficulty, token budgets, and verifiable answers. The generation pipeline supports parallel workers, resumable jobs, and JSONL shards and scalable postprocessing scripts ready for Hugging Face Datasets.
+Go from a single example to large pre-training, post-training, and evaluation corpora with balanced difficulty, token budgets, and verifiable answers. The generation pipeline supports parallel workers, resumable jobs, JSONL shards, and postprocessing for Hugging Face Datasets. Start with the [sampling and collection recipe](docs/workflows.md#sample-data).
 
 
 ## Citation and paper

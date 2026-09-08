@@ -177,11 +177,11 @@ def paper_battery(data_dir=DATA_DIR, max_length=None):
 
 
 def load_battery_manifest(path, data_dir=None, max_length=None):
-    """Load an arbitrary battery from a JSON object with an ordered ``legs`` list."""
+    """Load a battery; relative leg paths use the manifest directory unless overridden."""
 
     path = Path(path).expanduser()
     payload = json.loads(path.read_text())
-    root = ensure_eval_data(DATA_DIR if data_dir is None else data_dir)
+    root = path.parent if data_dir is None else ensure_eval_data(data_dir)
     legs = tuple(EvalLeg(
         **{**row, "path": str(root / row["path"])
            if not Path(row["path"]).is_absolute() else row["path"],

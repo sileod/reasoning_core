@@ -1,0 +1,75 @@
+"""Offline CPU-sized evaluation and paired training example (not a benchmark)."""
+
+import argparse
+import hashlib
+import json
+from dataclasses import replace
+
+
+def content_hash(value):
+    return "sha256:" + hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--eval-only", action="store_true")
+    args = parser.parse_args()
+
+    import torch
+    from datasets import Dataset
+    from tokenizers import Tokenizer, models, pre_tokenizers
+    from transformers import GPT2Config, GPT2LMHeadModel, PreTrainedTokenizerFast
+    from reasoning_core.training.arm import ArmSpec
+    from reasoning_core.training.evals import EvalExample, EvalSuite, evaluate_qa_nll
+    from reasoning_core.training.influence import ArmPlan, run_influence
+
+    torch.set_num_threads(1)
+    torch.manual_seed(0)
+    words = ["[UNK]", "[PAD]", "[EOS]", "value", "0", "1", "2", "3"]
+    backend = Tokenizer(models.WordLevel(dict(zip(words, range(len(words)))), unk_token="[UNK]"))
+    backend.pre_tokenizer = pre_tokenizers.WhitespaceSplit()
+    tokenizer = PreTrainedTokenizerFast(tokenizer_object=backend, unk_token="[UNK]",
+                                       pad_token="[PAD]", eos_token="[EOS]")
+    model = GPT2LMHeadModel(GPT2Config(
+        vocab_size=len(words), n_positions=32, n_embd=16, n_layer=1, n_head=1,
+        bos_token_id=tokenizer.eos_token_id, eos_token_id=tokenizer.eos_token_id,
+        pad_token_id=tokenizer.pad_token_id,
+    ))
+    suite = EvalSuite("smoke", (EvalExample("value 2 ", "2 [EOS]"),))
+
+    def evaluate(current):
+        return {"nll": evaluate_qa_nll(current, tokenizer, suite.examples, 32)["nll"]}
+
+    if args.eval_only:
+        print(json.dumps({"eval_id": suite.identifier, **evaluate(model)}))
+        return
+
+    main_rows = [{"prompt": f"value {n} ", "completion": f"{n} [EOS]"} for n in (0, 1)] * 4
+    aux_rows = [{"prompt": f"value {n} ", "completion": f"{n} [EOS]"} for n in (2, 3)] * 4
+    mixed_rows = [row for pair in zip(main_rows, aux_rows) for row in pair]
+    initial = {key: tensor.detach().clone() for key, tensor in model.state_dict().items()}
+    digest = hashlib.sha256(json.dumps(model.config.to_dict(), sort_keys=True).encode())
+    for key, tensor in sorted(initial.items()):
+        digest.update(key.encode())
+        digest.update(tensor.numpy().tobytes())
+    baseline_spec = ArmSpec(
+        "workflow-smoke-v1", "baseline", optimizer="adamw_torch", learning_rate=0.001,
+        max_steps=2, batch_size=2, max_length=32, packing=False,
+        initialization_id="sha256:" + digest.hexdigest(), main_data_id=content_hash(main_rows),
+        eval_ids=(suite.identifier,), formatter="smoke_text_v1",
+    )
+    treatment_spec = replace(baseline_spec, arm_id="treatment", aux_source="smoke",
+                             aux_data_id=content_hash(aux_rows), aux_fraction=0.5)
+    result = run_influence(
+        model, tokenizer, initial,
+        ArmPlan(baseline_spec, lambda: Dataset.from_list(main_rows)),
+        (ArmPlan(treatment_spec, lambda: Dataset.from_list(mixed_rows)),),
+        metric_names=("nll",), evaluate=evaluate,
+    )
+    print(json.dumps({"baseline": result.baseline, "treatments": result.treatments,
+                      "deltas": result.deltas, "run_dirs": [str(baseline_spec.run_dir),
+                                                            str(treatment_spec.run_dir)]}, indent=2))
+
+
+if __name__ == "__main__":
+    main()

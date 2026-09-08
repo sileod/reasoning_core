@@ -31,6 +31,10 @@ arm-local curve sidecar after preemption.
 
 ## Run
 
+Start with the [complete offline smoke example](../docs/workflows.md#run-a-paired-influence-smoke).
+It supplies the model, tokenizer, dataset factories, evaluation callback, and immutable IDs.
+Use the protocol below when replacing its toy inputs with research data.
+
 Build one baseline `ArmPlan` and one treatment `ArmPlan`, then call
 `run_influence()` with explicit metric names. Use `default_battery()` — the 39-leg
 battery current results are measured on — or construct an `EvalBattery` from flexible
@@ -58,7 +62,7 @@ measurement too: two runs that differ on any of them are not poolable, and a rep
 averages them ranks nothing.
 
 Cluster orchestration -- allocation, preemption, scratch, resume -- is site-specific and is
-not part of this package. Run locally with the recipe below; wrap it in whatever your site
+not part of this package. Run locally with the linked smoke recipe; wrap it in whatever your site
 uses for batch jobs, running the arm in the foreground so the job's exit status is the run's.
 
 Start with a one- or two-step smoke. For the real run, preserve the model revision,

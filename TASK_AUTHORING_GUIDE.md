@@ -90,7 +90,7 @@ Design rules for `apply_difficulty(level)`:
 - do not hardcode different subtasks (do not use "if level ... then ...")
 - use direct formulas instead of recursively calling legacy update logic.
 
-Use `Config_difficulty_knob_migration.md` and `assert_difficulty_update_equivalence(...)` when migrating existing configs.
+Use `assert_difficulty_update_equivalence(...)` from `reasoning_core.template` when migrating existing configs; see `tests/test_config_difficulty_migration.py` for examples.
 
 Rough reference:
 Level 0 should be as simple as possible while ensuring diversity (for example in a task where we generate graphs for shortest path prediction, 3 nodes are not enough because the combinatorics run out quickly)
@@ -114,6 +114,9 @@ Level 5 should be tough even for large LLMs.
 - Reward semantic correctness first but prefer soft scoring.
 - Blatantly inccorect answer should be reward 0.0, correct answer should have reward 1.0.
 - Use `Reward(...)` tags when useful for diagnostics.
+
+A complete runnable starter is [examples/authoring_smoke.py](examples/authoring_smoke.py);
+see the [copy and validate recipe](docs/workflows.md#implement-and-validate-a-task).
 
 ## Minimal Task Skeleton
 ```python
