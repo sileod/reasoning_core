@@ -31,7 +31,7 @@ arm-local curve sidecar after preemption.
 
 ## Run
 
-Start with the [complete offline smoke example](../docs/workflows.md#run-a-paired-influence-smoke).
+Start with the [complete offline smoke example](workflows.md#run-a-paired-influence-smoke).
 It supplies the model, tokenizer, dataset factories, evaluation callback, and immutable IDs.
 Use the protocol below when replacing its toy inputs with research data.
 
@@ -85,5 +85,5 @@ Record the task and source commit, immutable model/data/eval IDs, seed, token do
 baseline and treatment metrics, percentage reductions, and begin/end reward. Never
 combine results whose battery IDs differ into one ranking.
 
-See the [training API](../reasoning_core/training/README.md) and
-[reference results](RESULTS.md).
+See the [training API](evaluation.md) and
+[reference results](results/influence.md).

@@ -10,7 +10,7 @@ from lm_eval.models.huggingface import HFLM
 from lm_eval.tasks import TaskManager, get_task_dict
 from tabulate import tabulate
 
-from reasoning_core.downstream_eval import logic_custom_task_configs, pick_metric
+from reasoning_core.evaluation.downstream import logic_custom_task_configs, pick_metric
 
 
 BUILTIN_LOGIC_TASKS = (

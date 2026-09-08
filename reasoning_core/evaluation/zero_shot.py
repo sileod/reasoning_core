@@ -5,7 +5,7 @@ def evaluate_model(
         model_name="openrouter/anthropic/claude-haiku-4.5",
         scorer=None
     ):
-    from . import score_answer
+    from reasoning_core import score_answer
     if scorer is None:
         scorer = score_answer
 

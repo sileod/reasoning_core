@@ -16,10 +16,10 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from reasoning_core import get_task
-from reasoning_core.training.battery import load_battery_manifest
-from reasoning_core.training.data import format_row
-from reasoning_core.training.evals import load_eval_suite
-from reasoning_core.training.gradient_influence import (
+from reasoning_core.evaluation.battery import load_battery_manifest
+from reasoning_core.evaluation.training.data import format_row
+from reasoning_core.evaluation.metrics import load_eval_suite
+from reasoning_core.evaluation.gradient import (
     GradientCacheSpec,
     build_eval_gradient_cache,
     gradient_objective_id,
@@ -221,7 +221,7 @@ def parse_args():
     parser.add_argument("--data-dir", default="data_cache")
     parser.add_argument("--legs", nargs="+", default=["arc_easy", "arc_challenge"])
     parser.add_argument("--task-rows", nargs="*", default=[])
-    parser.add_argument("--truth", default="task_influence/RESULTS.md")
+    parser.add_argument("--truth", default="docs/results/influence.md")
     parser.add_argument("--output", default="gradient_influence_validation")
     parser.add_argument("--cache-dir")
     parser.add_argument("--device", default="cuda")

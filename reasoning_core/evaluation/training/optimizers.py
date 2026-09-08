@@ -2,7 +2,7 @@ import torch
 from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
 from transformers import get_constant_schedule
 from trl import SFTTrainer
-from reasoning_core.training.source_signals import SourceLossMixin
+from reasoning_core.evaluation.training.source_signals import SourceLossMixin
 
 
 def add_optimizer_args(parser):

@@ -19,9 +19,9 @@ def main():
     from datasets import Dataset
     from tokenizers import Tokenizer, models, pre_tokenizers
     from transformers import GPT2Config, GPT2LMHeadModel, PreTrainedTokenizerFast
-    from reasoning_core.training.arm import ArmSpec
-    from reasoning_core.training.evals import EvalExample, EvalSuite, evaluate_qa_nll
-    from reasoning_core.training.influence import ArmPlan, run_influence
+    from reasoning_core.evaluation.training.arm import ArmSpec
+    from reasoning_core.evaluation.metrics import EvalExample, EvalSuite, evaluate_qa_nll
+    from reasoning_core.evaluation.influence import ArmPlan, run_influence
 
     torch.set_num_threads(1)
     torch.manual_seed(0)

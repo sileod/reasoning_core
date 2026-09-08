@@ -36,11 +36,11 @@ import hashlib
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainerCallback, AutoConfig
 from trl import SFTConfig
 from tabulate import tabulate
-from reasoning_core.training.controlled_experiment import add_control_args, row_filter, wrap_aux_dataset_for_control
-from reasoning_core.training.intrinsic_rewards import load_intrinsic_eval_split, log_intrinsic_task_rewards
-from reasoning_core.training.local_metrics import LocalMetricsCallback, LocalMetricsSink
-from reasoning_core.training.optimizers import add_optimizer_args, create_optimizer_and_scheduler, trainer_cls_for_optimizer
-from reasoning_core.training.source_signals import SourceDataCollator, add_source, pack_by_source
+from reasoning_core.evaluation.training.controlled_experiment import add_control_args, row_filter, wrap_aux_dataset_for_control
+from reasoning_core.evaluation.intrinsic import load_intrinsic_eval_split, log_intrinsic_task_rewards
+from reasoning_core.evaluation.training.local_metrics import LocalMetricsCallback, LocalMetricsSink
+from reasoning_core.evaluation.training.optimizers import add_optimizer_args, create_optimizer_and_scheduler, trainer_cls_for_optimizer
+from reasoning_core.evaluation.training.source_signals import SourceDataCollator, add_source, pack_by_source
 import socket, threading, time, atexit
 
 disable_caching()
@@ -382,7 +382,7 @@ def load_eval_split(key, budget=500_000, skip=100_000, group_by=("task", "level"
         L = len(tokenizer(ex["prompt"] + ex["completion"]).input_ids)
         if L > args.max_length: continue
         buckets[g].append(ex); tokens += L
-    
+
     result = {k: Dataset.from_list(v) for k, v in buckets.items() if len(v) >= min_examples_per_group}
     print(f"📊 eval buckets ({len(result)}/{len(buckets)} kept, {tokens} tokens): {sorted((k, len(v)) for k, v in result.items())}")
     return result
@@ -454,7 +454,7 @@ class ScheduleFreeModeCallback(TrainerCallback):
 
 
 def downstream_eval(model, tokenizer):
-    from reasoning_core.downstream_eval import run_harness, run_platinum
+    from reasoning_core.evaluation.downstream import run_harness, run_platinum
 
     return {
         **run_harness(model, tokenizer),
@@ -646,7 +646,7 @@ class PeriodicAuxEvalCallback(TrainerCallback):
 
 common_args = dict(
     learning_rate=1.0, per_device_train_batch_size=per_device_bs,
-    gradient_accumulation_steps=grad_accum, max_grad_norm=0.0, #grad clip is  handled by prodigy  
+    gradient_accumulation_steps=grad_accum, max_grad_norm=0.0, #grad clip is  handled by prodigy
     logging_steps=15, gradient_checkpointing=args.gradient_checkpointing, bf16=True, report_to="wandb",
     eval_strategy="steps", packing=True,
     dataset_num_proc=1, max_length=args.max_length,

@@ -190,7 +190,7 @@ def _custom_task(name):
 
 tasksource = ['ConTRoL-nli', 'folio','anli/a1','WANLI','sick/label','glue/rte','glue/cola','cladder']
 
-downstream_tasks = tasksource + platinum 
+downstream_tasks = tasksource + platinum
 
 def load_downstream(config):
     if config in platinum:
@@ -212,7 +212,7 @@ def load_downstream(config):
         def evaluate_row(x):
             prepr = lambda x: str(x).lower().strip()
             return prepr(x.extracted) == prepr(x.targets)
-        
+
     return evaluate_row, df
 
 
@@ -237,12 +237,12 @@ def run_platinum(model, tokenizer, tasks=platinum, limit=200, batch_size=16, use
             return {"input_ids": q_ids + a_ids, "labels": [-100]*len(q_ids) + a_ids}
 
         dl = DataLoader(ds.map(process, remove_columns=ds.column_names), batch_size=batch_size, collate_fn=collator)
-    
+
         with torch.no_grad():
             losses = [model(**{k: v.to(model.device) for k,v in b.items()}).loss.item() for b in dl]
-        
+
         metrics[f"platinum/{t}/nll"] = float(np.mean(losses))
-    
+
     metrics['platinum/platinum_avg/nll'] = np.mean(list(metrics.values()))
     print(tabulate(metrics.items()))
     return metrics

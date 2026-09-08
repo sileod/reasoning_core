@@ -91,14 +91,14 @@ def main(args):
     out_path.mkdir(parents=True, exist_ok=True)
     error_log = Path('errors.log')
     status_file = Path(args.status_dir) / f"worker_{int(args.id):03d}.status"
-    
+
     blocklist = {'float_counterfactual', 'theorem_premise_selection'}
     tasks = [t for t in (args.tasks or list_tasks()) if t.lower() not in blocklist]
-    
+
     target_per_task = math.ceil(args.num_examples / (args.batch_size * len(tasks) or 1))
     all_jobs = [(t, i) for t in tasks for i in range(target_per_task)]
     random.shuffle(all_jobs)
-    
+
     tasks_done = 0
     try:
         while True:
@@ -106,7 +106,7 @@ def main(args):
             for d_name, idx in all_jobs:
                 final_f = out_path / f'{d_name}-{idx}.jsonl'
                 lock_f = out_path / f'{d_name}-{idx}.lock'
-                
+
                 if final_f.exists(): continue
                 # Clean stale locks (older than 900s = before worker timeout)
                 if lock_f.exists():
@@ -114,13 +114,13 @@ def main(args):
                         if time.time() - lock_f.stat().st_mtime > 900: lock_f.unlink()
                         else: continue
                     except: continue
-                
+
                 try:
                     fd = os.open(lock_f, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                     os.close(fd)
                 except OSError:
                     continue
-                
+
                 claimed_any = True
                 max_l = max(args.levels)
 
@@ -134,27 +134,27 @@ def main(args):
                 }
                 if d_name in custom_max:
                      max_l = min(max_l, custom_max[d_name])
-  
-                
+
+
                 level = random.choice([l for l in args.levels if l <= max_l])
                 task_str = f"{d_name}-{level}"
                 t0 = time.time()
                 status_file.write_text(f"Worker {args.id:>3} | {task_str:<40} | running | Done: {tasks_done:<5} | ts:{int(t0)}")
-                
+
                 try:
                     success, msg = run_task(d_name, idx, level, out_path, args.batch_size, args.max_tokens)
                     check_mem(error_log, args.id, task_str)
                     if success:
                         tasks_done += 1
                     else:
-                        with open(error_log, 'a') as f: 
+                        with open(error_log, 'a') as f:
                             f.write(f"Worker {args.id} | {task_str}: {msg}\n")
                 except Exception as e:
-                    with open(error_log, 'a') as f: 
+                    with open(error_log, 'a') as f:
                         f.write(f"Worker {args.id} | {task_str}: CRASH: {type(e).__name__}: {e}\n")
                 finally:
                     if lock_f.exists(): lock_f.unlink()
-            
+
             if not claimed_any: break
     finally:
         if status_file.exists(): status_file.unlink()
@@ -172,6 +172,6 @@ if __name__ == '__main__':
     parser.add_argument('--status_dir', required=True, type=str)
     parser.add_argument('--tasks', nargs='+', type=str, default=[])
     parser.add_argument('--max_tokens', default=5_000, type=int)
-    
+
     args, _ = parser.parse_known_args()
     main(args)

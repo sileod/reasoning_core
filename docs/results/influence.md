@@ -9,8 +9,8 @@ The table reports mean percentage NLL reduction across six held-out legs, so
 (`start → end`) and is diagnostic rather than part of the score. All 51 measured
 tasks were net helpers.
 
-Use the [task influence guide](README.md) and
-[public training API](../reasoning_core/training/README.md) for new measurements. The
+Use the [task influence guide](../influence.md) and
+[public training API](../evaluation.md) for new measurements. The
 detailed
 [six-leg table](https://github.com/sileod/reasoning-core-experiments/blob/89e357ef2fa5dcf651d065f9d781677fefa77273/results/tables/xmodel_valuation.md)
 and [reward report](https://github.com/sileod/reasoning-core-experiments/blob/89e357ef2fa5dcf651d065f9d781677fefa77273/results/sweeps/xmodel_SM360.md)

@@ -1,5 +1,8 @@
 # Task Search
 
+Developer tooling: use a checkout with an editable install. This subsystem is
+included in the source distribution and excluded from the runtime wheel.
+
 `reasoning_core.task_search` turns reviewed task ideas into isolated implementation
 trials. Proposal generation remains a separate subsystem in `wave_proposer.py`.
 

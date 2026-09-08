@@ -22,7 +22,7 @@ from .source_store import SourceStore
 
 def __getattr__(name):
     if name == "evaluate_model":
-        from .zero_shot_eval import evaluate_model
+        from .evaluation.zero_shot import evaluate_model
         return evaluate_model
     raise AttributeError(name)
 
