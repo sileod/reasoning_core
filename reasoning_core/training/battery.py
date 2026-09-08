@@ -30,10 +30,16 @@ class EvalLeg:
     accuracy_key: str | None = None
     margin_key: str | None = None
     max_chars: int | None = None
+    keep: tuple[int, ...] | None = None
 
     def __post_init__(self):
         if self.kind not in KINDS:
             raise ValueError(f"Unknown evaluation kind {self.kind!r}; choose from {KINDS}")
+        if self.keep is not None:
+            keep = tuple(int(index) for index in self.keep)
+            if len(set(keep)) != len(keep) or min(keep, default=0) < 0:
+                raise ValueError(f"Leg {self.name!r}: keep must be distinct non-negative indices")
+            object.__setattr__(self, "keep", keep)
 
     @property
     def metric_keys(self):
@@ -48,12 +54,15 @@ class EvalLeg:
 
     @property
     def identifier(self):
-        config = json.dumps({
+        config = {
             "kind": self.kind, "output_key": self.output_key, "limit": self.limit,
             "max_new_tokens": self.max_new_tokens,
             "accuracy_key": self.accuracy_key, "margin_key": self.margin_key,
             "max_chars": self.max_chars,
-        }, sort_keys=True, separators=(",", ":")).encode()
+        }
+        if self.keep is not None:      # omitted when unset so pre-`keep` leg ids stay byte-identical
+            config["keep"] = list(self.keep)
+        config = json.dumps(config, sort_keys=True, separators=(",", ":")).encode()
         digest = hashlib.sha256(Path(self.path).expanduser().read_bytes() + config).hexdigest()[:12]
         return f"{self.name}/{self.kind}@v1:{digest}"
 
@@ -94,12 +103,12 @@ def evaluate_battery(model, tokenizer, battery, eos_token):
     metrics, details = {}, {}
     for leg in battery.legs:
         if leg.kind == "lm_nll":
-            texts = _load_texts(leg.path, leg.limit, leg.max_chars)
+            texts = _load_texts(leg.path, leg.limit, leg.max_chars, leg.keep)
             result = evaluate_lm_nll(model, tokenizer, texts, battery.max_length)
             metrics[leg.output_key] = result["nll"]
         else:
             suite = load_eval_suite(
-                leg.path, eos_token, name=leg.name, limit=leg.limit,
+                leg.path, eos_token, name=leg.name, limit=leg.limit, keep=leg.keep,
             )
             if leg.kind == "qa_nll":
                 result = evaluate_qa_nll(
@@ -140,8 +149,27 @@ def ensure_eval_data(data_dir=DATA_DIR):
     return root
 
 
-def paper_battery(data_dir=DATA_DIR, max_length=512):
-    """The ordered held-out battery used by the influence paper."""
+def default_battery(data_dir=DATA_DIR, max_length=None):
+    """The battery current results are measured on.
+
+    v8's 39 legs with each leg subsampled by ``keep``: about 7x faster in wall clock, with
+    the ranking preserved (100% sign agreement on real effects, median rho +0.82).
+
+    ``max_length`` defaults to the manifest's. It is part of the battery identifier, so a
+    measurement must build the battery at the max_length it trains at, and results built at
+    different values are not poolable. Published results use 1024.
+    """
+
+    manifest = Path(__file__).with_name("copyfree_battery_v8_tiny.json")
+    return load_battery_manifest(manifest, data_dir, max_length)
+
+
+def paper_battery(data_dir=DATA_DIR, max_length=None):
+    """LEGACY -- the 21 legs the first influence paper used.
+
+    Kept to reproduce those numbers. New measurements use ``default_battery``; results from
+    the two cannot be pooled.
+    """
 
     manifest = Path(__file__).with_name("paper_battery.json")
     return load_battery_manifest(manifest, data_dir, max_length)
@@ -155,7 +183,8 @@ def load_battery_manifest(path, data_dir=None, max_length=None):
     root = ensure_eval_data(DATA_DIR if data_dir is None else data_dir)
     legs = tuple(EvalLeg(
         **{**row, "path": str(root / row["path"])
-           if not Path(row["path"]).is_absolute() else row["path"]}
+           if not Path(row["path"]).is_absolute() else row["path"],
+           **({"keep": tuple(row["keep"])} if row.get("keep") is not None else {})}
     ) for row in payload["legs"])
     return EvalBattery(
         payload.get("name", path.stem), legs,
@@ -179,7 +208,17 @@ def _required(leg, result, key):
     return value
 
 
-def _load_texts(path, limit, max_chars=None):
+def _subset(rows, keep, path):
+    """Take `keep` by position, AFTER any prefix `limit`. Out-of-range is an error, never a
+    silent truncation: a short leg would quietly change what the battery id claims to measure."""
+    if keep is None:
+        return rows
+    if keep and max(keep) >= len(rows):
+        raise ValueError(f"{path}: keep index {max(keep)} but only {len(rows)} rows after limit")
+    return [rows[index] for index in keep]
+
+
+def _load_texts(path, limit, max_chars=None, keep=None):
     texts = []
     with Path(path).expanduser().open() as file:
         for line in file:
@@ -189,4 +228,4 @@ def _load_texts(path, limit, max_chars=None):
                 texts.append(text[:max_chars] if max_chars else text)
             if limit and len(texts) >= limit:
                 break
-    return texts
+    return _subset(texts, keep, path)

@@ -112,8 +112,6 @@ data-gym-cache/
 # Local research scratch space; task implementations belong in reasoning_core/tasks/.
 /tasks/dev/
 
-# task_diagnostics: keep the RESULTS markdown in git, not the regenerable raw json
-task_diagnostics/*.json
 
 # unpublished paper results/tables — keep OFF the public repo
 paper_exports/
@@ -121,6 +119,10 @@ paper_exports/
 
 # local sync utility (references private storage paths)
 sync_results.sh
+# task_diagnostics/ is a nested checkout of the PRIVATE rc-eval repo, tracked there, not here.
+# Keep the whole directory out: without this git adds it as a gitlink, which publishes the
+# private repo's URL and commit id on a public remote. A negation cannot re-include anything
+# under it either -- files inside an excluded directory are never reachable.
 task_diagnostics/
 
 # Internal-only: infra paths + unpublished analysis. Public repo -- keep out of git.

@@ -32,8 +32,13 @@ arm-local curve sidecar after preemption.
 ## Run
 
 Build one baseline `ArmPlan` and one treatment `ArmPlan`, then call
-`run_influence()` with explicit metric names. Use `paper_battery()` for the frozen
-paper battery or construct an `EvalBattery` from flexible `EvalLeg` entries. Pass a
+`run_influence()` with explicit metric names. Use `default_battery()` — the 39-leg
+battery current results are measured on — or construct an `EvalBattery` from flexible
+`EvalLeg` entries. `paper_battery()` is the legacy 21-leg battery, kept only to
+reproduce the first paper's numbers; the two cannot be pooled.
+
+A battery's identifier covers `max_length`, so build it at the same `max_length` you
+train at. Published results use 1024. Pass a
 small `FreeGenRewardSpec` evaluator through `evaluate_endpoints` to measure the same
 task rows before and after training.
 

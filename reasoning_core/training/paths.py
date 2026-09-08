@@ -7,10 +7,23 @@ HOME = Path.home().resolve()
 RC_HOME = Path(os.environ.get("RC_HOME", HOME / ".reasoning_core")).expanduser().resolve()
 
 
+def scratch_root():
+    """Node-local scratch, when the caller declares one.
+
+    Confining every runtime path to HOME forces caches onto whatever HOME points at. On a
+    shared filesystem that breaks the HF datasets lock (Errno 116) and kills the job with no
+    log, so a node-local root has to be expressible without moving HOME.
+    """
+    scratch = os.environ.get("RC_SCRATCH")
+    return Path(scratch).expanduser().resolve() if scratch else None
+
+
 def home_path(path, *, name="path"):
     path = Path(path).expanduser().resolve()
-    if path != HOME and HOME not in path.parents:
-        raise ValueError(f"{name} must be inside ~ ({HOME}), got {path}")
+    roots = [root for root in (HOME, scratch_root()) if root is not None]
+    if not any(path == root or root in path.parents for root in roots):
+        allowed = " or ".join(str(root) for root in roots)
+        raise ValueError(f"{name} must be inside {allowed}, got {path}")
     return path
 
 
@@ -26,8 +39,9 @@ def env_path(name, default):
 
 
 def configure_runtime_env():
-    tmp = env_path("RC_TMP", TMP_HOME)
-    hf = env_path("HF_CACHE", CACHE_HOME / "huggingface")
+    scratch = scratch_root()
+    tmp = env_path("RC_TMP", scratch / "tmp" if scratch else TMP_HOME)
+    hf = env_path("HF_CACHE", scratch / "huggingface" if scratch else CACHE_HOME / "huggingface")
     for path in (tmp, hf):
         path.mkdir(parents=True, exist_ok=True)
     os.environ.update({
