@@ -148,7 +148,8 @@ With the training extra installed:
 CUDA_VISIBLE_DEVICES='' python scripts/smoke_influence.py
 ```
 
-This runs two training steps per arm from identical tiny-model weights, evaluates
+This trains a baseline and a two-source group treatment for two steps each from
+identical tiny-model weights, evaluates
 both arms, and prints baseline/treatment metrics, `treatment - baseline` deltas,
 and their artifact directories. Artifacts default to
 `~/.reasoning_core/runs/arms/workflow-smoke-v1/`; `RC_HOME` can select another

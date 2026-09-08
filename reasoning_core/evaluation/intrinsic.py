@@ -173,3 +173,30 @@ def _task(row, metadata):
 
 def _key(x):
     return str(x).lower().replace("/", "_").replace(" ", "_").replace(".", "_")[:60]
+
+
+def group_reward_id(rows_by_task, group, spec, max_length):
+    """Identity of fixed per-member samples and explicit evaluation weights."""
+    group.require_members(rows_by_task)
+    payload = [group.identifier, {t: reward_id(rows_by_task[t], spec, max_length)
+                                 for t in group.tasks}]
+    return "group_reward@v1:" + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def group_reward(model, tokenizer, rows_by_task, group, spec, max_length):
+    """Evaluate n_eval rows PER member, retaining member scores and counts.
+
+    group.weights are evaluation weights. Pass an equally weighted TaskGroup for
+    a macro average even when training uses unequal proportions. A member with no
+    scorable rows raises instead of silently changing the group being evaluated.
+    """
+    group.require_members(rows_by_task)
+    metrics = {}
+    for task in group.tasks:
+        result = free_gen_reward(model, tokenizer, rows_by_task[task], spec, max_length)
+        if result["reward"] is None:
+            raise RuntimeError(f"No scorable intrinsic reward rows for {task}")
+        metrics[f"reward/{task}"] = result["reward"]
+        metrics[f"reward_examples/{task}"] = result["reward_examples"]
+    metrics["reward"] = sum(w * metrics[f"reward/{t}"] for t, w in zip(group.tasks, group.weights))
+    return metrics

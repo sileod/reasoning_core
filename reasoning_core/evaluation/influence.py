@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from numbers import Real
 
-from reasoning_core.training.arm import ArmSpec, run_arm
+from reasoning_core.evaluation.training.arm import ArmSpec, run_arm
 
 
 @dataclass(frozen=True)
@@ -13,6 +13,7 @@ class ArmPlan:
     dataset: Callable[[], object]
     evaluate_endpoint: Callable[[object], dict] | None = None
     callbacks: tuple[object, ...] = ()
+    evaluate_initial: Callable[[object], dict] | None = None
 
 
 @dataclass(frozen=True)
@@ -64,16 +65,24 @@ def run_influence(model, tokenizer, initial_state, baseline, treatments, *, metr
     for plan in plans:
         endpoint = plan.evaluate_endpoint or evaluate_endpoints
 
+        initial_metrics = {}
+
         def evaluate_final(current_model, endpoint=endpoint):
             metrics = evaluate(current_model) if evaluate is not None else {}
             endpoint_metrics = endpoint(current_model) if endpoint is not None else {}
             overlap = metrics.keys() & endpoint_metrics.keys()
             if overlap:
                 raise ValueError(f"Duplicate evaluation metrics: {', '.join(sorted(overlap))}")
-            return {**metrics, **endpoint_metrics}
+            combined = {**metrics, **endpoint_metrics}
+            if combined.keys() & initial_metrics.keys():
+                raise ValueError("Initial evaluation metric keys overlap final metrics")
+            return {**combined, **initial_metrics}
 
-        arm_evaluate = evaluate_final if evaluate is not None or endpoint is not None else None
+        arm_evaluate = evaluate_final if evaluate is not None or endpoint is not None or plan.evaluate_initial else None
         model.load_state_dict(initial_state)
+        if plan.evaluate_initial is not None:
+            initial_metrics = {f"initial/{key}": value
+                               for key, value in plan.evaluate_initial(model).items()}
         kwargs = {"callbacks": plan.callbacks} if plan.callbacks else {}
         _, metrics = run_arm(
             model, tokenizer, plan.dataset(), plan.spec,
