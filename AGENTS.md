@@ -11,4 +11,4 @@
 - Task files live in `reasoning_core/tasks/` (not top-level `tasks/`).
 - Avoid traversing `reasoning_core/openenv`, `.venv`, checkpoints, and other generated environments when searching.
 - Keep code concise, favor external libraries when possible.
-- Influence runs need no data setup: batteries unpack `eval_data/battery_legs.zip` into `data_cache/` on first load. Never rebuild a leg to "refresh" it — leg identity is the sha256 of its bytes, so a rebuild silently forks the battery ID.
+- Influence runs need no data setup: batteries unpack `reasoning_core/resources/battery_legs.zip` into `data_cache/` on first load. Never rebuild a leg to "refresh" it — leg identity is the sha256 of its bytes, so a rebuild silently forks the battery ID.

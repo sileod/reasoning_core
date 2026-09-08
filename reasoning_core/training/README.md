@@ -16,7 +16,7 @@ pip install 'reasoning-core[training]'
 
 ## Eval data
 
-The battery legs ship in `eval_data/battery_legs.zip` and unpack themselves into `data_cache/`
+The battery legs ship in `reasoning_core/resources/battery_legs.zip` and unpack themselves into `data_cache/`
 (override with `EVAL_DATA_DIR`) the first time a battery loads. They are shipped rather than rebuilt
 because a leg's identity is the sha256 of its bytes: a regenerated leg is a *different* leg, and
 results across differing battery IDs must never be pooled. The archive lives outside the package, so
