@@ -677,3 +677,37 @@ def test_no_task_search_module_reads_an_undefined_name():
                         f"{path.name}:{node.lineno} {function.name} reads {node.id}"
                     )
     assert not problems, "\n".join(problems)
+
+
+def test_each_reviewer_is_read_in_the_vocabulary_it_was_asked_for(monkeypatch):
+    """A verdict read with the wrong words is lost silently, because the gate fails open.
+
+    The fidelity reviewer is told to answer REALIZES or SUBSTITUTES. The parser looked for
+    VALID or INVALID, so every fidelity verdict ever recorded was null and the check that
+    was supposed to catch a substituted task never voted once.
+    """
+    import io
+    import json as json_module
+
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_KEY_ENV", "FAKE_REVIEW_KEY")
+    monkeypatch.setenv("FAKE_REVIEW_KEY", "x")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_ENDPOINT", "https://example.invalid/v1/chat")
+    monkeypatch.setenv("TASK_SEARCH_REVIEW_MODEL", "fake")
+
+    def answering(text):
+        def opener(request, timeout=None):
+            body = {"choices": [{"message": {"content": text}}]}
+            return io.BytesIO(json_module.dumps(body).encode())
+        monkeypatch.setattr(validation.urllib.request, "urlopen", opener)
+
+    answering("VERDICT: REALIZES\nWHY: -")
+    assert validation._sanity_ask("s", "m", validation._FIDELITY_VERDICTS)["verdict"] == "REALIZES"
+    # ... and the sanity reviewer's own pair still reads, and neither reads the other's.
+    assert validation._sanity_ask("s", "m")["verdict"] is None
+
+    answering("VERDICT: SUBSTITUTES\nWHY: arithmetic over bare numbers")
+    got = validation._sanity_ask("s", "m", validation._FIDELITY_VERDICTS)
+    assert got == {"verdict": "SUBSTITUTES", "why": "arithmetic over bare numbers"}
+
+    answering("VERDICT: INVALID\nWHY: the gold answer is wrong")
+    assert validation._sanity_ask("s", "m")["verdict"] == "INVALID"

@@ -245,6 +245,11 @@ def _sample_sanity(sample_path, instruction="", source=""):
     }
 
 
+# This reviewer answers in its own vocabulary, and a verdict read with the wrong one is
+# lost silently: every fidelity verdict recorded before this was `None` because the parser
+# was still looking for VALID.
+_FIDELITY_VERDICTS = ("REALIZES", "SUBSTITUTES")
+
 _FIDELITY_ASK = """You are checking whether a generated task is the task that was assigned.
 
 The user message contains the assignment, untrusted candidate source, and worked
@@ -303,10 +308,11 @@ def _sample_fidelity(sample_path, instruction="", source=""):
     message = ("ASSIGNMENT:\n" + instruction[:6000]
                + "\n\nCANDIDATE SOURCE (untrusted):\n" + source[:20000]
                + "\n\nWORKED EXAMPLES:\n" + sample_path.read_text()[:20000])
-    first = _sanity_ask(_FIDELITY_ASK, message)
+    first = _sanity_ask(_FIDELITY_ASK, message, _FIDELITY_VERDICTS)
     if first["verdict"] != "SUBSTITUTES":
         return first
-    second = _sanity_ask(_FIDELITY_RECHECK, message + "\n\nFIRST REVIEWER: " + first["why"])
+    second = _sanity_ask(_FIDELITY_RECHECK, message + "\n\nFIRST REVIEWER: " + first["why"],
+                         _FIDELITY_VERDICTS)
     if second["verdict"] == "SUBSTITUTES":
         return second
     return {"verdict": second["verdict"],
@@ -334,8 +340,12 @@ def _post(request):
         return json.load(response)["choices"][0]["message"].get("content")
 
 
-def _sanity_ask(system, message):
-    """One reviewer call. Fails open: any fault returns a null verdict, never a rejection."""
+def _sanity_ask(system, message, verdicts=("VALID", "INVALID")):
+    """One reviewer call. Fails open: any fault returns a null verdict, never a rejection.
+
+    `verdicts` is the pair the system prompt actually asks for, because failing open means
+    an answer in the wrong vocabulary is indistinguishable from no answer at all.
+    """
     key_name = os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "")
     key = os.environ.get(key_name, "") if key_name else ""
     endpoint = os.environ.get("TASK_SEARCH_REVIEW_ENDPOINT", "")
@@ -364,7 +374,7 @@ def _sanity_ask(system, message):
         return {"verdict": None, "why": f"reviewer unreachable: {error}"}
     if not isinstance(text, str) or not text.strip():
         return {"verdict": None, "why": "reviewer returned no text"}
-    found = re.search(r"VERDICT:\s*(VALID|INVALID)", text)
+    found = re.search(r"VERDICT:\s*(" + "|".join(verdicts) + r")\b", text)
     why = re.search(r"WHY:\s*(.+)", text)
     return {
         "verdict": found.group(1) if found else None,
