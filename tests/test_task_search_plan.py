@@ -1,4 +1,5 @@
 import dataclasses
+import difflib
 import json
 import random
 import time
@@ -236,12 +237,16 @@ def test_a_trial_without_a_design_choice_renders_the_prompt_it_always_did(tmp_pa
     with_choice = render_implementor_prompt(chosen, chosen.trials[0], Path.cwd())
     assert "## Assigned design choice" in with_choice
     assert "Answer with the witness, not the verdict." in with_choice
-    # The only difference is the new section: nothing else about the prompt moved.
-    assert without == with_choice.replace(
-        with_choice[with_choice.index("\n## Assigned design choice") :
-                        with_choice.index("\nKeep the assigned answer semantics.")],
-        "",
-    )
+    # Everything the choice adds is about the choice -- the section, and the deliverable
+    # that carries it into the task -- and nothing else about the prompt moved. Compared
+    # on words rather than lines, because adding a clause rewraps the paragraph it is in.
+    base, full = without.split(), with_choice.split()
+    inserted = [" ".join(full[start:end])
+                for tag, _, _, start, end
+                in difflib.SequenceMatcher(None, base, full).get_opcodes()
+                if tag in ("insert", "replace")]
+    assert inserted
+    assert all("choice" in run.lower() for run in inserted), inserted
 
 
 def test_design_choices_fan_variants_across_approaches_not_seeds():
@@ -277,13 +282,16 @@ def test_the_design_proposer_rejects_a_short_or_duplicated_reply():
         def json(self, _label, _system, _prompt):
             return {"choices": self.choices}
 
+    # A choice is a sentence, not a label, so the fixtures are the length of a real one.
+    first = "  Ask for the  witness rather than the verdict. "
+    second = "Ask for the verdict, and hide the witness in noise."
     assert design_proposer.propose_design_choices(
-        "t", "A summary.", 2, client=Client(["  first  way ", "second way"])
-    ) == ("first way", "second way")
+        "t", "A summary.", 2, client=Client([first, second])
+    ) == (" ".join(first.split()), second)
 
     with pytest.raises(ValueError, match="got 1"):
         design_proposer.propose_design_choices(
-            "t", "A summary.", 2, client=Client(["same way", "SAME WAY"])
+            "t", "A summary.", 2, client=Client([second, second.upper()])
         )
     with pytest.raises(ValueError, match="choices list"):
         design_proposer.propose_design_choices(

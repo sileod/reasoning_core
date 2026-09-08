@@ -12,6 +12,7 @@ import sys
 import shlex
 import time
 import urllib.request
+import urllib.error
 
 from .implementor_prompt import (
     _prior_audit_command,
@@ -313,6 +314,26 @@ def _sample_fidelity(sample_path, instruction="", source=""):
                     + "); first reviewer said: " + first["why"])[:400]}
 
 
+# The reviewer shares its provider quota with the workers it reviews, so a wave running
+# eight at a time draws 429s that clear in seconds. One of those used to cost a trial its
+# whole review -- the call fails open, so the gate passed the task unread rather than
+# failing it. Wait the spike out instead.
+RETRY_AFTER = (5, 20, 60)
+
+
+def _post(request):
+    for wait in RETRY_AFTER:
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:
+                return json.load(response)["choices"][0]["message"].get("content")
+        except urllib.error.HTTPError as error:
+            if error.code != 429 and error.code < 500:
+                raise
+            time.sleep(wait)
+    with urllib.request.urlopen(request, timeout=180) as response:
+        return json.load(response)["choices"][0]["message"].get("content")
+
+
 def _sanity_ask(system, message):
     """One reviewer call. Fails open: any fault returns a null verdict, never a rejection."""
     key_name = os.environ.get("TASK_SEARCH_REVIEW_KEY_ENV", "")
@@ -332,14 +353,13 @@ def _sanity_ask(system, message):
             ],
         }
     ).encode()
+    request = urllib.request.Request(
+        endpoint,
+        body,
+        {"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+    )
     try:
-        request = urllib.request.Request(
-            endpoint,
-            body,
-            {"Authorization": "Bearer " + key, "Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(request, timeout=180) as response:
-            text = json.load(response)["choices"][0]["message"].get("content")
+        text = _post(request)
     except Exception as error:
         return {"verdict": None, "why": f"reviewer unreachable: {error}"}
     if not isinstance(text, str) or not text.strip():

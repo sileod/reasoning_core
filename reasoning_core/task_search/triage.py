@@ -33,9 +33,10 @@ import time
 from pathlib import Path
 
 from .plan import load_plan
-from .validation import _review_source, _sample_sanity
+from .validation import _review_source, _sample_fidelity, _sample_sanity
 
 CACHE_NAME = "sample_sanity.retry.json"
+FIDELITY_CACHE_NAME = "sample_fidelity.retry.json"
 AUDIT_NAME = "prior_audit.n40.json"
 # The in-trial gameability audit runs at n=30, which is noisy right at the 0.40 ceiling:
 # wave0's n02 cleared it at n=30 and lost at n=40, which is how it reached promotion.
@@ -83,18 +84,41 @@ def _recorded_verdict(trial_dir, trial):
     return dict(trial.get("sample_sanity") or {"verdict": None, "why": ""}), "run"
 
 
+def _recorded_fidelity(trial_dir, trial):
+    """The fidelity verdict, preferring a triage pass over what the run recorded."""
+    cached = trial_dir / FIDELITY_CACHE_NAME
+    if cached.is_file():
+        return json.loads(cached.read_text())
+    return dict(trial.get("sample_fidelity") or {})
+
+
+def unreviewed(trial_dir, trial):
+    """Whether either reviewer still owes this trial an answer."""
+    return (_recorded_verdict(trial_dir, trial)[0].get("verdict") is None
+            or _recorded_fidelity(trial_dir, trial).get("verdict") is None)
+
+
 def review(trial_dir, trial, plan_trial):
-    """Run the semantic review this trial never got, and remember the answer."""
+    """Run the semantic reviews this trial never got, and remember the answers.
+
+    Both fail open during the wave, so a rate-limited trial arrives here with the
+    reviewers' questions unanswered rather than answered badly. Ask again, once each,
+    and only for the one that is actually missing.
+    """
     worktree = Path(trial["worktree"])
     samples = sorted((worktree / plan_trial.owned_path).glob("samples_*.md"))
+    verdict = _recorded_verdict(trial_dir, trial)[0]
     if not samples:
         return {"verdict": None, "why": "no samples file survives in the worktree"}
-    verdict = _sample_sanity(
-        samples[0],
-        instruction=plan_trial.instruction,
-        source=_review_source(worktree, plan_trial.owned_path),
-    )
-    (trial_dir / CACHE_NAME).write_text(json.dumps(verdict, indent=1))
+    ask = dict(instruction=plan_trial.instruction,
+               source=_review_source(worktree, plan_trial.owned_path))
+    if verdict.get("verdict") is None:
+        verdict = _sample_sanity(samples[0], **ask)
+        (trial_dir / CACHE_NAME).write_text(json.dumps(verdict, indent=1))
+    if _recorded_fidelity(trial_dir, trial).get("verdict") is None:
+        time.sleep(REVIEW_PAUSE_SECONDS)
+        fidelity = _sample_fidelity(samples[0], **ask)
+        (trial_dir / FIDELITY_CACHE_NAME).write_text(json.dumps(fidelity, indent=1))
     return verdict
 
 
@@ -137,7 +161,7 @@ def draft(trial_dir, trial, verdict, source, audited=None):
     return {
         "audit": audited,
         # Whether the fidelity reviewer saw the assigned task or an easier lookalike.
-        "fidelity": (trial.get("sample_fidelity") or {}).get("verdict"),
+        "fidelity": _recorded_fidelity(trial_dir, trial).get("verdict"),
         "trial": trial["trial_id"],
         "run": trial_dir.parent.name,
         "name": _task_name(trial),
@@ -215,7 +239,7 @@ def main(argv=None):
     parser.add_argument("--plan", type=Path, required=True,
                         help="the plan the wave ran, for each trial's assignment")
     parser.add_argument("--review", action="store_true",
-                        help="run the semantic review for trials that never got one")
+                        help="run the semantic reviews for trials that never got one")
     parser.add_argument("--audit", action="store_true",
                         help="re-run the gameability audit at n=%d on each idea's pick"
                              % AUDIT_SAMPLES)
@@ -233,11 +257,15 @@ def main(argv=None):
     for trial_dir, trial in found:
         verdict, source = _recorded_verdict(trial_dir, trial)
         plan_trial = plan_trials.get(trial["trial_id"])
-        if (args.review and verdict.get("verdict") is None and plan_trial
+        if (args.review and unreviewed(trial_dir, trial) and plan_trial
                 and (not args.limit or reviewed < args.limit)):
             if reviewed:
                 time.sleep(REVIEW_PAUSE_SECONDS)
-            verdict, source, reviewed = review(trial_dir, trial, plan_trial), "triage", reviewed + 1
+            review(trial_dir, trial, plan_trial)
+            # Read back rather than trust the return: a trial whose samples are gone
+            # keeps the verdict the run gave it, and says so.
+            verdict, source = _recorded_verdict(trial_dir, trial)
+            reviewed += 1
         groups.setdefault(proposal_of(trial["trial_id"]), []).append(
             (draft(trial_dir, trial, verdict, source), trial, plan_trial))
 
