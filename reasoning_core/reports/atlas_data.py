@@ -12,7 +12,7 @@ applies a per-leg gain of median 1.38x and mixing raw warm rows into a standard 
 them. Rows carry `p` ("std"/"warm") and `Lraw` so a reader can always recover what was measured.
 """
 from __future__ import annotations
-import argparse, collections, glob, json, re
+import argparse, collections, datetime, glob, json, re
 from pathlib import Path
 
 from reasoning_core.reports.protocol_calibration import fit, apply_row, uncalibrated_legs
@@ -52,6 +52,52 @@ def read(pattern):
     return {t: {l: sum(v) / len(v) for l, v in d.items()} for t, d in acc.items()}
 
 
+CELL = re.compile(r"influence_COLL-([^_]+)_(.+)_S\d+_T(\d+)_M(\d+)_([^_]+)_(\w+)\.json$")
+
+
+def survey():
+    """Every protocol on disk, keyed by what the filename records. No file reads.
+
+    SOURCES stays a deliberate inclusion list -- protocols that share no calibration cannot
+    be merged onto one axis, and guessing is worse than omitting. But a campaign matching no
+    source used to vanish without a word, so report what exists and what the atlas covers.
+    """
+    covered = {Path(f).name for _, _, pattern in SOURCES for f in glob.glob(str(PR / pattern))}
+    groups = collections.defaultdict(lambda: {"cells": 0, "shown": 0, "tags": set(), "mtime": 0})
+    for path in PR.glob("influence_COLL-*.json"):
+        match = CELL.match(path.name)
+        if not match:
+            continue
+        coll, tag, steps, mix, main, init = match.groups()
+        group = groups[(coll, main, f"T{steps}", f"M{mix}", init)]
+        group["cells"] += 1
+        group["shown"] += path.name in covered
+        group["tags"].add(tag.split("_")[0])
+        group["mtime"] = max(group["mtime"], path.stat().st_mtime)
+    return groups
+
+
+def report_uncovered(minimum=5, show=5):
+    """Name the protocols the atlas is not showing, newest first.
+
+    Ordered by recency, not size: most uncovered protocols are old sweeps at other model
+    scales that correctly belong on their own axis. The one worth acting on is the campaign
+    that just finished, so it goes at the top and the long tail stays a count.
+    """
+    missing = [(key, g) for key, g in survey().items() if not g["shown"] and g["cells"] >= minimum]
+    if not missing:
+        return
+    missing.sort(key=lambda kv: -kv[1]["mtime"])
+    print(f"[atlas] {len(missing)} protocol(s) on disk that no SOURCES entry covers, newest first:")
+    for key, group in missing[:show]:
+        stamp = datetime.date.fromtimestamp(group["mtime"]).isoformat()
+        tags = ", ".join(sorted(group["tags"])[:4])
+        print(f"[atlas]   {' '.join(key):46} {group['cells']:4d} cells  {stamp}  {tags}")
+    if len(missing) > show:
+        print(f"[atlas]   ... and {len(missing) - show} older protocol(s)")
+    print("[atlas] add a SOURCES entry (plus a calibration, if the protocol differs) to include one.")
+
+
 def build():
     cal = fit(read(CAL_STD), read(CAL_WARM))
     rows, seen = [], {}
@@ -82,6 +128,7 @@ def main():
     warm = [r["t"] for r in D["rows"] if r["p"] == "warm"]
     print(f"[atlas] {len(D['rows'])} rows ({len(warm)} warm-protocol, calibrated onto the standard axis)")
     print(f"[atlas] calibrated legs {len(D['calibration'])}, pass-through {D['uncalibrated']}")
+    report_uncovered()
     blob = json.dumps(D, separators=(",", ":"))
     if a.out:
         Path(a.out).write_text(blob)
